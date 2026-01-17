@@ -33,7 +33,7 @@ function App() {
   };
 
   return (
-    <>
+    <main style={{ border: "1px solid red", width: "30em" }}>
       <h1>
         <Countdown ref={countdownRef} date={date} onComplete={handleComplete} />
       </h1>
@@ -64,7 +64,7 @@ function App() {
           );
         })}
       </ul>
-    </>
+    </main>
   );
 }
 
