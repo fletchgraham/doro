@@ -3,7 +3,7 @@ import "./App.css";
 
 import Countdown from "react-countdown";
 
-const makeDate = () => Date.now() + 3000;
+const makeDate = () => Date.now() + 20 * 60 * 1000;
 
 function App() {
   const [date, setDate] = useState(makeDate());
@@ -21,12 +21,17 @@ function App() {
     console.log("complete!");
   };
 
+  const handleContinue = () => {
+    console.log("continue!");
+  };
+
   return (
     <>
       <h1>
         <Countdown ref={countdownRef} date={date} onComplete={handleComplete} />
       </h1>
       <button onClick={handleReset}>Reset</button>
+      <button onClick={handleContinue}>Continue</button>
       <div>
         <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
         <button
