@@ -24,6 +24,7 @@ function App() {
       <div>
         <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
         <button
+          disabled={newTask.length === 0}
           onClick={() => {
             setTasks([...tasks, newTask]);
             setNewTask("");
