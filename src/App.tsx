@@ -10,7 +10,7 @@ function App() {
   const [date, setDate] = useState(makeDate());
   const [tasks, setTasks] = useState(["an important task", "another task"]);
   const [newTask, setNewTask] = useState("");
-  const [curTask, setCurTask] = useState("starting task");
+  const [curTask, setCurTask] = useState<string | null>(null);
 
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
   const audioRef = useRef(new Audio(timerAudio));
@@ -29,7 +29,13 @@ function App() {
   const handleContinue = () => {
     audioRef.current.pause();
     setCurTask(tasks[0]);
-    setTasks([...tasks.slice(1), curTask]);
+
+    if (curTask) {
+      setTasks([...tasks.slice(1), curTask]);
+    } else {
+      setTasks([...tasks.slice(1)]);
+    }
+
     setDate(makeDate());
     if (!countdownRef.current) return;
     countdownRef.current.getApi().start();
@@ -37,9 +43,14 @@ function App() {
   };
 
   return (
-    <main style={{ border: "1px solid red", width: "25em" }}>
+    <main style={{ width: "25em" }}>
       <h1>
-        <Countdown ref={countdownRef} date={date} onComplete={handleComplete} />
+        <Countdown
+          ref={countdownRef}
+          autoStart={false}
+          date={date}
+          onComplete={handleComplete}
+        />
       </h1>
       <h2>{curTask}</h2>
       <button onClick={handleReset}>Reset</button>
