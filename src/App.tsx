@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import "./App.css";
 
 import Countdown from "react-countdown";
@@ -10,7 +10,13 @@ function App() {
   const [tasks, setTasks] = useState(["an important task", "another task"]);
   const [newTask, setNewTask] = useState("");
 
-  const handleReset = () => setDate(makeDate());
+  const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
+
+  const handleReset = () => {
+    setDate(makeDate());
+    if (!countdownRef.current) return;
+    countdownRef.current.getApi().start();
+  };
   const handleComplete = () => {
     console.log("complete!");
   };
@@ -18,7 +24,7 @@ function App() {
   return (
     <>
       <h1>
-        <Countdown date={date} onComplete={handleComplete} />
+        <Countdown ref={countdownRef} date={date} onComplete={handleComplete} />
       </h1>
       <button onClick={handleReset}>Reset</button>
       <div>
