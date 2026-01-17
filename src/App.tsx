@@ -4,11 +4,13 @@ import timerAudio from "./../public/kitchen-timer-33043.mp3";
 
 import Countdown from "react-countdown";
 
+import useTasks from "./hooks/useTasks";
+
 const makeDate = () => Date.now() + 1 * 5 * 1000;
 
 function App() {
   const [date, setDate] = useState(makeDate());
-  const [tasks, setTasks] = useState(["an important task", "another task"]);
+  const { tasks, setTasks } = useTasks();
   const [newTask, setNewTask] = useState("");
   const [curTask, setCurTask] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ function App() {
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>Continue</button>
       <ul>
-        {tasks.map((task, i) => {
+        {tasks.map((task) => {
           return (
             <li key={task}>
               <button onClick={() => setTasks(tasks.filter((t) => t !== task))}>
