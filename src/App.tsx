@@ -3,21 +3,15 @@ import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
 
+import Countdown from "react-countdown";
+
 function App() {
   const [count, setCount] = useState(0);
-  const [timer, setTimer] = useState([0, 20, 0]);
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>{`${timer[0]}:${timer[1]}:${timer[2]}`}</h1>
+      <h1>timer</h1>
+      <Countdown date={Date.now() + 10000} />
       <div className="card">
         <button onClick={() => setCount((count) => count + 1)}>
           count is {count}
