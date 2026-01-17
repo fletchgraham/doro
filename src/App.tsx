@@ -52,16 +52,18 @@ function App() {
           Add
         </button>
       </div>
-      {tasks.map((task, i) => {
-        return (
-          <p key={task}>
-            <button onClick={() => setTasks(tasks.filter((t) => t !== task))}>
-              X
-            </button>{" "}
-            {task}
-          </p>
-        );
-      })}
+      <ul>
+        {tasks.map((task, i) => {
+          return (
+            <li key={task}>
+              <button onClick={() => setTasks(tasks.filter((t) => t !== task))}>
+                X
+              </button>{" "}
+              {task}
+            </li>
+          );
+        })}
+      </ul>
     </>
   );
 }
