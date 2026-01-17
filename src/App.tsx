@@ -9,6 +9,7 @@ function App() {
   const [date, setDate] = useState(makeDate());
   const [tasks, setTasks] = useState(["an important task", "another task"]);
   const [newTask, setNewTask] = useState("");
+  const [curTask, setCurTask] = useState("starting task");
 
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
 
@@ -17,11 +18,17 @@ function App() {
     if (!countdownRef.current) return;
     countdownRef.current.getApi().start();
   };
+
   const handleComplete = () => {
     console.log("complete!");
   };
 
   const handleContinue = () => {
+    setCurTask(tasks[0]);
+    setTasks([...tasks.slice(1), curTask]);
+    setDate(makeDate());
+    if (!countdownRef.current) return;
+    countdownRef.current.getApi().start();
     console.log("continue!");
   };
 
@@ -30,6 +37,7 @@ function App() {
       <h1>
         <Countdown ref={countdownRef} date={date} onComplete={handleComplete} />
       </h1>
+      <h2>{curTask}</h2>
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>Continue</button>
       <div>
