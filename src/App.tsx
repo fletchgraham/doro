@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import "./App.css";
+import timerAudio from "./../public/kitchen-timer-33043.mp3";
 
 import Countdown from "react-countdown";
 
-const makeDate = () => Date.now() + 20 * 60 * 1000;
+const makeDate = () => Date.now() + 1 * 5 * 1000;
 
 function App() {
   const [date, setDate] = useState(makeDate());
@@ -12,18 +13,21 @@ function App() {
   const [curTask, setCurTask] = useState("starting task");
 
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
+  const audioRef = useRef(new Audio(timerAudio));
 
   const handleReset = () => {
+    audioRef.current.pause();
     setDate(makeDate());
-    if (!countdownRef.current) return;
-    countdownRef.current.getApi().start();
+    countdownRef.current?.getApi().pause();
   };
 
   const handleComplete = () => {
     console.log("complete!");
+    audioRef.current.play();
   };
 
   const handleContinue = () => {
+    audioRef.current.pause();
     setCurTask(tasks[0]);
     setTasks([...tasks.slice(1), curTask]);
     setDate(makeDate());
@@ -33,7 +37,7 @@ function App() {
   };
 
   return (
-    <main style={{ border: "1px solid red", width: "30em" }}>
+    <main style={{ border: "1px solid red", width: "25em" }}>
       <h1>
         <Countdown ref={countdownRef} date={date} onComplete={handleComplete} />
       </h1>
