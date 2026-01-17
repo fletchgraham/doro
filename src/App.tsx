@@ -55,18 +55,6 @@ function App() {
       <h2>{curTask}</h2>
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>Continue</button>
-      <div>
-        <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-        <button
-          disabled={newTask.length === 0}
-          onClick={() => {
-            setTasks([...tasks, newTask]);
-            setNewTask("");
-          }}
-        >
-          Add
-        </button>
-      </div>
       <ul>
         {tasks.map((task, i) => {
           return (
@@ -79,6 +67,18 @@ function App() {
           );
         })}
       </ul>
+      <div>
+        <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
+        <button
+          disabled={newTask.length === 0}
+          onClick={() => {
+            setTasks([...tasks, newTask]);
+            setNewTask("");
+          }}
+        >
+          Add
+        </button>
+      </div>
     </main>
   );
 }
