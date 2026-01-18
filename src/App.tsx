@@ -88,10 +88,16 @@ function Tasks({
         })}
       </ul>
       <div>
-        <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-        <button disabled={newTask.length === 0} onClick={handleAddTask}>
-          Add
-        </button>
+        <form>
+          <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
+          <button
+            type="submit"
+            disabled={newTask.length === 0}
+            onClick={handleAddTask}
+          >
+            Add
+          </button>
+        </form>
       </div>
     </>
   );
