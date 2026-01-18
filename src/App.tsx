@@ -10,9 +10,8 @@ const makeDate = () => Date.now() + 1 * 5 * 1000;
 
 function App() {
   const [date, setDate] = useState(makeDate());
-  const { tasks, setTasks, addTask } = useTasks();
+  const { tasks, curTask, setTasks, addTask, nextTask } = useTasks();
   const [newTask, setNewTask] = useState("");
-  const [curTask, setCurTask] = useState<string | null>(null);
 
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
   const audioRef = useRef(new Audio(timerAudio));
@@ -30,14 +29,7 @@ function App() {
 
   const handleContinue = () => {
     audioRef.current.pause();
-    setCurTask(tasks[0]);
-
-    if (curTask) {
-      setTasks([...tasks.slice(1), curTask]);
-    } else {
-      setTasks([...tasks.slice(1)]);
-    }
-
+    nextTask();
     setDate(makeDate());
     if (!countdownRef.current) return;
     countdownRef.current.getApi().start();
