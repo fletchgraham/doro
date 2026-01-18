@@ -14,7 +14,15 @@ const useTimer = () => {
     audioRef.current.pause();
   };
 
-  return { audioRef, countdownRef, playAudio, pauseAudio };
+  const start = () => {
+    countdownRef.current?.getApi().start();
+  };
+
+  const stop = () => {
+    countdownRef.current?.getApi().pause();
+  };
+
+  return { audioRef, countdownRef, start, stop, playAudio, pauseAudio };
 };
 
 export default useTimer;

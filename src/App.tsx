@@ -16,11 +16,10 @@ function App() {
   const handleReset = () => {
     timer.pauseAudio();
     setDate(makeDate(mins));
-    timer.countdownRef.current?.getApi().pause();
+    timer.stop();
   };
 
   const handleComplete = () => {
-    console.log("complete!");
     timer.playAudio();
   };
 
@@ -28,9 +27,7 @@ function App() {
     timer.pauseAudio();
     taskManager.nextTask();
     setDate(makeDate(mins));
-    if (!timer.countdownRef.current) return;
-    timer.countdownRef.current.getApi().start();
-    console.log("continue!");
+    timer.start();
   };
 
   return (
