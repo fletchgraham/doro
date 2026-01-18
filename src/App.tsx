@@ -5,7 +5,7 @@ import TasksView from "./components/TasksView";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 
-const makeDate = (mins: number) => Date.now() + 1 * 5 * 1000;
+const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
 function App() {
   const [mins, setMins] = useState(20);
