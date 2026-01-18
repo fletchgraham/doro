@@ -6,10 +6,11 @@ import Countdown from "react-countdown";
 
 import useTasks from "./hooks/useTasks";
 
-const makeDate = () => Date.now() + 1 * 5 * 1000;
+const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
 function App() {
-  const [date, setDate] = useState(makeDate());
+  const [mins, setMins] = useState(20);
+  const [date, setDate] = useState(makeDate(mins));
   const { tasks, curTask, addTask, removeTask, nextTask } = useTasks();
   const [newTask, setNewTask] = useState("");
 
@@ -18,7 +19,7 @@ function App() {
 
   const handleReset = () => {
     audioRef.current.pause();
-    setDate(makeDate());
+    setDate(makeDate(mins));
     countdownRef.current?.getApi().pause();
   };
 
@@ -30,7 +31,7 @@ function App() {
   const handleContinue = () => {
     audioRef.current.pause();
     nextTask();
-    setDate(makeDate());
+    setDate(makeDate(mins));
     if (!countdownRef.current) return;
     countdownRef.current.getApi().start();
     console.log("continue!");
@@ -43,6 +44,10 @@ function App() {
 
   return (
     <main style={{ width: "25em" }}>
+      <input
+        value={mins}
+        onChange={(e) => setMins(Number(e.target.value) | 0)}
+      />
       <h1>
         <Countdown
           ref={countdownRef}

@@ -1,12 +1,14 @@
 import { useState } from "react";
 
 const useTasks = () => {
-  const [tasks, setTasks] = useState(["an important task", "another task"]);
+  const [tasks, setTasks] = useState<string[]>([]);
   const [curTask, setCurTask] = useState<string | null>(null);
 
   const addTask = (text: string) => setTasks([...tasks, text]);
+
   const removeTask = (text: string) =>
     setTasks(tasks.filter((item) => item !== text));
+
   const nextTask = () => {
     setCurTask(tasks[0]);
 
