@@ -10,25 +10,25 @@ function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const taskManager = useTasks();
-  const { audioRef, countdownRef } = useTimer();
+  const timer = useTimer();
 
   const handleReset = () => {
-    audioRef.current.pause();
+    timer.pauseAudio();
     setDate(makeDate(mins));
-    countdownRef.current?.getApi().pause();
+    timer.countdownRef.current?.getApi().pause();
   };
 
   const handleComplete = () => {
     console.log("complete!");
-    audioRef.current.play();
+    timer.playAudio();
   };
 
   const handleContinue = () => {
-    audioRef.current.pause();
+    timer.pauseAudio();
     taskManager.nextTask();
     setDate(makeDate(mins));
-    if (!countdownRef.current) return;
-    countdownRef.current.getApi().start();
+    if (!timer.countdownRef.current) return;
+    timer.countdownRef.current.getApi().start();
     console.log("continue!");
   };
 
@@ -40,7 +40,7 @@ function App() {
       />
       <h1>
         <Countdown
-          ref={countdownRef}
+          ref={timer.countdownRef}
           autoStart={false}
           date={date}
           onComplete={handleComplete}

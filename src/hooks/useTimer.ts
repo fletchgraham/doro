@@ -6,7 +6,15 @@ const useTimer = () => {
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
   const audioRef = useRef(new Audio(timerAudio));
 
-  return { audioRef, countdownRef };
+  const playAudio = () => {
+    audioRef.current.play();
+  };
+
+  const pauseAudio = () => {
+    audioRef.current.pause();
+  };
+
+  return { audioRef, countdownRef, playAudio, pauseAudio };
 };
 
 export default useTimer;
