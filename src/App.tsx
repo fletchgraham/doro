@@ -45,7 +45,9 @@ function App() {
         />
       </h1>
       <button onClick={handleReset}>Reset</button>
-      <button onClick={handleContinue}>Continue</button>
+      <button onClick={handleContinue}>
+        {taskManager.curTask ? "Continue" : "Begin"}
+      </button>
       <TasksView taskManager={taskManager} />
     </main>
   );
