@@ -10,7 +10,7 @@ const makeDate = () => Date.now() + 1 * 5 * 1000;
 
 function App() {
   const [date, setDate] = useState(makeDate());
-  const { tasks, setTasks } = useTasks();
+  const { tasks, setTasks, addTask } = useTasks();
   const [newTask, setNewTask] = useState("");
   const [curTask, setCurTask] = useState<string | null>(null);
 
@@ -44,6 +44,11 @@ function App() {
     console.log("continue!");
   };
 
+  const handleAddTask = () => {
+    addTask(newTask);
+    setNewTask("");
+  };
+
   return (
     <main style={{ width: "25em" }}>
       <h1>
@@ -71,13 +76,7 @@ function App() {
       </ul>
       <div>
         <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-        <button
-          disabled={newTask.length === 0}
-          onClick={() => {
-            setTasks([...tasks, newTask]);
-            setNewTask("");
-          }}
-        >
+        <button disabled={newTask.length === 0} onClick={handleAddTask}>
           Add
         </button>
       </div>
