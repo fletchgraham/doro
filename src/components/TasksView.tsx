@@ -1,11 +1,12 @@
 import { useState } from "react";
+import type Task from "../types/Task";
 
 function TasksView({
   taskManager,
 }: {
   taskManager: {
-    tasks: string[];
-    curTask: string | null;
+    tasks: Task[];
+    curTask: Task | null;
     addTask: CallableFunction;
     removeTask: CallableFunction;
   };
@@ -19,13 +20,13 @@ function TasksView({
 
   return (
     <>
-      <h2>{taskManager.curTask}</h2>
+      <h2>{taskManager.curTask?.text}</h2>
       <ul>
         {taskManager.tasks.map((task) => {
           return (
-            <li key={task}>
+            <li key={task.id}>
               <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
-              {task}
+              {task.text}
             </li>
           );
         })}

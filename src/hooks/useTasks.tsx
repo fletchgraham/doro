@@ -1,24 +1,38 @@
 import { useState, useEffect } from "react";
+import type Task from "../types/Task";
 
-const saveTasks = (tasks: string[]) => {
+const createTask = (text: string): Task => {
+  return {
+    text: text,
+    notes: "",
+    id: crypto.randomUUID(),
+  };
+};
+
+const saveTasks = (tasks: Task[]) => {
   localStorage.setItem("doroTasks", JSON.stringify(tasks));
 };
 
-const saveCurTask = (curTask: string | null) => {
+const saveCurTask = (curTask: Task | null) => {
   if (curTask) {
-    localStorage.setItem("doroCurTask", curTask);
+    localStorage.setItem("doroCurTask", JSON.stringify(curTask));
   } else {
     localStorage.removeItem("doroCurTask");
   }
 };
 
 const useTasks = () => {
-  const [tasks, setTasks] = useState<string[]>(() =>
+  const [tasks, setTasks] = useState<Task[]>(() =>
     JSON.parse(localStorage.getItem("doroTasks") || "[]"),
   );
 
-  const [curTask, setCurTask] = useState<string | null>(() => {
-    return localStorage.getItem("doroCurTask");
+  const [curTask, setCurTask] = useState<Task | null>(() => {
+    const curTaskStore = localStorage.getItem("doroCurTask");
+    if (!curTaskStore) {
+      return null;
+    } else {
+      return JSON.parse(curTaskStore);
+    }
   });
 
   useEffect(() => {
@@ -30,11 +44,11 @@ const useTasks = () => {
   }, [curTask]);
 
   const addTask = (text: string) => {
-    setTasks([...tasks, text]);
+    setTasks([...tasks, createTask(text)]);
   };
 
-  const removeTask = (text: string) => {
-    setTasks(tasks.filter((item) => item !== text));
+  const removeTask = (task: Task) => {
+    setTasks(tasks.filter((item) => item.text !== task.text));
   };
 
   const nextTask = () => {
