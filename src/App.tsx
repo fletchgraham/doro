@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import Countdown from "react-countdown";
+import TasksView from "./components/TasksView";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 
@@ -48,54 +49,8 @@ function App() {
       </h1>
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>Continue</button>
-      <Tasks taskManager={taskManager} />
+      <TasksView taskManager={taskManager} />
     </main>
-  );
-}
-
-function Tasks({
-  taskManager,
-}: {
-  taskManager: {
-    tasks: string[];
-    curTask: string | null;
-    addTask: CallableFunction;
-    removeTask: CallableFunction;
-  };
-}) {
-  const [newTask, setNewTask] = useState("");
-
-  const handleAddTask = () => {
-    taskManager.addTask(newTask);
-    setNewTask("");
-  };
-
-  return (
-    <>
-      <h2>{taskManager.curTask}</h2>
-      <ul>
-        {taskManager.tasks.map((task) => {
-          return (
-            <li key={task}>
-              <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
-              {task}
-            </li>
-          );
-        })}
-      </ul>
-      <div>
-        <form>
-          <input value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-          <button
-            type="submit"
-            disabled={newTask.length === 0}
-            onClick={handleAddTask}
-          >
-            Add
-          </button>
-        </form>
-      </div>
-    </>
   );
 }
 
