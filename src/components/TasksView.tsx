@@ -23,10 +23,6 @@ function TasksView({
     <>
       <h2>{taskManager.curTask?.text}</h2>
       <textarea
-        style={{
-          width: "100%",
-          textAlign: "center",
-        }}
         value={taskManager.curTask?.notes || ""}
         onChange={(e) => taskManager.setCurNotes(e.target.value)}
       ></textarea>
