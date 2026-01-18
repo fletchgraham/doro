@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import "./App.css";
-import timerAudio from "./../public/kitchen-timer-33043.mp3";
+import timerAudio from "./assets/kitchen-timer-33043.mp3";
 
 import Countdown from "react-countdown";
 
