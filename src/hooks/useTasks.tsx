@@ -5,6 +5,8 @@ const useTasks = () => {
   const [curTask, setCurTask] = useState<string | null>(null);
 
   const addTask = (text: string) => setTasks([...tasks, text]);
+  const removeTask = (text: string) =>
+    setTasks(tasks.filter((item) => item !== text));
   const nextTask = () => {
     setCurTask(tasks[0]);
 
@@ -18,8 +20,8 @@ const useTasks = () => {
   return {
     tasks: tasks,
     curTask: curTask,
-    setTasks: setTasks,
     addTask: addTask,
+    removeTask: removeTask,
     nextTask: nextTask,
   };
 };

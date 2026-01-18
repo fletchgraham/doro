@@ -10,7 +10,7 @@ const makeDate = () => Date.now() + 1 * 5 * 1000;
 
 function App() {
   const [date, setDate] = useState(makeDate());
-  const { tasks, curTask, setTasks, addTask, nextTask } = useTasks();
+  const { tasks, curTask, addTask, removeTask, nextTask } = useTasks();
   const [newTask, setNewTask] = useState("");
 
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
@@ -58,10 +58,7 @@ function App() {
         {tasks.map((task) => {
           return (
             <li key={task}>
-              <button onClick={() => setTasks(tasks.filter((t) => t !== task))}>
-                X
-              </button>{" "}
-              {task}
+              <button onClick={() => removeTask(task)}>X</button> {task}
             </li>
           );
         })}
