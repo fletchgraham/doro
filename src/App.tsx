@@ -1,20 +1,16 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import "./App.css";
-import timerAudio from "./assets/kitchen-timer-33043.mp3";
-
 import Countdown from "react-countdown";
-
 import useTasks from "./hooks/useTasks";
+import useTimer from "./hooks/useTimer";
 
-const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
+const makeDate = (mins: number) => Date.now() + 1 * 5 * 1000;
 
 function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const taskManager = useTasks();
-
-  const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
-  const audioRef = useRef(new Audio(timerAudio));
+  const { audioRef, countdownRef } = useTimer();
 
   const handleReset = () => {
     audioRef.current.pause();
