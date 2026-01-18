@@ -12,7 +12,6 @@ function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const { tasks, curTask, addTask, removeTask, nextTask } = useTasks();
-  const [newTask, setNewTask] = useState("");
 
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
   const audioRef = useRef(new Audio(timerAudio));
@@ -37,11 +36,6 @@ function App() {
     console.log("continue!");
   };
 
-  const handleAddTask = () => {
-    addTask(newTask);
-    setNewTask("");
-  };
-
   return (
     <main style={{ width: "25em" }}>
       <input
@@ -56,9 +50,39 @@ function App() {
           onComplete={handleComplete}
         />
       </h1>
-      <h2>{curTask}</h2>
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>Continue</button>
+      <Tasks
+        tasks={tasks}
+        curTask={curTask}
+        addTask={addTask}
+        removeTask={removeTask}
+      />
+    </main>
+  );
+}
+
+function Tasks({
+  tasks,
+  curTask,
+  addTask,
+  removeTask,
+}: {
+  tasks: string[];
+  curTask: string | null;
+  addTask: CallableFunction;
+  removeTask: CallableFunction;
+}) {
+  const [newTask, setNewTask] = useState("");
+
+  const handleAddTask = () => {
+    addTask(newTask);
+    setNewTask("");
+  };
+
+  return (
+    <>
+      <h2>{curTask}</h2>
       <ul>
         {tasks.map((task) => {
           return (
@@ -74,7 +98,7 @@ function App() {
           Add
         </button>
       </div>
-    </main>
+    </>
   );
 }
 
