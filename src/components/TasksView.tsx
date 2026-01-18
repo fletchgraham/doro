@@ -9,6 +9,7 @@ function TasksView({
     curTask: Task | null;
     addTask: CallableFunction;
     removeTask: CallableFunction;
+    setCurNotes: CallableFunction;
   };
 }) {
   const [newTask, setNewTask] = useState("");
@@ -21,6 +22,14 @@ function TasksView({
   return (
     <>
       <h2>{taskManager.curTask?.text}</h2>
+      <textarea
+        style={{
+          width: "100%",
+          textAlign: "center",
+        }}
+        value={taskManager.curTask?.notes || ""}
+        onChange={(e) => taskManager.setCurNotes(e.target.value)}
+      ></textarea>
       <ul>
         {taskManager.tasks.map((task) => {
           return (

@@ -61,12 +61,18 @@ const useTasks = () => {
     }
   };
 
+  const setCurNotes = (text: string) => {
+    if (!curTask) return;
+    setCurTask({ ...curTask, notes: text });
+  };
+
   return {
-    tasks: tasks,
-    curTask: curTask,
-    addTask: addTask,
-    removeTask: removeTask,
-    nextTask: nextTask,
+    tasks,
+    curTask,
+    addTask,
+    removeTask,
+    nextTask,
+    setCurNotes,
   };
 };
 
