@@ -3,6 +3,7 @@ export default interface Task {
   notes: string;
   id: string;
   events: TaskEvent[];
+  duration: number;
 }
 
 interface TaskEvent {

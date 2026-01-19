@@ -31,7 +31,7 @@ function TasksView({
           return (
             <li key={task.id}>
               <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
-              {task.text}
+              {task.text} ({task.duration / (60 * 1000)}min)
             </li>
           );
         })}

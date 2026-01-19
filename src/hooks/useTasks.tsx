@@ -6,6 +6,7 @@ const createTask = (text: string): Task => {
     text: text,
     notes: "",
     events: [],
+    duration: 0,
     id: crypto.randomUUID(),
   };
 };
@@ -83,6 +84,7 @@ const useTasks = () => {
       eventType: "stop",
       timestamp: Date.now(),
     });
+    curTask.duration = getDuration(curTask);
     saveCurTask(curTask);
   };
 
@@ -96,6 +98,29 @@ const useTasks = () => {
     logStart,
     logPause,
   };
+};
+
+const getDuration = (task: Task): number => {
+  // basically loop through events
+  // if it's a start and currentStart is null, set currentStart
+  // if currentStart is null, just continue until we find a start
+  // if it's a stop, calc the duration and add to running total
+
+  let total = 0;
+  let curStart: number | null = null;
+
+  for (const event of task.events) {
+    if (!curStart && event.eventType === "start") {
+      curStart = event.timestamp;
+    }
+
+    if (curStart && event.eventType === "stop") {
+      total += event.timestamp - curStart;
+      curStart = null;
+    }
+  }
+
+  return total;
 };
 
 export default useTasks;

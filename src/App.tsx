@@ -26,10 +26,11 @@ function App() {
   };
 
   const handleContinue = () => {
+    taskManager.logPause();
     taskManager.nextTask();
+    taskManager.logStart();
     setDate(makeDate(mins));
     timer.start();
-    taskManager.logStart();
   };
 
   const handlePause = () => {
