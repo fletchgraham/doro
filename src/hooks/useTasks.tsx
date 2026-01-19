@@ -83,6 +83,7 @@ const useTasks = () => {
       eventType: "stop",
       timestamp: Date.now(),
     });
+    saveCurTask(curTask);
   };
 
   return {
