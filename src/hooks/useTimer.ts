@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Countdown from "react-countdown";
 import timerAudio from "./../assets/kitchen-timer-33043.mp3";
 
 const useTimer = () => {
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
   const audioRef = useRef(new Audio(timerAudio));
+  const [isPaused, setIsPaused] = useState(false);
 
   const playAudio = () => {
     audioRef.current.play();
@@ -16,13 +17,28 @@ const useTimer = () => {
 
   const start = () => {
     countdownRef.current?.getApi().start();
+    setIsPaused(false);
+  };
+
+  const pause = () => {
+    countdownRef.current?.getApi().pause();
+    setIsPaused(true);
   };
 
   const stop = () => {
-    countdownRef.current?.getApi().pause();
+    countdownRef.current?.getApi().stop();
   };
 
-  return { audioRef, countdownRef, start, stop, playAudio, pauseAudio };
+  return {
+    audioRef,
+    countdownRef,
+    isPaused,
+    start,
+    stop,
+    pause,
+    playAudio,
+    pauseAudio,
+  };
 };
 
 export default useTimer;

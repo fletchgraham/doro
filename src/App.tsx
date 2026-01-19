@@ -16,7 +16,7 @@ function App() {
   const handleReset = () => {
     timer.pauseAudio();
     setDate(makeDate(mins));
-    timer.stop();
+    timer.pause();
   };
 
   const handleComplete = () => {
@@ -24,7 +24,6 @@ function App() {
   };
 
   const handleContinue = () => {
-    timer.pauseAudio();
     taskManager.nextTask();
     setDate(makeDate(mins));
     timer.start();
@@ -36,7 +35,11 @@ function App() {
         value={mins}
         onChange={(e) => setMins(Number(e.target.value) | 0)}
       />
-      <h1>
+      <h1
+        style={{
+          backgroundColor: timer.isPaused ? "yellow" : "lightgreen",
+        }}
+      >
         <Countdown
           ref={timer.countdownRef}
           autoStart={false}
@@ -44,9 +47,14 @@ function App() {
           onComplete={handleComplete}
         />
       </h1>
+      {timer.isPaused ? (
+        <button onClick={timer.start}>Start</button>
+      ) : (
+        <button onClick={timer.pause}>Pause</button>
+      )}
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>
-        {taskManager.curTask ? "Continue" : "Begin"}
+        {taskManager.curTask ? "Next Task >>" : "Begin"}
       </button>
       <TasksView taskManager={taskManager} />
     </main>
