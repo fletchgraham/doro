@@ -5,7 +5,7 @@ import timerAudio from "./../assets/kitchen-timer-33043.mp3";
 const useTimer = () => {
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
   const audioRef = useRef(new Audio(timerAudio));
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true);
 
   const playAudio = () => {
     audioRef.current.play();
