@@ -17,16 +17,30 @@ function App() {
     timer.pauseAudio();
     setDate(makeDate(mins));
     timer.pause();
+    taskManager.logPause();
   };
 
   const handleComplete = () => {
     timer.playAudio();
+    taskManager.logPause();
   };
 
   const handleContinue = () => {
     taskManager.nextTask();
     setDate(makeDate(mins));
     timer.start();
+    taskManager.logStart();
+  };
+
+  const handlePause = () => {
+    timer.pause();
+    taskManager.logPause();
+    console.log(taskManager.curTask);
+  };
+
+  const handleStart = () => {
+    timer.start();
+    taskManager.logStart();
   };
 
   return (
@@ -48,9 +62,9 @@ function App() {
         />
       </h1>
       {timer.isPaused ? (
-        <button onClick={timer.start}>Start</button>
+        <button onClick={handleStart}>Start</button>
       ) : (
-        <button onClick={timer.pause}>Pause</button>
+        <button onClick={handlePause}>Pause</button>
       )}
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>

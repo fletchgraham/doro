@@ -5,6 +5,7 @@ const createTask = (text: string): Task => {
   return {
     text: text,
     notes: "",
+    events: [],
     id: crypto.randomUUID(),
   };
 };
@@ -66,6 +67,24 @@ const useTasks = () => {
     setCurTask({ ...curTask, notes: text });
   };
 
+  const logStart = () => {
+    if (!curTask) return;
+    if (!curTask.events) curTask.events = [];
+    curTask.events.push({
+      eventType: "start",
+      timestamp: Date.now(),
+    });
+  };
+
+  const logPause = () => {
+    if (!curTask) return;
+    if (!curTask.events) curTask.events = [];
+    curTask.events.push({
+      eventType: "stop",
+      timestamp: Date.now(),
+    });
+  };
+
   return {
     tasks,
     curTask,
@@ -73,6 +92,8 @@ const useTasks = () => {
     removeTask,
     nextTask,
     setCurNotes,
+    logStart,
+    logPause,
   };
 };
 
