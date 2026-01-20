@@ -5,7 +5,7 @@ const getDuration = (
   let curStart: number | null = null;
 
   for (const event of events) {
-    if (!curStart && event.eventType === "start") {
+    if (event.eventType === "start") {
       curStart = event.timestamp;
     }
 
