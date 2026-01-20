@@ -80,7 +80,6 @@ const useTasks = () => {
         task.active
           ? {
               ...task,
-              duration: getDuration(task),
               events: [
                 ...task.events,
                 { eventType: "stop", timestamp: Date.now() },
@@ -88,6 +87,9 @@ const useTasks = () => {
             }
           : task,
       ),
+    );
+    setTasks((tasks) =>
+      tasks.map((task) => ({ ...task, duration: getDuration(task) })),
     );
   };
 

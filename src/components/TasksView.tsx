@@ -30,12 +30,18 @@ function TasksView({
         ></textarea>
       )}
       <ul>
-        {taskManager.getInactiveTasks().map((task: Task) => (
-          <li key={task.id}>
-            <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
-            {task.text} ({task.duration / (60 * 1000)}min)
-          </li>
-        ))}
+        {taskManager.getInactiveTasks().map((task: Task) => {
+          const totalSeconds = Math.floor(task.duration / 1000);
+          const hours = Math.floor(totalSeconds / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+          return (
+            <li key={task.id}>
+              <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
+              {task.text} {hours}h {minutes}m {seconds}s
+            </li>
+          );
+        })}
       </ul>
       <div>
         <form>
