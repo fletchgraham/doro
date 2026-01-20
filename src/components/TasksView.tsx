@@ -9,6 +9,7 @@ interface TaskManager {
   removeTask: CallableFunction;
   setCurNotes: CallableFunction;
   cycleStatus: CallableFunction;
+  setStatus: CallableFunction;
 }
 
 function TasksView({ taskManager }: { taskManager: TaskManager }) {
@@ -55,11 +56,22 @@ const TaskItem = ({ task, manager }: { task: Task; manager: TaskManager }) => {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  const statuses = ["backlog", "ready", "working", "done"];
+
   return (
     <li key={task.id}>
       <button onClick={() => manager.removeTask(task)}>X</button> {task.text}{" "}
       {hours}h {minutes}m {seconds}s {task.status}
-      <button onClick={() => manager.cycleStatus(task)}>{">"}</button>
+      <select
+        value={task.status}
+        onChange={(e) => manager.setStatus(task, e.target.value)}
+      >
+        {statuses.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
     </li>
   );
 };

@@ -68,6 +68,14 @@ const useTasks = () => {
     );
   };
 
+  const setStatus = (task: Task, status: Task["status"]) => {
+    console.log(`setting status ${status}`);
+    const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
+    setTasks((tasks) =>
+      tasks.map((c) => (c.id === task.id ? { ...task, status } : c)),
+    );
+  };
+
   const setCurNotes = (text: string) => {
     setTasks((tasks) =>
       tasks.map((task) => (task.active ? { ...task, notes: text } : task)),
@@ -120,6 +128,7 @@ const useTasks = () => {
     logStart,
     logPause,
     cycleStatus,
+    setStatus,
   };
 };
 
