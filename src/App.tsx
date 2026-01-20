@@ -36,7 +36,6 @@ function App() {
   const handlePause = () => {
     timer.pause();
     taskManager.logPause();
-    console.log(taskManager.curTask);
   };
 
   const handleStart = () => {
@@ -69,7 +68,7 @@ function App() {
       )}
       <button onClick={handleReset}>Reset</button>
       <button onClick={handleContinue}>
-        {taskManager.curTask ? "Next Task >>" : "Begin"}
+        {taskManager.getActiveTask() ? "Next Task >>" : "Begin"}
       </button>
       <TasksView taskManager={taskManager} />
     </main>

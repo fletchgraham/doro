@@ -7,20 +7,9 @@ const createTask = (text: string): Task => {
     notes: "",
     events: [],
     duration: 0,
+    active: false,
     id: crypto.randomUUID(),
   };
-};
-
-const saveTasks = (tasks: Task[]) => {
-  localStorage.setItem("doroTasks", JSON.stringify(tasks));
-};
-
-const saveCurTask = (curTask: Task | null) => {
-  if (curTask) {
-    localStorage.setItem("doroCurTask", JSON.stringify(curTask));
-  } else {
-    localStorage.removeItem("doroCurTask");
-  }
 };
 
 const useTasks = () => {
@@ -28,69 +17,84 @@ const useTasks = () => {
     JSON.parse(localStorage.getItem("doroTasks") || "[]"),
   );
 
-  const [curTask, setCurTask] = useState<Task | null>(() => {
-    const curTaskStore = localStorage.getItem("doroCurTask");
-    if (!curTaskStore) {
-      return null;
-    } else {
-      return JSON.parse(curTaskStore);
-    }
-  });
+  const saveTasks = () => {
+    localStorage.setItem("doroTasks", JSON.stringify(tasks));
+  };
 
   useEffect(() => {
-    saveTasks(tasks);
+    saveTasks();
   }, [tasks]);
 
-  useEffect(() => {
-    saveCurTask(curTask);
-  }, [curTask]);
+  const getActiveTask = (): Task | undefined =>
+    tasks.find((task) => task.active);
+
+  const getInactiveTasks = (): Task[] => tasks.filter((task) => !task.active);
 
   const addTask = (text: string) => {
-    setTasks([...tasks, createTask(text)]);
+    setTasks((tasks) => [...tasks, createTask(text)]);
   };
 
   const removeTask = (task: Task) => {
-    setTasks(tasks.filter((item) => item.text !== task.text));
+    setTasks((tasks) => tasks.filter((item) => item.text !== task.text));
   };
 
   const nextTask = () => {
-    setCurTask(tasks[0]);
+    setTasks((tasks) => {
+      const inactiveTasks = tasks.filter((task) => !task.active);
+      const activeTask = tasks.find((task) => task.active);
+      const updated = [
+        ...inactiveTasks.map((task, i) => ({ ...task, active: i === 0 })),
+      ];
 
-    if (curTask) {
-      setTasks([...tasks.slice(1), curTask]);
-    } else {
-      setTasks([...tasks.slice(1)]);
-    }
+      if (activeTask) updated.push({ ...activeTask, active: false });
+
+      return updated;
+    });
   };
 
   const setCurNotes = (text: string) => {
-    if (!curTask) return;
-    setCurTask({ ...curTask, notes: text });
+    setTasks((tasks) =>
+      tasks.map((task) => (task.active ? { ...task, notes: text } : task)),
+    );
   };
 
   const logStart = () => {
-    if (!curTask) return;
-    if (!curTask.events) curTask.events = [];
-    curTask.events.push({
-      eventType: "start",
-      timestamp: Date.now(),
-    });
+    setTasks((tasks) =>
+      tasks.map((task) =>
+        task.active
+          ? {
+              ...task,
+              events: [
+                ...task.events,
+                { eventType: "start", timestamp: Date.now() },
+              ],
+            }
+          : task,
+      ),
+    );
   };
 
   const logPause = () => {
-    if (!curTask) return;
-    if (!curTask.events) curTask.events = [];
-    curTask.events.push({
-      eventType: "stop",
-      timestamp: Date.now(),
-    });
-    curTask.duration = getDuration(curTask);
-    saveCurTask(curTask);
+    setTasks((tasks) =>
+      tasks.map((task) =>
+        task.active
+          ? {
+              ...task,
+              duration: getDuration(task),
+              events: [
+                ...task.events,
+                { eventType: "stop", timestamp: Date.now() },
+              ],
+            }
+          : task,
+      ),
+    );
   };
 
   return {
     tasks,
-    curTask,
+    getActiveTask,
+    getInactiveTasks,
     addTask,
     removeTask,
     nextTask,
@@ -101,11 +105,6 @@ const useTasks = () => {
 };
 
 const getDuration = (task: Task): number => {
-  // basically loop through events
-  // if it's a start and currentStart is null, set currentStart
-  // if currentStart is null, just continue until we find a start
-  // if it's a stop, calc the duration and add to running total
-
   let total = 0;
   let curStart: number | null = null;
 

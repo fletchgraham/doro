@@ -6,7 +6,8 @@ function TasksView({
 }: {
   taskManager: {
     tasks: Task[];
-    curTask: Task | null;
+    getActiveTask: CallableFunction;
+    getInactiveTasks: CallableFunction;
     addTask: CallableFunction;
     removeTask: CallableFunction;
     setCurNotes: CallableFunction;
@@ -21,20 +22,20 @@ function TasksView({
 
   return (
     <>
-      <h2>{taskManager.curTask?.text}</h2>
-      <textarea
-        value={taskManager.curTask?.notes || ""}
-        onChange={(e) => taskManager.setCurNotes(e.target.value)}
-      ></textarea>
+      <h2>{taskManager.getActiveTask()?.text}</h2>
+      {taskManager.getActiveTask() && (
+        <textarea
+          value={taskManager.getActiveTask().notes}
+          onChange={(e) => taskManager.setCurNotes(e.target.value)}
+        ></textarea>
+      )}
       <ul>
-        {taskManager.tasks.map((task) => {
-          return (
-            <li key={task.id}>
-              <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
-              {task.text} ({task.duration / (60 * 1000)}min)
-            </li>
-          );
-        })}
+        {taskManager.getInactiveTasks().map((task: Task) => (
+          <li key={task.id}>
+            <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
+            {task.text} ({task.duration / (60 * 1000)}min)
+          </li>
+        ))}
       </ul>
       <div>
         <form>
