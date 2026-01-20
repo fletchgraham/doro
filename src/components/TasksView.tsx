@@ -8,7 +8,6 @@ interface TaskManager {
   addTask: CallableFunction;
   removeTask: CallableFunction;
   setCurNotes: CallableFunction;
-  cycleStatus: CallableFunction;
   setStatus: CallableFunction;
 }
 

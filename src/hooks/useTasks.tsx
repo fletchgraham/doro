@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type Task from "../types/Task";
+import getDuration from "../lib/getDuration";
 
 const createTask = (text: string): Task => {
   return {
@@ -53,24 +54,8 @@ const useTasks = () => {
     });
   };
 
-  const cycleStatus = (task: Task) => {
-    const statuses: ("backlog" | "ready" | "working" | "done")[] = [
-      "backlog",
-      "ready",
-      "working",
-      "done",
-    ];
-    const curIndex = statuses.findIndex((c) => c === task.status);
-    const nextIndex = (curIndex + 1) % statuses.length;
-    const newStatus = statuses[nextIndex];
-    setTasks((tasks) =>
-      tasks.map((c) => (c.id === task.id ? { ...task, status: newStatus } : c)),
-    );
-  };
-
   const setStatus = (task: Task, status: Task["status"]) => {
     console.log(`setting status ${status}`);
-    const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
     setTasks((tasks) =>
       tasks.map((c) => (c.id === task.id ? { ...task, status } : c)),
     );
@@ -113,7 +98,7 @@ const useTasks = () => {
       ),
     );
     setTasks((tasks) =>
-      tasks.map((task) => ({ ...task, duration: getDuration(task) })),
+      tasks.map((task) => ({ ...task, duration: getDuration(task.events) })),
     );
   };
 
@@ -127,27 +112,8 @@ const useTasks = () => {
     setCurNotes,
     logStart,
     logPause,
-    cycleStatus,
     setStatus,
   };
-};
-
-const getDuration = (task: Task): number => {
-  let total = 0;
-  let curStart: number | null = null;
-
-  for (const event of task.events) {
-    if (!curStart && event.eventType === "start") {
-      curStart = event.timestamp;
-    }
-
-    if (curStart && event.eventType === "stop") {
-      total += event.timestamp - curStart;
-      curStart = null;
-    }
-  }
-
-  return total;
 };
 
 export default useTasks;
