@@ -29,3 +29,19 @@ test("remove a task", () => {
   expect(newTasks[1].text).toBe("baz");
   expect(newTasks.length).toBe(2);
 });
+
+test("next task moves active to end of list, sets it inactive, then sets new 0 to active", () => {
+  const tasks: Task[] = [
+    createTask("foo"),
+    createTask("bar"),
+    createTask("baz"),
+  ];
+  tasks[0].active = true;
+  const updated = tasksReducer(tasks, {
+    type: "NEXT_TASK",
+  });
+  expect(updated[0].active).toBe(true);
+  expect(updated[0].text).toBe("bar");
+  expect(updated[2].active).toBe(false);
+  expect(updated[2].text).toBe("foo");
+});

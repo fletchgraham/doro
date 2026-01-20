@@ -7,7 +7,7 @@ interface TaskManager {
   getInactiveTasks: CallableFunction;
   addTask: CallableFunction;
   removeTask: CallableFunction;
-  setCurNotes: CallableFunction;
+  setNotes: CallableFunction;
   setStatus: CallableFunction;
 }
 
@@ -27,7 +27,7 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
       {activeTask && (
         <textarea
           value={activeTask.notes}
-          onChange={(e) => taskManager.setCurNotes(e.target.value)}
+          onChange={(e) => taskManager.setNotes(activeTask, e.target.value)}
         ></textarea>
       )}
       <ul>

@@ -1,21 +1,10 @@
-import { useState, useEffect } from "react";
+import { useEffect, useReducer } from "react";
 import type Task from "../types/Task";
-import getDuration from "../lib/getDuration";
-
-const createTask = (text: string): Task => {
-  return {
-    text: text,
-    notes: "",
-    events: [],
-    duration: 0,
-    active: false,
-    status: "backlog",
-    id: crypto.randomUUID(),
-  };
-};
+import tasksReducer from "../lib/tasksReducer";
 
 const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>(() =>
+  const [tasks, dispatch] = useReducer(
+    tasksReducer,
     JSON.parse(localStorage.getItem("doroTasks") || "[]"),
   );
 
@@ -32,75 +21,21 @@ const useTasks = () => {
 
   const getInactiveTasks = (): Task[] => tasks.filter((task) => !task.active);
 
-  const addTask = (text: string) => {
-    setTasks((tasks) => [...tasks, createTask(text)]);
-  };
+  const addTask = (text: string) => dispatch({ type: "ADD_TASK", text });
 
-  const removeTask = (task: Task) => {
-    setTasks((tasks) => tasks.filter((item) => item.text !== task.text));
-  };
+  const removeTask = (task: Task) =>
+    dispatch({ type: "REMOVE_TASK", taskId: task.id });
 
-  const nextTask = () => {
-    setTasks((tasks) => {
-      const inactiveTasks = tasks.filter((task) => !task.active);
-      const activeTask = tasks.find((task) => task.active);
-      const updated = [
-        ...inactiveTasks.map((task, i) => ({ ...task, active: i === 0 })),
-      ];
+  const nextTask = () => dispatch({ type: "NEXT_TASK" });
 
-      if (activeTask) updated.push({ ...activeTask, active: false });
+  const setStatus = (task: Task, status: string) =>
+    dispatch({ type: "SET_STATUS", taskId: task.id, status: status });
 
-      return updated;
-    });
-  };
+  const setNotes = (task: Task, text: string) =>
+    dispatch({ type: "SET_NOTES", taskId: task.id, text });
 
-  const setStatus = (task: Task, status: Task["status"]) => {
-    console.log(`setting status ${status}`);
-    setTasks((tasks) =>
-      tasks.map((c) => (c.id === task.id ? { ...task, status } : c)),
-    );
-  };
-
-  const setCurNotes = (text: string) => {
-    setTasks((tasks) =>
-      tasks.map((task) => (task.active ? { ...task, notes: text } : task)),
-    );
-  };
-
-  const logStart = () => {
-    setTasks((tasks) =>
-      tasks.map((task) =>
-        task.active
-          ? {
-              ...task,
-              events: [
-                ...task.events,
-                { eventType: "start", timestamp: Date.now() },
-              ],
-            }
-          : task,
-      ),
-    );
-  };
-
-  const logPause = () => {
-    setTasks((tasks) =>
-      tasks.map((task) =>
-        task.active
-          ? {
-              ...task,
-              events: [
-                ...task.events,
-                { eventType: "stop", timestamp: Date.now() },
-              ],
-            }
-          : task,
-      ),
-    );
-    setTasks((tasks) =>
-      tasks.map((task) => ({ ...task, duration: getDuration(task.events) })),
-    );
-  };
+  const logStart = () => dispatch({ type: "LOG_START" });
+  const logPause = () => dispatch({ type: "LOG_PAUSE" });
 
   return {
     tasks,
@@ -109,7 +44,7 @@ const useTasks = () => {
     addTask,
     removeTask,
     nextTask,
-    setCurNotes,
+    setNotes: setNotes,
     logStart,
     logPause,
     setStatus,
