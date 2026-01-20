@@ -20,18 +20,20 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
     setNewTask("");
   };
 
+  const activeTask = taskManager.getActiveTask();
+
   return (
     <>
-      <h2>{taskManager.getActiveTask()?.text}</h2>
-      {taskManager.getActiveTask() && (
+      <h2>{activeTask?.text}</h2>
+      {activeTask && (
         <textarea
-          value={taskManager.getActiveTask().notes}
+          value={activeTask.notes}
           onChange={(e) => taskManager.setCurNotes(e.target.value)}
         ></textarea>
       )}
       <ul>
         {taskManager.getInactiveTasks().map((task: Task) => (
-          <TaskItem task={task} manager={taskManager} />
+          <TaskItem key={task.id} task={task} manager={taskManager} />
         ))}
       </ul>
       <div>
@@ -59,7 +61,7 @@ const TaskItem = ({ task, manager }: { task: Task; manager: TaskManager }) => {
   const statuses = ["backlog", "ready", "working", "done"];
 
   return (
-    <li key={task.id}>
+    <li>
       <button onClick={() => manager.removeTask(task)}>X</button> {task.text}{" "}
       {hours}h {minutes}m {seconds}s {task.status}
       <select
