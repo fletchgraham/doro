@@ -8,6 +8,7 @@ const createTask = (text: string): Task => {
     events: [],
     duration: 0,
     active: false,
+    status: "backlog",
     id: crypto.randomUUID(),
   };
 };
@@ -50,6 +51,21 @@ const useTasks = () => {
 
       return updated;
     });
+  };
+
+  const cycleStatus = (task: Task) => {
+    const statuses: ("backlog" | "ready" | "working" | "done")[] = [
+      "backlog",
+      "ready",
+      "working",
+      "done",
+    ];
+    const curIndex = statuses.findIndex((c) => c === task.status);
+    const nextIndex = (curIndex + 1) % statuses.length;
+    const newStatus = statuses[nextIndex];
+    setTasks((tasks) =>
+      tasks.map((c) => (c.id === task.id ? { ...task, status: newStatus } : c)),
+    );
   };
 
   const setCurNotes = (text: string) => {
@@ -103,6 +119,7 @@ const useTasks = () => {
     setCurNotes,
     logStart,
     logPause,
+    cycleStatus,
   };
 };
 

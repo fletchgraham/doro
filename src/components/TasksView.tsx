@@ -1,18 +1,17 @@
 import { useState } from "react";
 import type Task from "../types/Task";
 
-function TasksView({
-  taskManager,
-}: {
-  taskManager: {
-    tasks: Task[];
-    getActiveTask: CallableFunction;
-    getInactiveTasks: CallableFunction;
-    addTask: CallableFunction;
-    removeTask: CallableFunction;
-    setCurNotes: CallableFunction;
-  };
-}) {
+interface TaskManager {
+  tasks: Task[];
+  getActiveTask: CallableFunction;
+  getInactiveTasks: CallableFunction;
+  addTask: CallableFunction;
+  removeTask: CallableFunction;
+  setCurNotes: CallableFunction;
+  cycleStatus: CallableFunction;
+}
+
+function TasksView({ taskManager }: { taskManager: TaskManager }) {
   const [newTask, setNewTask] = useState("");
 
   const handleAddTask = () => {
@@ -30,18 +29,9 @@ function TasksView({
         ></textarea>
       )}
       <ul>
-        {taskManager.getInactiveTasks().map((task: Task) => {
-          const totalSeconds = Math.floor(task.duration / 1000);
-          const hours = Math.floor(totalSeconds / 3600);
-          const minutes = Math.floor((totalSeconds % 3600) / 60);
-          const seconds = totalSeconds % 60;
-          return (
-            <li key={task.id}>
-              <button onClick={() => taskManager.removeTask(task)}>X</button>{" "}
-              {task.text} {hours}h {minutes}m {seconds}s
-            </li>
-          );
-        })}
+        {taskManager.getInactiveTasks().map((task: Task) => (
+          <TaskItem task={task} manager={taskManager} />
+        ))}
       </ul>
       <div>
         <form>
@@ -58,5 +48,20 @@ function TasksView({
     </>
   );
 }
+
+const TaskItem = ({ task, manager }: { task: Task; manager: TaskManager }) => {
+  const totalSeconds = Math.floor(task.duration / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return (
+    <li key={task.id}>
+      <button onClick={() => manager.removeTask(task)}>X</button> {task.text}{" "}
+      {hours}h {minutes}m {seconds}s {task.status}
+      <button onClick={() => manager.cycleStatus(task)}>{">"}</button>
+    </li>
+  );
+};
 
 export default TasksView;
