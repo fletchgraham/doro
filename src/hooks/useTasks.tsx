@@ -2,10 +2,17 @@ import { useEffect, useReducer } from "react";
 import type Task from "../types/Task";
 import tasksReducer from "../lib/tasksReducer";
 
+const migrateTask = (task: Task, index: number): Task => ({
+  ...task,
+  order: task.order ?? index * 1000,
+  status: task.status ?? "backlog",
+});
+
 const useTasks = () => {
   const [tasks, dispatch] = useReducer(
     tasksReducer,
     JSON.parse(localStorage.getItem("doroTasks") || "[]"),
+    (initial: Task[]) => initial.map(migrateTask)
   );
 
   const saveTasks = () => {
@@ -22,7 +29,9 @@ const useTasks = () => {
   const getInactiveTasks = (): Task[] => tasks.filter((task) => !task.active);
 
   const getTasksByStatus = (status: string): Task[] =>
-    tasks.filter((task) => task.status === status);
+    tasks
+      .filter((task) => task.status === status)
+      .sort((a, b) => a.order - b.order);
 
   const addTask = (text: string) => dispatch({ type: "ADD_TASK", text });
 
@@ -31,11 +40,19 @@ const useTasks = () => {
 
   const nextTask = () => dispatch({ type: "NEXT_TASK" });
 
-  const setStatus = (task: Task, status: string) =>
-    dispatch({ type: "SET_STATUS", taskId: task.id, status: status });
+  const setStatus = (task: Task, status: Task["status"]) =>
+    dispatch({ type: "SET_STATUS", taskId: task.id, status });
 
   const setNotes = (task: Task, text: string) =>
     dispatch({ type: "SET_NOTES", taskId: task.id, text });
+
+  const setText = (task: Task, text: string) =>
+    dispatch({ type: "SET_TEXT", taskId: task.id, text });
+
+  const reorderTask = (task: Task, direction: "up" | "down") =>
+    dispatch({ type: "REORDER_TASK", taskId: task.id, direction });
+
+  const completeTask = () => dispatch({ type: "COMPLETE_TASK" });
 
   const logStart = () => dispatch({ type: "LOG_START" });
   const logPause = () => dispatch({ type: "LOG_PAUSE" });
@@ -48,10 +65,13 @@ const useTasks = () => {
     addTask,
     removeTask,
     nextTask,
-    setNotes: setNotes,
+    setNotes,
+    setText,
+    setStatus,
+    reorderTask,
+    completeTask,
     logStart,
     logPause,
-    setStatus,
   };
 };
 

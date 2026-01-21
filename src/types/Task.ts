@@ -4,8 +4,9 @@ export default interface Task {
   id: string;
   events: TaskEvent[];
   active: boolean;
-  status: string;
+  status: "backlog" | "ready" | "working" | "done";
   duration: number;
+  order: number;
 }
 
 interface TaskEvent {

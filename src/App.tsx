@@ -43,6 +43,16 @@ function App() {
     taskManager.logStart();
   };
 
+  const handleDone = () => {
+    taskManager.logPause();
+    taskManager.completeTask();
+    if (taskManager.getActiveTask()) {
+      taskManager.logStart();
+      setDate(makeDate(mins));
+      timer.start();
+    }
+  };
+
   return (
     <main style={{ width: "25em" }}>
       <input
@@ -70,6 +80,9 @@ function App() {
       <button onClick={handleContinue}>
         {taskManager.getActiveTask() ? "Next Task >>" : "Begin"}
       </button>
+      {taskManager.getActiveTask() && (
+        <button onClick={handleDone}>Done</button>
+      )}
       <TasksView taskManager={taskManager} />
     </main>
   );

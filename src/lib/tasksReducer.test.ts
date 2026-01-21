@@ -30,18 +30,21 @@ test("remove a task", () => {
   expect(newTasks.length).toBe(2);
 });
 
-test("next task moves active to end of list, sets it inactive, then sets new 0 to active", () => {
+test("next task moves active task to working bucket and activates next working task", () => {
   const tasks: Task[] = [
-    createTask("foo"),
-    createTask("bar"),
-    createTask("baz"),
+    { ...createTask("foo"), active: true, status: "working", order: 1000 },
+    { ...createTask("bar"), status: "working", order: 2000 },
+    { ...createTask("baz"), status: "working", order: 3000 },
   ];
-  tasks[0].active = true;
-  const updated = tasksReducer(tasks, {
-    type: "NEXT_TASK",
-  });
-  expect(updated[0].active).toBe(true);
-  expect(updated[0].text).toBe("bar");
-  expect(updated[2].active).toBe(false);
-  expect(updated[2].text).toBe("foo");
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK" });
+
+  // foo should be moved to end of working with highest order
+  const fooTask = updated.find((t) => t.text === "foo");
+  expect(fooTask?.active).toBe(false);
+  expect(fooTask?.status).toBe("working");
+
+  // bar should become active (it was first in working bucket after foo)
+  const barTask = updated.find((t) => t.text === "bar");
+  expect(barTask?.active).toBe(true);
 });
