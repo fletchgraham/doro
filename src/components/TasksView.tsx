@@ -30,10 +30,38 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
           onChange={(e) => taskManager.setNotes(activeTask, e.target.value)}
         ></textarea>
       )}
+      <h3>Working</h3>
       <ul>
-        {taskManager.getInactiveTasks().map((task: Task) => (
-          <TaskItem key={task.id} task={task} manager={taskManager} />
-        ))}
+        {taskManager
+          .getInactiveTasks()
+          .map(
+            (task: Task) =>
+              task.status === "working" && (
+                <TaskItem key={task.id} task={task} manager={taskManager} />
+              ),
+          )}
+      </ul>
+      <h3>Ready</h3>
+      <ul>
+        {taskManager
+          .getInactiveTasks()
+          .map(
+            (task: Task) =>
+              task.status === "ready" && (
+                <TaskItem key={task.id} task={task} manager={taskManager} />
+              ),
+          )}
+      </ul>
+      <h3>Done</h3>
+      <ul>
+        {taskManager
+          .getInactiveTasks()
+          .map(
+            (task: Task) =>
+              task.status === "done" && (
+                <TaskItem key={task.id} task={task} manager={taskManager} />
+              ),
+          )}
       </ul>
       <div>
         <form>
@@ -61,7 +89,12 @@ const TaskItem = ({ task, manager }: { task: Task; manager: TaskManager }) => {
 
   return (
     <li>
-      <button onClick={() => manager.removeTask(task)}>X</button> {task.text}{" "}
+      <button onClick={() => manager.removeTask(task)}>X</button>{" "}
+      <span
+        style={{ textDecoration: task.status === "done" ? "line-through" : "" }}
+      >
+        {task.text}
+      </span>{" "}
       {hours}h {minutes}m {seconds}s {task.status}
       <select
         value={task.status}
