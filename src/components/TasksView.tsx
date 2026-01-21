@@ -3,12 +3,13 @@ import type Task from "../types/Task";
 
 interface TaskManager {
   tasks: Task[];
-  getActiveTask: CallableFunction;
-  getInactiveTasks: CallableFunction;
-  addTask: CallableFunction;
-  removeTask: CallableFunction;
-  setNotes: CallableFunction;
-  setStatus: CallableFunction;
+  getActiveTask: () => Task;
+  getInactiveTasks: () => Task[];
+  getTasksByStatus: (status: string) => Task[];
+  addTask: (text: string) => void;
+  removeTask: (task: Task) => void;
+  setNotes: (task: Task, text: string) => void;
+  setStatus: (task: Task, status: string) => void;
 }
 
 function TasksView({ taskManager }: { taskManager: TaskManager }) {
@@ -32,36 +33,21 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
       )}
       <h3>Working</h3>
       <ul>
-        {taskManager
-          .getInactiveTasks()
-          .map(
-            (task: Task) =>
-              task.status === "working" && (
-                <TaskItem key={task.id} task={task} manager={taskManager} />
-              ),
-          )}
+        {taskManager.getTasksByStatus("working").map((task: Task) => (
+          <TaskItem key={task.id} task={task} manager={taskManager} />
+        ))}
       </ul>
       <h3>Ready</h3>
       <ul>
-        {taskManager
-          .getInactiveTasks()
-          .map(
-            (task: Task) =>
-              task.status === "ready" && (
-                <TaskItem key={task.id} task={task} manager={taskManager} />
-              ),
-          )}
+        {taskManager.getTasksByStatus("ready").map((task: Task) => (
+          <TaskItem key={task.id} task={task} manager={taskManager} />
+        ))}
       </ul>
       <h3>Done</h3>
       <ul>
-        {taskManager
-          .getInactiveTasks()
-          .map(
-            (task: Task) =>
-              task.status === "done" && (
-                <TaskItem key={task.id} task={task} manager={taskManager} />
-              ),
-          )}
+        {taskManager.getTasksByStatus("done").map((task: Task) => (
+          <TaskItem key={task.id} task={task} manager={taskManager} />
+        ))}
       </ul>
       <div>
         <form>

@@ -21,6 +21,9 @@ const useTasks = () => {
 
   const getInactiveTasks = (): Task[] => tasks.filter((task) => !task.active);
 
+  const getTasksByStatus = (status: string): Task[] =>
+    tasks.filter((task) => task.status === status);
+
   const addTask = (text: string) => dispatch({ type: "ADD_TASK", text });
 
   const removeTask = (task: Task) =>
@@ -41,6 +44,7 @@ const useTasks = () => {
     tasks,
     getActiveTask,
     getInactiveTasks,
+    getTasksByStatus,
     addTask,
     removeTask,
     nextTask,
