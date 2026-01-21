@@ -56,18 +56,8 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
     }
   };
 
-  const activeTask = taskManager.getActiveTask();
-
   return (
     <div onClick={() => setSelectedTaskId(null)}>
-      <h2>{activeTask?.text}</h2>
-      {activeTask && (
-        <textarea
-          value={activeTask.notes}
-          onChange={(e) => taskManager.setNotes(activeTask, e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      )}
       <h3>Working</h3>
       <ul style={{ listStyle: "none", padding: 0 }}>
         {taskManager.getTasksByStatus("working").map((task: Task) => (
@@ -130,6 +120,7 @@ interface TaskItemProps {
 const TaskItem = ({ task, manager, isSelected, onSelect }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
 
@@ -164,74 +155,114 @@ const TaskItem = ({ task, manager, isSelected, onSelect }: TaskItemProps) => {
     }
   };
 
+  const toggleExpand = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
   return (
     <li
-      onClick={handleClick}
       style={{
-        cursor: "pointer",
         backgroundColor: isSelected ? "#e0e0ff" : "transparent",
         border: isSelected ? "2px solid #6666ff" : "2px solid transparent",
-        padding: "8px 12px",
         borderRadius: "6px",
         marginBottom: "4px",
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
       }}
     >
-      <span>{statusIndicators[task.status] || "⚪"}</span>
-
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          manager.removeTask(task);
+      <div
+        onClick={handleClick}
+        style={{
+          cursor: "pointer",
+          padding: "8px 12px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
         }}
-        style={{ padding: "2px 6px", fontSize: "12px" }}
       >
-        ×
-      </button>
-
-      {isEditing ? (
-        <input
-          value={editText}
-          onChange={(e) => setEditText(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          autoFocus
-          onClick={(e) => e.stopPropagation()}
-          style={{ flex: 1 }}
-        />
-      ) : (
-        <span
-          onDoubleClick={handleDoubleClick}
+        <button
+          onClick={toggleExpand}
           style={{
-            flex: 1,
-            textDecoration: task.status === "done" ? "line-through" : "",
-            color: task.status === "done" ? "#888" : "inherit",
+            padding: "2px 6px",
+            fontSize: "12px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
           }}
         >
-          {task.text}
+          {isExpanded ? "▼" : "▶"}
+        </button>
+
+        <span>{statusIndicators[task.status] || "⚪"}</span>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            manager.removeTask(task);
+          }}
+          style={{ padding: "2px 6px", fontSize: "12px" }}
+        >
+          ×
+        </button>
+
+        {isEditing ? (
+          <input
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+            style={{ flex: 1 }}
+          />
+        ) : (
+          <span
+            onDoubleClick={handleDoubleClick}
+            style={{
+              flex: 1,
+              textDecoration: task.status === "done" ? "line-through" : "",
+              color: task.status === "done" ? "#888" : "inherit",
+            }}
+          >
+            {task.text}
+          </span>
+        )}
+
+        <span style={{ color: "#666", fontSize: "12px", minWidth: "50px" }}>
+          {formatDuration(task.duration)}
         </span>
+
+        <select
+          value={task.status}
+          onChange={(e) =>
+            manager.setStatus(task, e.target.value as Task["status"])
+          }
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: "12px" }}
+        >
+          {statuses.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {isExpanded && (
+        <div style={{ padding: "0 12px 12px 40px" }}>
+          <textarea
+            value={task.notes}
+            onChange={(e) => manager.setNotes(task, e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="Notes..."
+            style={{
+              width: "100%",
+              minHeight: "60px",
+              resize: "vertical",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
       )}
-
-      <span style={{ color: "#666", fontSize: "12px", minWidth: "50px" }}>
-        {formatDuration(task.duration)}
-      </span>
-
-      <select
-        value={task.status}
-        onChange={(e) =>
-          manager.setStatus(task, e.target.value as Task["status"])
-        }
-        onClick={(e) => e.stopPropagation()}
-        style={{ fontSize: "12px" }}
-      >
-        {statuses.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
     </li>
   );
 };

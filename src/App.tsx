@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import Countdown from "react-countdown";
+import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
@@ -83,7 +84,11 @@ function App() {
       {taskManager.getActiveTask() && (
         <button onClick={handleDone}>Done</button>
       )}
-      <TasksView taskManager={taskManager} />
+      <ActiveTaskView
+        task={taskManager.getActiveTask()}
+        onNotesChange={taskManager.setNotes}
+      />
+      {timer.isPaused && <TasksView taskManager={taskManager} />}
     </main>
   );
 }
