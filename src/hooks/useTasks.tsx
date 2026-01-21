@@ -15,12 +15,8 @@ const useTasks = () => {
     (initial: Task[]) => initial.map(migrateTask)
   );
 
-  const saveTasks = () => {
-    localStorage.setItem("doroTasks", JSON.stringify(tasks));
-  };
-
   useEffect(() => {
-    saveTasks();
+    localStorage.setItem("doroTasks", JSON.stringify(tasks));
   }, [tasks]);
 
   const getActiveTask = (): Task | undefined =>

@@ -26,6 +26,33 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
   const [newTask, setNewTask] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
+  const exportTasks = () => {
+    const lines: string[] = [];
+    const statuses: Task["status"][] = ["working", "ready", "done"];
+
+    for (const status of statuses) {
+      const tasks = taskManager.getTasksByStatus(status);
+      if (tasks.length === 0) continue;
+
+      lines.push(status);
+      for (const task of tasks) {
+        lines.push(`\t${task.text}`);
+        if (task.duration > 0) {
+          lines.push(`\t\tduration: ${formatDuration(task.duration)}`);
+        }
+        if (task.notes.trim()) {
+          lines.push(`\t\tnotes`);
+          for (const noteLine of task.notes.split("\n")) {
+            lines.push(`\t\t\t${noteLine}`);
+          }
+        }
+      }
+    }
+
+    const text = lines.join("\n");
+    navigator.clipboard.writeText(text);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!selectedTaskId) return;
@@ -82,6 +109,18 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
           />
         ))}
       </ul>
+      <div>
+        <form onSubmit={handleAddTask}>
+          <input
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button type="submit" disabled={newTask.length === 0}>
+            Add
+          </button>
+        </form>
+      </div>
       <h3>Done</h3>
       <ul style={{ listStyle: "none", padding: 0 }}>
         {taskManager.getTasksByStatus("done").map((task: Task) => (
@@ -94,17 +133,8 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
           />
         ))}
       </ul>
-      <div>
-        <form onSubmit={handleAddTask}>
-          <input
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button type="submit" disabled={newTask.length === 0}>
-            Add
-          </button>
-        </form>
+      <div style={{ marginTop: "2rem" }}>
+        <button onClick={exportTasks}>Export to Clipboard</button>
       </div>
     </div>
   );

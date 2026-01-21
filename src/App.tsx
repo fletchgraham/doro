@@ -12,7 +12,7 @@ function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const taskManager = useTasks();
-  const timer = useTimer();
+  const { isPaused, countdownRef, ...timer } = useTimer();
 
   const handleReset = () => {
     timer.pauseAudio();
@@ -62,17 +62,17 @@ function App() {
       />
       <h1
         style={{
-          backgroundColor: timer.isPaused ? "yellow" : "lightgreen",
+          backgroundColor: isPaused ? "yellow" : "lightgreen",
         }}
       >
         <Countdown
-          ref={timer.countdownRef}
+          ref={countdownRef}
           autoStart={false}
           date={date}
           onComplete={handleComplete}
         />
       </h1>
-      {timer.isPaused ? (
+      {isPaused ? (
         <button onClick={handleStart}>Start</button>
       ) : (
         <button onClick={handlePause}>Pause</button>
@@ -88,7 +88,7 @@ function App() {
         task={taskManager.getActiveTask()}
         onNotesChange={taskManager.setNotes}
       />
-      {timer.isPaused && <TasksView taskManager={taskManager} />}
+      {isPaused && <TasksView taskManager={taskManager} />}
     </main>
   );
 }
