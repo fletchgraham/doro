@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type Task from "../types/Task";
 import type Project from "../types/Project";
 import { formatDuration } from "../lib/formatDuration";
+import { PROJECT_COLORS } from "../hooks/useProjects";
 
 interface TaskManager {
   tasks: Task[];
@@ -21,6 +22,7 @@ interface ProjectManager {
   projects: Project[];
   getOrCreateProject: (name: string) => Project;
   getProjectById: (projectId: string) => Project | undefined;
+  updateProject: (projectId: string, updates: Partial<Project>) => void;
 }
 
 function TasksView({
@@ -43,7 +45,13 @@ function TasksView({
 
       lines.push(status);
       for (const task of tasks) {
+        const project = task.projectId
+          ? projectManager.getProjectById(task.projectId)
+          : undefined;
         lines.push(`\t${task.text}`);
+        if (project) {
+          lines.push(`\t\tproject: ${project.name}`);
+        }
         if (task.duration > 0) {
           lines.push(`\t\tduration: ${formatDuration(task.duration)}`);
         }
@@ -146,6 +154,11 @@ function TasksView({
       <div style={{ marginTop: "2rem" }}>
         <button onClick={exportTasks}>Export to Clipboard</button>
       </div>
+      <datalist id="doro-projects">
+        {projectManager.projects.map((p) => (
+          <option key={p.id} value={p.name} />
+        ))}
+      </datalist>
     </div>
   );
 }
@@ -169,6 +182,7 @@ const TaskItem = ({
   const [editText, setEditText] = useState(task.text);
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectInput, setProjectInput] = useState("");
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
   const project = task.projectId
@@ -243,17 +257,61 @@ const TaskItem = ({
           {isExpanded ? "▼" : "▶"}
         </button>
 
-        <span
-          style={{
-            width: "12px",
-            height: "12px",
-            borderRadius: "50%",
-            backgroundColor: project?.color || "#ccc",
-            display: "inline-block",
-            flexShrink: 0,
-          }}
-          title={project?.name || "No project"}
-        />
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setColorPickerOpen(!colorPickerOpen);
+            }}
+            style={{
+              width: "16px",
+              height: "16px",
+              borderRadius: "50%",
+              backgroundColor: project?.color || "#ccc",
+              border: "1px solid #999",
+              cursor: "pointer",
+              padding: 0,
+            }}
+            title={project?.name || "No project"}
+          />
+          {colorPickerOpen && project && (
+            <div
+              style={{
+                position: "absolute",
+                top: "20px",
+                left: 0,
+                display: "flex",
+                gap: "4px",
+                padding: "4px",
+                backgroundColor: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                zIndex: 10,
+              }}
+            >
+              {PROJECT_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    projectManager.updateProject(project.id, { color: c.hex });
+                    setColorPickerOpen(false);
+                  }}
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    backgroundColor: c.hex,
+                    border: c.hex === project.color ? "2px solid #333" : "1px solid #999",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={(e) => {
@@ -306,43 +364,46 @@ const TaskItem = ({
             </option>
           ))}
         </select>
-
-        <input
-          type="text"
-          list={`projects-${task.id}`}
-          value={projectInput}
-          placeholder={project?.name || "project"}
-          onChange={(e) => setProjectInput(e.target.value)}
-          onBlur={() => {
-            if (projectInput.trim()) {
-              const p = projectManager.getOrCreateProject(projectInput.trim());
-              manager.setProject(task, p.id);
-            }
-            setProjectInput("");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (projectInput.trim()) {
-                const p = projectManager.getOrCreateProject(projectInput.trim());
-                manager.setProject(task, p.id);
-              }
-              setProjectInput("");
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          onClick={(e) => e.stopPropagation()}
-          style={{ fontSize: "12px", width: "80px" }}
-        />
-        <datalist id={`projects-${task.id}`}>
-          {projectManager.projects.map((p) => (
-            <option key={p.id} value={p.name} />
-          ))}
-        </datalist>
       </div>
 
       {isExpanded && (
         <div style={{ padding: "0 12px 12px 40px" }}>
+          <div style={{ marginBottom: "8px" }}>
+            <label style={{ fontSize: "12px", color: "#666" }}>
+              Project:{" "}
+              <input
+                type="text"
+                list="doro-projects"
+                value={projectInput}
+                placeholder={project?.name || "none"}
+                onChange={(e) => setProjectInput(e.target.value)}
+                onBlur={() => {
+                  if (projectInput.trim()) {
+                    const p = projectManager.getOrCreateProject(
+                      projectInput.trim()
+                    );
+                    manager.setProject(task, p.id);
+                  }
+                  setProjectInput("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (projectInput.trim()) {
+                      const p = projectManager.getOrCreateProject(
+                        projectInput.trim()
+                      );
+                      manager.setProject(task, p.id);
+                    }
+                    setProjectInput("");
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ fontSize: "12px", width: "120px" }}
+              />
+            </label>
+          </div>
           <textarea
             value={task.notes}
             onChange={(e) => manager.setNotes(task, e.target.value)}

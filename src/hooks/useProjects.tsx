@@ -1,35 +1,20 @@
 import { useEffect, useReducer } from "react";
 import type Project from "../types/Project";
 
-// A curated palette of distinguishable colors for projects
-const PROJECT_COLORS = [
-  "#e57373", // red
-  "#64b5f6", // blue
-  "#81c784", // green
-  "#ffb74d", // orange
-  "#ba68c8", // purple
-  "#4db6ac", // teal
-  "#f06292", // pink
-  "#aed581", // lime
-  "#7986cb", // indigo
-  "#ffcc80", // peach
+// Tailwind 400-level colors
+export const PROJECT_COLORS = [
+  { name: "red", hex: "#f87171" },
+  { name: "orange", hex: "#fb923c" },
+  { name: "yellow", hex: "#facc15" },
+  { name: "green", hex: "#4ade80" },
+  { name: "blue", hex: "#60a5fa" },
+  { name: "purple", hex: "#c084fc" },
+  { name: "gray", hex: "#9ca3af" },
 ];
 
-// TODO(human): Implement this function
-const pickColorForProject = (
-  projectName: string,
-  existingProjects: Project[]
-): string => {
-  // Your task: decide how to pick a color for a new project.
-  // You have access to:
-  //   - projectName: the name of the new project being created
-  //   - existingProjects: array of already-created projects (each has id, name, color)
-  //   - PROJECT_COLORS: the palette array above
-  //
-  // Return a color string (hex code) for the new project.
-  void projectName;
-  void existingProjects;
-  return PROJECT_COLORS[0]; // placeholder - replace this!
+const pickColorForProject = (): string => {
+  const color = PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)];
+  return color.hex;
 };
 
 type ProjectsAction =
@@ -39,11 +24,17 @@ type ProjectsAction =
 
 const projectsReducer = (
   state: Project[],
-  action: ProjectsAction
+  action: ProjectsAction,
 ): Project[] => {
   switch (action.type) {
     case "ADD_PROJECT": {
-      const color = pickColorForProject(action.name, state);
+      // Prevent duplicates - reducer is the source of truth
+      const exists = state.some(
+        (p) => p.name.toLowerCase() === action.name.toLowerCase()
+      );
+      if (exists) return state;
+
+      const color = pickColorForProject();
       return [
         ...state,
         {
@@ -57,17 +48,29 @@ const projectsReducer = (
       return state.filter((p) => p.id !== action.projectId);
     case "UPDATE_PROJECT":
       return state.map((p) =>
-        p.id === action.projectId ? { ...p, ...action.updates } : p
+        p.id === action.projectId ? { ...p, ...action.updates } : p,
       );
     default:
       return state;
   }
 };
 
+// Deduplicate projects by name (keep first occurrence)
+const dedupeProjects = (projects: Project[]): Project[] => {
+  const seen = new Set<string>();
+  return projects.filter((p) => {
+    const key = p.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const useProjects = () => {
   const [projects, dispatch] = useReducer(
     projectsReducer,
-    JSON.parse(localStorage.getItem("doroProjects") || "[]")
+    JSON.parse(localStorage.getItem("doroProjects") || "[]"),
+    dedupeProjects
   );
 
   useEffect(() => {
@@ -77,7 +80,7 @@ const useProjects = () => {
   const addProject = (name: string): Project => {
     dispatch({ type: "ADD_PROJECT", name });
     // Return the project that will be created (for immediate use)
-    const color = pickColorForProject(name, projects);
+    const color = pickColorForProject();
     return {
       id: crypto.randomUUID(),
       name,
@@ -96,13 +99,13 @@ const useProjects = () => {
 
   const getOrCreateProject = (name: string): Project => {
     const existing = projects.find(
-      (p) => p.name.toLowerCase() === name.toLowerCase()
+      (p) => p.name.toLowerCase() === name.toLowerCase(),
     );
     if (existing) return existing;
 
     dispatch({ type: "ADD_PROJECT", name });
     // Return provisional project (actual one created by reducer)
-    const color = pickColorForProject(name, projects);
+    const color = pickColorForProject();
     return {
       id: crypto.randomUUID(),
       name,
