@@ -7,6 +7,7 @@ export default interface Task {
   status: "backlog" | "ready" | "working" | "done";
   duration: number;
   order: number;
+  projectId?: string;
 }
 
 interface TaskEvent {

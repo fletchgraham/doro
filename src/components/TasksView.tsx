@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type Task from "../types/Task";
+import type Project from "../types/Project";
 import { formatDuration } from "../lib/formatDuration";
 
 interface TaskManager {
@@ -12,17 +13,23 @@ interface TaskManager {
   setNotes: (task: Task, text: string) => void;
   setText: (task: Task, text: string) => void;
   setStatus: (task: Task, status: Task["status"]) => void;
+  setProject: (task: Task, projectId: string | undefined) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
 }
 
-const statusIndicators: Record<string, string> = {
-  backlog: "⚪",
-  ready: "🔵",
-  working: "🟡",
-  done: "✅",
-};
+interface ProjectManager {
+  projects: Project[];
+  getOrCreateProject: (name: string) => Project;
+  getProjectById: (projectId: string) => Project | undefined;
+}
 
-function TasksView({ taskManager }: { taskManager: TaskManager }) {
+function TasksView({
+  taskManager,
+  projectManager,
+}: {
+  taskManager: TaskManager;
+  projectManager: ProjectManager;
+}) {
   const [newTask, setNewTask] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
@@ -92,6 +99,7 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
             key={task.id}
             task={task}
             manager={taskManager}
+            projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
             onSelect={(id) => setSelectedTaskId(id)}
           />
@@ -104,6 +112,7 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
             key={task.id}
             task={task}
             manager={taskManager}
+            projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
             onSelect={(id) => setSelectedTaskId(id)}
           />
@@ -128,6 +137,7 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
             key={task.id}
             task={task}
             manager={taskManager}
+            projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
             onSelect={(id) => setSelectedTaskId(id)}
           />
@@ -143,16 +153,27 @@ function TasksView({ taskManager }: { taskManager: TaskManager }) {
 interface TaskItemProps {
   task: Task;
   manager: TaskManager;
+  projectManager: ProjectManager;
   isSelected: boolean;
   onSelect: (taskId: string) => void;
 }
 
-const TaskItem = ({ task, manager, isSelected, onSelect }: TaskItemProps) => {
+const TaskItem = ({
+  task,
+  manager,
+  projectManager,
+  isSelected,
+  onSelect,
+}: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [projectInput, setProjectInput] = useState("");
 
   const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
+  const project = task.projectId
+    ? projectManager.getProjectById(task.projectId)
+    : undefined;
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -222,7 +243,17 @@ const TaskItem = ({ task, manager, isSelected, onSelect }: TaskItemProps) => {
           {isExpanded ? "▼" : "▶"}
         </button>
 
-        <span>{statusIndicators[task.status] || "⚪"}</span>
+        <span
+          style={{
+            width: "12px",
+            height: "12px",
+            borderRadius: "50%",
+            backgroundColor: project?.color || "#ccc",
+            display: "inline-block",
+            flexShrink: 0,
+          }}
+          title={project?.name || "No project"}
+        />
 
         <button
           onClick={(e) => {
@@ -275,6 +306,39 @@ const TaskItem = ({ task, manager, isSelected, onSelect }: TaskItemProps) => {
             </option>
           ))}
         </select>
+
+        <input
+          type="text"
+          list={`projects-${task.id}`}
+          value={projectInput}
+          placeholder={project?.name || "project"}
+          onChange={(e) => setProjectInput(e.target.value)}
+          onBlur={() => {
+            if (projectInput.trim()) {
+              const p = projectManager.getOrCreateProject(projectInput.trim());
+              manager.setProject(task, p.id);
+            }
+            setProjectInput("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (projectInput.trim()) {
+                const p = projectManager.getOrCreateProject(projectInput.trim());
+                manager.setProject(task, p.id);
+              }
+              setProjectInput("");
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: "12px", width: "80px" }}
+        />
+        <datalist id={`projects-${task.id}`}>
+          {projectManager.projects.map((p) => (
+            <option key={p.id} value={p.name} />
+          ))}
+        </datalist>
       </div>
 
       {isExpanded && (

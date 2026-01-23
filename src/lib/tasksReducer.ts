@@ -8,6 +8,7 @@ export type TasksAction =
   | { type: "SET_STATUS"; taskId: string; status: Task["status"] }
   | { type: "SET_NOTES"; taskId: string; text: string }
   | { type: "SET_TEXT"; taskId: string; text: string }
+  | { type: "SET_PROJECT"; taskId: string; projectId: string | undefined }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
   | { type: "COMPLETE_TASK" }
   | { type: "LOG_START" }
@@ -137,6 +138,10 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
     case "SET_TEXT":
       return state.map((t) =>
         t.id === action.taskId ? { ...t, text: action.text } : t
+      );
+    case "SET_PROJECT":
+      return state.map((t) =>
+        t.id === action.taskId ? { ...t, projectId: action.projectId } : t
       );
     case "REORDER_TASK": {
       const newOrder = calculateNewOrder(state, action.taskId, action.direction);

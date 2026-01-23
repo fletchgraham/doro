@@ -4,6 +4,7 @@ import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
 import useTasks from "./hooks/useTasks";
+import useProjects from "./hooks/useProjects";
 import useTimer from "./hooks/useTimer";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
@@ -12,6 +13,7 @@ function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const taskManager = useTasks();
+  const projectManager = useProjects();
   const { isPaused, countdownRef, ...timer } = useTimer();
 
   const handleReset = () => {
@@ -88,7 +90,9 @@ function App() {
         task={taskManager.getActiveTask()}
         onNotesChange={taskManager.setNotes}
       />
-      {isPaused && <TasksView taskManager={taskManager} />}
+      {isPaused && (
+        <TasksView taskManager={taskManager} projectManager={projectManager} />
+      )}
     </main>
   );
 }
