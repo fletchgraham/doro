@@ -57,7 +57,7 @@ function App() {
   };
 
   return (
-    <main style={{ width: "25em" }}>
+    <main style={{ maxWidth: "32em", width: "100%" }}>
       <input
         value={mins}
         onChange={(e) => setMins(Number(e.target.value) | 0)}

@@ -255,6 +255,7 @@ const TaskItem = ({
             background: "none",
             border: "none",
             cursor: "pointer",
+            visibility: isHovered || isExpanded ? "visible" : "hidden",
           }}
         >
           {isExpanded ? "▼" : "▶"}
@@ -339,17 +340,16 @@ const TaskItem = ({
           </span>
         )}
 
-        <span style={{ color: "#666", fontSize: "12px", minWidth: "50px" }}>
-          {formatDuration(task.duration)}
-        </span>
-
         <select
           value={task.status}
           onChange={(e) =>
             manager.setStatus(task, e.target.value as Task["status"])
           }
           onClick={(e) => e.stopPropagation()}
-          style={{ fontSize: "12px" }}
+          style={{
+            fontSize: "12px",
+            visibility: isHovered ? "visible" : "hidden",
+          }}
         >
           {statuses.map((s) => (
             <option key={s} value={s}>
@@ -357,6 +357,10 @@ const TaskItem = ({
             </option>
           ))}
         </select>
+
+        <span style={{ color: "#666", fontSize: "12px", minWidth: "50px" }}>
+          {formatDuration(task.duration)}
+        </span>
 
         <button
           onClick={(e) => {
