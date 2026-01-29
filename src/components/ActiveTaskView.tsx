@@ -3,9 +3,16 @@ import type Task from "../types/Task";
 interface ActiveTaskViewProps {
   task: Task | undefined;
   onNotesChange: (task: Task, notes: string) => void;
+  onDone?: () => void;
+  onDeactivate?: () => void;
 }
 
-function ActiveTaskView({ task, onNotesChange }: ActiveTaskViewProps) {
+function ActiveTaskView({
+  task,
+  onNotesChange,
+  onDone,
+  onDeactivate,
+}: ActiveTaskViewProps) {
   if (!task) {
     return <h2 style={{ color: "#888" }}>No active task</h2>;
   }
@@ -19,6 +26,12 @@ function ActiveTaskView({ task, onNotesChange }: ActiveTaskViewProps) {
         placeholder="Notes..."
         style={{ width: "100%", minHeight: "80px", resize: "vertical" }}
       />
+      {(onDone || onDeactivate) && (
+        <div style={{ marginTop: "8px" }}>
+          {onDone && <button onClick={onDone}>Done</button>}
+          {onDeactivate && <button onClick={onDeactivate}>Deactivate</button>}
+        </div>
+      )}
     </div>
   );
 }

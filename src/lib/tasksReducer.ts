@@ -20,7 +20,6 @@ export const createTask = (text: string): Task => {
     notes: "",
     events: [],
     duration: 0,
-    active: false,
     status: "ready",
     id: crypto.randomUUID(),
     order: Date.now(),
@@ -67,18 +66,18 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
     case "REMOVE_TASK":
       return state.filter((t) => t.id !== action.taskId);
     case "NEXT_TASK": {
-      const activeTask = state.find((t) => t.active);
+      const activeTask = state.find((t) => t.status === "active");
 
       const maxWorkingOrder = Math.max(
         ...state.filter((t) => t.status === "working").map((t) => t.order),
         0
       );
 
+      // Move current active task to working status
       const updatedState = state.map((t) => {
-        if (t.active) {
+        if (t.status === "active") {
           return {
             ...t,
-            active: false,
             status: "working" as const,
             order: maxWorkingOrder + 1000,
           };
@@ -86,6 +85,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         return t;
       });
 
+      // Find working tasks to pick next active from
       const workingTasks = updatedState
         .filter((t) => t.status === "working" && t.id !== activeTask?.id)
         .sort((a, b) => a.order - b.order);
@@ -94,9 +94,10 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         return updatedState;
       }
 
+      // Activate the first working task
       return updatedState.map((t) => {
         if (t.id === workingTasks[0].id) {
-          return { ...t, active: true };
+          return { ...t, status: "active" as const };
         }
         return t;
       });
@@ -107,7 +108,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       );
     case "LOG_PAUSE": {
       const updated = state.map((t) =>
-        t.active
+        t.status === "active"
           ? {
               ...t,
               events: [
@@ -121,7 +122,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
     }
     case "LOG_START":
       return state.map((t) =>
-        t.active
+        t.status === "active"
           ? {
               ...t,
               events: [
@@ -150,11 +151,12 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       );
     }
     case "COMPLETE_TASK": {
-      const activeTask = state.find((t) => t.active);
+      const activeTask = state.find((t) => t.status === "active");
       if (!activeTask) return state;
 
+      // Move active task to done
       let updated = state.map((t) =>
-        t.active ? { ...t, active: false, status: "done" as const } : t
+        t.status === "active" ? { ...t, status: "done" as const } : t
       );
 
       let workingTasks = updated
@@ -165,6 +167,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         .filter((t) => t.status === "ready")
         .sort((a, b) => a.order - b.order);
 
+      // Auto-promote a ready task if working queue is low
       if (workingTasks.length < 3 && readyTasks.length > 0) {
         const maxWorkingOrder = Math.max(
           ...updated.filter((t) => t.status === "working").map((t) => t.order),
@@ -182,9 +185,10 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
           .sort((a, b) => a.order - b.order);
       }
 
+      // Activate the first working task
       if (workingTasks.length > 0) {
         updated = updated.map((t) =>
-          t.id === workingTasks[0].id ? { ...t, active: true } : t
+          t.id === workingTasks[0].id ? { ...t, status: "active" as const } : t
         );
       }
 

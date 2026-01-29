@@ -2,11 +2,27 @@ import { useEffect, useReducer } from "react";
 import type Task from "../types/Task";
 import tasksReducer from "../lib/tasksReducer";
 
-const migrateTask = (task: Task, index: number): Task => ({
-  ...task,
-  order: task.order ?? index * 1000,
-  status: task.status ?? "backlog",
-});
+const migrateTask = (task: Task, index: number): Task => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const legacy = task as any;
+  let status = task.status ?? "backlog";
+
+  // Migrate from old active boolean to active status
+  if (legacy.active === true) {
+    status = "active";
+  }
+
+  const migrated: Task = {
+    ...task,
+    order: task.order ?? index * 1000,
+    status,
+  };
+
+  // Remove legacy active field
+  delete (migrated as any).active; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  return migrated;
+};
 
 const useTasks = () => {
   const [tasks, dispatch] = useReducer(
@@ -20,9 +36,10 @@ const useTasks = () => {
   }, [tasks]);
 
   const getActiveTask = (): Task | undefined =>
-    tasks.find((task) => task.active);
+    tasks.find((task) => task.status === "active");
 
-  const getInactiveTasks = (): Task[] => tasks.filter((task) => !task.active);
+  const getInactiveTasks = (): Task[] =>
+    tasks.filter((task) => task.status !== "active");
 
   const getTasksByStatus = (status: string): Task[] =>
     tasks

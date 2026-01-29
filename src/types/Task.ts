@@ -3,8 +3,7 @@ export default interface Task {
   notes: string;
   id: string;
   events: TaskEvent[];
-  active: boolean;
-  status: "backlog" | "ready" | "working" | "done";
+  status: "backlog" | "ready" | "working" | "active" | "done";
   duration: number;
   order: number;
   projectId?: string;

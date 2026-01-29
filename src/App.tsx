@@ -83,12 +83,20 @@ function App() {
       <button onClick={handleContinue}>
         {taskManager.getActiveTask() ? "Next Task >>" : "Begin"}
       </button>
-      {taskManager.getActiveTask() && (
-        <button onClick={handleDone}>Done</button>
-      )}
       <ActiveTaskView
         task={taskManager.getActiveTask()}
         onNotesChange={taskManager.setNotes}
+        onDone={taskManager.getActiveTask() ? handleDone : undefined}
+        onDeactivate={
+          isPaused && taskManager.getActiveTask()
+            ? () => {
+                const active = taskManager.getActiveTask();
+                if (active) {
+                  taskManager.setStatus(active, "working");
+                }
+              }
+            : undefined
+        }
       />
       {isPaused && (
         <TasksView taskManager={taskManager} projectManager={projectManager} />
