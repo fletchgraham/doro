@@ -3,6 +3,12 @@ import getDuration from "./getDuration";
 
 export type TasksAction =
   | { type: "ADD_TASK"; text: string }
+  | {
+      type: "ADD_TASK_WITH_OPTIONS";
+      text: string;
+      status: Task["status"];
+      position: "top" | "bottom";
+    }
   | { type: "REMOVE_TASK"; taskId: string }
   | { type: "NEXT_TASK" }
   | { type: "SET_STATUS"; taskId: string; status: Task["status"] }
@@ -63,6 +69,39 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
   switch (action.type) {
     case "ADD_TASK":
       return [...state, createTask(action.text)];
+    case "ADD_TASK_WITH_OPTIONS": {
+      // Calculate order based on position
+      const statusTasks = state.filter((t) => t.status === action.status);
+      const orders = statusTasks.map((t) => t.order);
+      const minOrder = Math.min(...orders, Date.now());
+      const maxOrder = Math.max(...orders, 0);
+      const order =
+        action.position === "top" ? minOrder - 1000 : maxOrder + 1000;
+
+      const newTask: Task = {
+        ...createTask(action.text),
+        status: action.status,
+        order,
+      };
+
+      // If adding as active, move current active task to working
+      if (action.status === "active") {
+        const maxWorkingOrder = Math.max(
+          ...state.filter((t) => t.status === "working").map((t) => t.order),
+          0
+        );
+        return [
+          ...state.map((t) =>
+            t.status === "active"
+              ? { ...t, status: "working" as const, order: maxWorkingOrder + 1000 }
+              : t
+          ),
+          newTask,
+        ];
+      }
+
+      return [...state, newTask];
+    }
     case "REMOVE_TASK":
       return state.filter((t) => t.id !== action.taskId);
     case "NEXT_TASK": {

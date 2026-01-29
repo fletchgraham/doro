@@ -48,6 +48,12 @@ const useTasks = () => {
 
   const addTask = (text: string) => dispatch({ type: "ADD_TASK", text });
 
+  const addTaskWithOptions = (
+    text: string,
+    status: Task["status"],
+    position: "top" | "bottom"
+  ) => dispatch({ type: "ADD_TASK_WITH_OPTIONS", text, status, position });
+
   const removeTask = (task: Task) =>
     dispatch({ type: "REMOVE_TASK", taskId: task.id });
 
@@ -79,6 +85,7 @@ const useTasks = () => {
     getInactiveTasks,
     getTasksByStatus,
     addTask,
+    addTaskWithOptions,
     removeTask,
     nextTask,
     setNotes,

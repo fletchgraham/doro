@@ -47,3 +47,27 @@ test("next task moves active task to working bucket and activates next working t
   const barTask = updated.find((t) => t.text === "bar");
   expect(barTask?.status).toBe("active");
 });
+
+test("add task with options as active moves current active to working", () => {
+  const tasks: Task[] = [
+    { ...createTask("current"), status: "active", order: 1000 },
+    { ...createTask("waiting"), status: "working", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "ADD_TASK_WITH_OPTIONS",
+    text: "new task",
+    status: "active",
+    position: "bottom",
+  });
+
+  // New task should be active
+  const newTask = updated.find((t) => t.text === "new task");
+  expect(newTask?.status).toBe("active");
+
+  // Old active task should be moved to working
+  const currentTask = updated.find((t) => t.text === "current");
+  expect(currentTask?.status).toBe("working");
+
+  expect(updated.length).toBe(3);
+});

@@ -1,20 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
+import AddTaskModal from "./components/AddTaskModal";
 import useTasks from "./hooks/useTasks";
 import useProjects from "./hooks/useProjects";
 import useTimer from "./hooks/useTimer";
+import type Task from "./types/Task";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
 function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const taskManager = useTasks();
   const projectManager = useProjects();
   const { isPaused, countdownRef, ...timer } = useTimer();
+
+  // 'a' key opens add task modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (e.key === "a" && !isAddModalOpen) {
+        e.preventDefault();
+        setIsAddModalOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAddModalOpen]);
+
+  const handleAddTask = (
+    text: string,
+    status: Task["status"],
+    position: "top" | "bottom"
+  ) => {
+    // If adding as active, handle timer state
+    if (status === "active") {
+      // Pause current active task if exists
+      if (taskManager.getActiveTask()) {
+        taskManager.logPause();
+      }
+      taskManager.addTaskWithOptions(text, status, position);
+      taskManager.logStart();
+      setDate(makeDate(mins));
+      timer.start();
+    } else {
+      taskManager.addTaskWithOptions(text, status, position);
+    }
+  };
 
   const handleReset = () => {
     timer.pauseAudio();
@@ -58,6 +101,7 @@ function App() {
 
   return (
     <main style={{ maxWidth: "32em", width: "100%" }}>
+      <button onClick={() => setIsAddModalOpen(true)}>+ Add Task</button>
       <input
         value={mins}
         onChange={(e) => setMins(Number(e.target.value) | 0)}
@@ -101,6 +145,11 @@ function App() {
       {isPaused && (
         <TasksView taskManager={taskManager} projectManager={projectManager} />
       )}
+      <AddTaskModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={handleAddTask}
+      />
     </main>
   );
 }
