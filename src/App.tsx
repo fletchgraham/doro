@@ -64,6 +64,7 @@ function App() {
     setDate(makeDate(mins));
     timer.pause();
     taskManager.logPause();
+    document.title = `${mins}:00 - Doro`;
   };
 
   const handleComplete = () => {
@@ -116,6 +117,10 @@ function App() {
           autoStart={false}
           date={date}
           onComplete={handleComplete}
+          onTick={({ minutes, seconds }) => {
+            const time = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+            document.title = `${time} - Doro`;
+          }}
         />
       </h1>
       {isPaused ? (
