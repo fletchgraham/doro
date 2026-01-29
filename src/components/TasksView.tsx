@@ -183,6 +183,7 @@ const TaskItem = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectInput, setProjectInput] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
   const project = task.projectId
@@ -233,6 +234,8 @@ const TaskItem = ({
         borderRadius: "6px",
         marginBottom: "4px",
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         onClick={handleClick}
@@ -313,16 +316,6 @@ const TaskItem = ({
           )}
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            manager.removeTask(task);
-          }}
-          style={{ padding: "2px 6px", fontSize: "12px" }}
-        >
-          ×
-        </button>
-
         {isEditing ? (
           <input
             value={editText}
@@ -364,6 +357,22 @@ const TaskItem = ({
             </option>
           ))}
         </select>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`Delete "${task.text}"?`)) {
+              manager.removeTask(task);
+            }
+          }}
+          style={{
+            padding: "2px 6px",
+            fontSize: "12px",
+            visibility: isHovered ? "visible" : "hidden",
+          }}
+        >
+          ×
+        </button>
       </div>
 
       {isExpanded && (
