@@ -169,6 +169,7 @@ function App() {
             ? () => {
                 const active = taskManager.getActiveTask();
                 if (active) {
+                  taskManager.logPause();
                   taskManager.setStatus(active, "working");
                 }
               }
