@@ -129,7 +129,7 @@ function App() {
   };
 
   return (
-    <main style={{ maxWidth: "32em", width: "100%" }}>
+    <main style={{ width: "32em", maxWidth: "100%" }}>
       <button onClick={() => setIsAddModalOpen(true)}>+ Add Task</button>
       <input
         value={mins}
