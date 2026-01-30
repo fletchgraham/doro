@@ -171,10 +171,27 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
             }
           : t,
       );
-    case "SET_STATUS":
+    case "SET_STATUS": {
+      // If setting to active, move current active task to working first
+      if (action.status === "active") {
+        const maxWorkingOrder = Math.max(
+          ...state.filter((t) => t.status === "working").map((t) => t.order),
+          0
+        );
+        return state.map((t) => {
+          if (t.id === action.taskId) {
+            return { ...t, status: "active" as const };
+          }
+          if (t.status === "active") {
+            return { ...t, status: "working" as const, order: maxWorkingOrder + 1000 };
+          }
+          return t;
+        });
+      }
       return state.map((t) =>
         t.id === action.taskId ? { ...t, status: action.status } : t
       );
+    }
     case "SET_TEXT":
       return state.map((t) =>
         t.id === action.taskId ? { ...t, text: action.text } : t

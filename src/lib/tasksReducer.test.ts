@@ -71,3 +71,97 @@ test("add task with options as active moves current active to working", () => {
 
   expect(updated.length).toBe(3);
 });
+
+test("SET_STATUS to active should move current active task to working", () => {
+  const tasks: Task[] = [
+    { ...createTask("current active"), status: "active", order: 1000 },
+    { ...createTask("task to switch to"), status: "working", order: 2000 },
+    { ...createTask("another working"), status: "working", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "SET_STATUS",
+    taskId: tasks[1].id,
+    status: "active",
+  });
+
+  // The switched-to task should be active
+  const switchedTask = updated.find((t) => t.text === "task to switch to");
+  expect(switchedTask?.status).toBe("active");
+
+  // The previously active task should be moved to working
+  const previousActive = updated.find((t) => t.text === "current active");
+  expect(previousActive?.status).toBe("working");
+
+  // There should only be one active task
+  const activeTasks = updated.filter((t) => t.status === "active");
+  expect(activeTasks.length).toBe(1);
+
+  // All tasks should still exist
+  expect(updated.length).toBe(3);
+});
+
+test("SET_STATUS to active when no current active task", () => {
+  const tasks: Task[] = [
+    { ...createTask("task one"), status: "working", order: 1000 },
+    { ...createTask("task two"), status: "ready", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "SET_STATUS",
+    taskId: tasks[0].id,
+    status: "active",
+  });
+
+  // The task should become active
+  const activeTask = updated.find((t) => t.text === "task one");
+  expect(activeTask?.status).toBe("active");
+
+  // There should only be one active task
+  const activeTasks = updated.filter((t) => t.status === "active");
+  expect(activeTasks.length).toBe(1);
+
+  // All tasks should still exist
+  expect(updated.length).toBe(2);
+});
+
+test("switching tasks multiple times preserves all tasks", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "active", order: 1000 },
+    { ...createTask("task B"), status: "working", order: 2000 },
+    { ...createTask("task C"), status: "working", order: 3000 },
+  ];
+
+  // Switch to task B
+  let updated = tasksReducer(tasks, {
+    type: "SET_STATUS",
+    taskId: tasks[1].id,
+    status: "active",
+  });
+
+  expect(updated.length).toBe(3);
+  expect(updated.filter((t) => t.status === "active").length).toBe(1);
+  expect(updated.find((t) => t.text === "task B")?.status).toBe("active");
+
+  // Switch to task C
+  updated = tasksReducer(updated, {
+    type: "SET_STATUS",
+    taskId: tasks[2].id,
+    status: "active",
+  });
+
+  expect(updated.length).toBe(3);
+  expect(updated.filter((t) => t.status === "active").length).toBe(1);
+  expect(updated.find((t) => t.text === "task C")?.status).toBe("active");
+
+  // Switch back to task A
+  updated = tasksReducer(updated, {
+    type: "SET_STATUS",
+    taskId: tasks[0].id,
+    status: "active",
+  });
+
+  expect(updated.length).toBe(3);
+  expect(updated.filter((t) => t.status === "active").length).toBe(1);
+  expect(updated.find((t) => t.text === "task A")?.status).toBe("active");
+});

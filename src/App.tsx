@@ -4,6 +4,7 @@ import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
 import AddTaskModal from "./components/AddTaskModal";
+import SwitchTaskModal from "./components/SwitchTaskModal";
 import useTasks from "./hooks/useTasks";
 import useProjects from "./hooks/useProjects";
 import useTimer from "./hooks/useTimer";
@@ -15,11 +16,12 @@ function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const taskManager = useTasks();
   const projectManager = useProjects();
   const { isPaused, countdownRef, ...timer } = useTimer();
 
-  // 'a' key opens add task modal
+  // Keyboard shortcuts for modals
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if typing in an input
@@ -30,14 +32,17 @@ function App() {
       ) {
         return;
       }
-      if (e.key === "a" && !isAddModalOpen) {
+      if (e.key === "a" && !isAddModalOpen && !isSwitchModalOpen) {
         e.preventDefault();
         setIsAddModalOpen(true);
+      } else if (e.key === "s" && !isAddModalOpen && !isSwitchModalOpen) {
+        e.preventDefault();
+        setIsSwitchModalOpen(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isAddModalOpen]);
+  }, [isAddModalOpen, isSwitchModalOpen]);
 
   const handleAddTask = (
     text: string,
@@ -88,6 +93,29 @@ function App() {
   const handleStart = () => {
     timer.start();
     taskManager.logStart();
+  };
+
+  const handleSwitchTask = (task: Task) => {
+    // Pause current active task if exists
+    if (taskManager.getActiveTask()) {
+      taskManager.logPause();
+    }
+    // Set the selected task as active
+    taskManager.setStatus(task, "active");
+    taskManager.logStart();
+    setDate(makeDate(mins));
+    timer.start();
+  };
+
+  const handleCreateAndStart = (text: string) => {
+    // Pause current active task if exists
+    if (taskManager.getActiveTask()) {
+      taskManager.logPause();
+    }
+    taskManager.addTaskWithOptions(text, "active", "bottom");
+    taskManager.logStart();
+    setDate(makeDate(mins));
+    timer.start();
   };
 
   const handleDone = () => {
@@ -154,6 +182,13 @@ function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddTask}
+      />
+      <SwitchTaskModal
+        isOpen={isSwitchModalOpen}
+        onClose={() => setIsSwitchModalOpen(false)}
+        tasks={taskManager.tasks}
+        onSwitch={handleSwitchTask}
+        onCreate={handleCreateAndStart}
       />
     </main>
   );
