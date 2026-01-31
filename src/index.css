@@ -3,9 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Preserve body centering */
 body {
-  @apply m-0 flex justify-center items-start min-w-80 min-h-screen;
+  @apply m-0 min-h-screen;
 }
 
 @theme inline {
@@ -120,13 +119,15 @@ body {
 
 @layer base {
   html {
-    /* Prevent layout shift when modals open by always showing scrollbar */
-    overflow-y: scroll;
+    scrollbar-gutter: stable;
   }
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
 }
