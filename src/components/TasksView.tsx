@@ -417,6 +417,8 @@ const TaskItemOverlay = ({
 
   return (
     <div className="list-none rounded-md bg-background border border-border shadow-lg p-2 px-3 flex items-center gap-2">
+      {/* Placeholder for expand button */}
+      <div className="size-6 shrink-0" />
       <div
         className="w-4 h-4 rounded-full border border-muted-foreground shrink-0"
         style={{ backgroundColor: project?.color || "#ccc" }}
@@ -428,6 +430,8 @@ const TaskItemOverlay = ({
       <span className="text-muted-foreground text-xs min-w-[50px] text-right">
         {formatDuration(task.duration)}
       </span>
+      {/* Placeholder for delete button */}
+      <div className="size-6 shrink-0" />
     </div>
   );
 };
