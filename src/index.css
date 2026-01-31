@@ -119,6 +119,10 @@ body {
 }
 
 @layer base {
+  html {
+    /* Prevent layout shift when modals open by always showing scrollbar */
+    overflow-y: scroll;
+  }
   * {
     @apply border-border outline-ring/50;
   }

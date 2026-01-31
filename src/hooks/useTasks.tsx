@@ -71,6 +71,9 @@ const useTasks = () => {
   const setProject = (task: Task, projectId: string | undefined) =>
     dispatch({ type: "SET_PROJECT", taskId: task.id, projectId });
 
+  const setEstimate = (task: Task, estimate: number | undefined) =>
+    dispatch({ type: "SET_ESTIMATE", taskId: task.id, estimate });
+
   const reorderTask = (task: Task, direction: "up" | "down") =>
     dispatch({ type: "REORDER_TASK", taskId: task.id, direction });
 
@@ -92,6 +95,7 @@ const useTasks = () => {
     setText,
     setStatus,
     setProject,
+    setEstimate,
     reorderTask,
     completeTask,
     logStart,

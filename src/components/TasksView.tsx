@@ -1,11 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type Task from "../types/Task";
 import type Project from "../types/Project";
 import { formatDuration } from "../lib/formatDuration";
+import { parseTime, formatEstimate } from "../lib/parseTime";
+import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
 import { PROJECT_COLORS } from "../hooks/useProjects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -31,6 +34,7 @@ interface TaskManager {
   setText: (task: Task, text: string) => void;
   setStatus: (task: Task, status: Task["status"]) => void;
   setProject: (task: Task, projectId: string | undefined) => void;
+  setEstimate: (task: Task, estimate: number | undefined) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
 }
 
@@ -53,6 +57,24 @@ function TasksView({
   onSelectTask: (taskId: string | null) => void;
 }) {
   const [newTask, setNewTask] = useState("");
+  const [timeBudgetInput, setTimeBudgetInput] = useState("");
+  const [timeBudget, setTimeBudget] = useState<number>(0);
+  const [showAccomplishable, setShowAccomplishable] = useState(false);
+
+  // Get tasks in display order for accomplishable calculation
+  const orderedTasks = useMemo(() => {
+    const working = taskManager.getTasksByStatus("working");
+    const ready = taskManager.getTasksByStatus("ready");
+    return [...working, ...ready];
+  }, [taskManager]);
+
+  // Calculate accomplishable map
+  const accomplishableMap = useMemo(() => {
+    if (!showAccomplishable || timeBudget <= 0) {
+      return new Map<string, AccomplishableResult>();
+    }
+    return getAccomplishable(orderedTasks, timeBudget);
+  }, [orderedTasks, timeBudget, showAccomplishable]);
 
   const exportTasks = () => {
     const lines: string[] = [];
@@ -117,8 +139,38 @@ function TasksView({
     }
   };
 
+  const handleTimeBudgetBlur = () => {
+    const parsed = parseTime(timeBudgetInput);
+    setTimeBudget(parsed ?? 0);
+  };
+
   return (
     <div>
+      {/* Time budget controls */}
+      <div className="flex items-center gap-4 mt-6 mb-4 p-3 bg-muted/50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted-foreground whitespace-nowrap">
+            Time left:
+          </label>
+          <Input
+            value={timeBudgetInput}
+            onChange={(e) => setTimeBudgetInput(e.target.value)}
+            onBlur={handleTimeBudgetBlur}
+            onKeyDown={(e) => e.key === "Enter" && handleTimeBudgetBlur()}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="e.g., 3h"
+            className="w-24 h-8"
+          />
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <Switch
+            checked={showAccomplishable}
+            onCheckedChange={setShowAccomplishable}
+          />
+          <span className="text-sm">Show accomplishable</span>
+        </label>
+      </div>
+
       <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>
       <ul className="space-y-1 p-0">
         {taskManager.getTasksByStatus("working").map((task: Task) => (
@@ -129,6 +181,8 @@ function TasksView({
             projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
             onSelect={(id) => onSelectTask(id)}
+            accomplishable={accomplishableMap.get(task.id)}
+            showAccomplishable={showAccomplishable}
           />
         ))}
       </ul>
@@ -142,6 +196,8 @@ function TasksView({
             projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
             onSelect={(id) => onSelectTask(id)}
+            accomplishable={accomplishableMap.get(task.id)}
+            showAccomplishable={showAccomplishable}
           />
         ))}
       </ul>
@@ -169,6 +225,7 @@ function TasksView({
             projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
             onSelect={(id) => onSelectTask(id)}
+            showAccomplishable={false}
           />
         ))}
       </ul>
@@ -192,6 +249,8 @@ interface TaskItemProps {
   projectManager: ProjectManager;
   isSelected: boolean;
   onSelect: (taskId: string) => void;
+  accomplishable?: AccomplishableResult;
+  showAccomplishable: boolean;
 }
 
 const TaskItem = ({
@@ -200,11 +259,16 @@ const TaskItem = ({
   projectManager,
   isSelected,
   onSelect,
+  accomplishable,
+  showAccomplishable,
 }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectInput, setProjectInput] = useState("");
+  const [estimateInput, setEstimateInput] = useState("");
+  const [isEditingEstimate, setIsEditingEstimate] = useState(false);
+  const [inlineEstimateInput, setInlineEstimateInput] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
@@ -248,13 +312,50 @@ const TaskItem = ({
     setIsExpanded(!isExpanded);
   };
 
+  const handleEstimateBlur = () => {
+    const parsed = parseTime(estimateInput);
+    manager.setEstimate(task, parsed ?? undefined);
+    setEstimateInput("");
+  };
+
+  const handleInlineEstimateClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingEstimate(true);
+    setInlineEstimateInput(formatEstimate(task.estimate) || "");
+  };
+
+  const handleInlineEstimateBlur = () => {
+    const parsed = parseTime(inlineEstimateInput);
+    if (parsed !== null) {
+      manager.setEstimate(task, parsed);
+    }
+    setIsEditingEstimate(false);
+    setInlineEstimateInput("");
+  };
+
+  const handleInlineEstimateKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleInlineEstimateBlur();
+    } else if (e.key === "Escape") {
+      setIsEditingEstimate(false);
+      setInlineEstimateInput("");
+    }
+  };
+
+  // Determine background color based on accomplishable status
+  const getAccomplishableClasses = () => {
+    if (!showAccomplishable || !accomplishable) return "";
+    return accomplishable.isAccomplishable
+      ? "bg-green-100 dark:bg-green-900/30"
+      : "bg-red-100 dark:bg-red-900/30";
+  };
+
   return (
     <li
       className={cn(
         "list-none rounded-md mb-1 group",
-        isSelected
-          ? "bg-accent border-2 border-ring"
-          : "bg-transparent border-2 border-transparent"
+        isSelected ? "ring-2 ring-ring" : "",
+        getAccomplishableClasses()
       )}
     >
       <div
@@ -330,6 +431,28 @@ const TaskItem = ({
           </span>
         )}
 
+        {/* Inline editable estimate */}
+        {isEditingEstimate ? (
+          <Input
+            value={inlineEstimateInput}
+            onChange={(e) => setInlineEstimateInput(e.target.value)}
+            onBlur={handleInlineEstimateBlur}
+            onKeyDown={handleInlineEstimateKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            autoFocus
+            className="w-16 h-6 text-xs px-1.5"
+            placeholder="20m"
+          />
+        ) : (
+          <span
+            onClick={handleInlineEstimateClick}
+            className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded cursor-text hover:bg-muted/80 min-w-[3rem] text-center"
+            title="Click to edit estimate"
+          >
+            {formatEstimate(task.estimate) || "—"}
+          </span>
+        )}
+
         <Select
           value={task.status}
           onValueChange={(value) =>
@@ -372,7 +495,7 @@ const TaskItem = ({
 
       {isExpanded && (
         <div className="px-3 pb-3 pl-10">
-          <div className="mb-2">
+          <div className="mb-2 flex gap-4">
             <label className="text-xs text-muted-foreground flex items-center gap-2">
               Project:
               <Input
@@ -405,6 +528,25 @@ const TaskItem = ({
                 }}
                 onClick={(e) => e.stopPropagation()}
                 className="w-32 h-7 text-xs"
+              />
+            </label>
+            <label className="text-xs text-muted-foreground flex items-center gap-2">
+              Estimate:
+              <Input
+                type="text"
+                value={estimateInput}
+                placeholder={formatEstimate(task.estimate) || "e.g., 20m"}
+                onChange={(e) => setEstimateInput(e.target.value)}
+                onBlur={handleEstimateBlur}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleEstimateBlur();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-24 h-7 text-xs"
               />
             </label>
           </div>

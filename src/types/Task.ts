@@ -7,6 +7,7 @@ export default interface Task {
   duration: number;
   order: number;
   projectId?: string;
+  estimate?: number;
 }
 
 interface TaskEvent {

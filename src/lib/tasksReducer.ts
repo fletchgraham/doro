@@ -15,10 +15,13 @@ export type TasksAction =
   | { type: "SET_NOTES"; taskId: string; text: string }
   | { type: "SET_TEXT"; taskId: string; text: string }
   | { type: "SET_PROJECT"; taskId: string; projectId: string | undefined }
+  | { type: "SET_ESTIMATE"; taskId: string; estimate: number | undefined }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
   | { type: "COMPLETE_TASK" }
   | { type: "LOG_START" }
   | { type: "LOG_PAUSE" };
+
+const DEFAULT_ESTIMATE = 20 * 60 * 1000; // 20 minutes
 
 export const createTask = (text: string): Task => {
   return {
@@ -29,6 +32,7 @@ export const createTask = (text: string): Task => {
     status: "ready",
     id: crypto.randomUUID(),
     order: Date.now(),
+    estimate: DEFAULT_ESTIMATE,
   };
 };
 
@@ -199,6 +203,10 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
     case "SET_PROJECT":
       return state.map((t) =>
         t.id === action.taskId ? { ...t, projectId: action.projectId } : t
+      );
+    case "SET_ESTIMATE":
+      return state.map((t) =>
+        t.id === action.taskId ? { ...t, estimate: action.estimate } : t
       );
     case "REORDER_TASK": {
       const newOrder = calculateNewOrder(state, action.taskId, action.direction);
