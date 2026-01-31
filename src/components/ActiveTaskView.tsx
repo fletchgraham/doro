@@ -3,6 +3,7 @@ import type Task from "../types/Task";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatEstimate } from "@/lib/parseTime";
 
 interface ActiveTaskViewProps {
   task: Task | undefined;
@@ -57,23 +58,30 @@ function ActiveTaskView({
 
   return (
     <div className="mt-6">
-      {isEditing ? (
-        <Input
-          ref={inputRef}
-          value={editText}
-          onChange={(e) => setEditText(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          className="text-2xl font-semibold h-auto py-1 mb-3"
-        />
-      ) : (
-        <h2
-          className="text-2xl font-semibold mb-3 cursor-text hover:bg-muted/50 rounded px-1 -mx-1"
-          onClick={handleStartEdit}
-        >
-          {task.text}
-        </h2>
-      )}
+      <div className="flex items-baseline gap-3 mb-3">
+        {isEditing ? (
+          <Input
+            ref={inputRef}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className="text-2xl font-semibold h-auto py-1 flex-1"
+          />
+        ) : (
+          <h2
+            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1"
+            onClick={handleStartEdit}
+          >
+            {task.text}
+          </h2>
+        )}
+        {task.duration > 0 && (
+          <span className="text-lg text-muted-foreground">
+            {formatEstimate(task.duration)}
+          </span>
+        )}
+      </div>
       <Textarea
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}
