@@ -108,6 +108,7 @@ function App() {
   };
 
   const handleContinue = () => {
+    timer.pauseAudio();
     taskManager.logPause();
     taskManager.nextTask();
     taskManager.logStart();
