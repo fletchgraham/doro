@@ -178,6 +178,7 @@ function App() {
       <ActiveTaskView
         task={taskManager.getActiveTask()}
         onNotesChange={taskManager.setNotes}
+        onTextChange={taskManager.setText}
         onDone={taskManager.getActiveTask() ? handleDone : undefined}
         onDeactivate={
           isPaused && taskManager.getActiveTask()

@@ -1,10 +1,13 @@
+import { useState, useRef, useEffect } from "react";
 import type Task from "../types/Task";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface ActiveTaskViewProps {
   task: Task | undefined;
   onNotesChange: (task: Task, notes: string) => void;
+  onTextChange: (task: Task, text: string) => void;
   onDone?: () => void;
   onDeactivate?: () => void;
 }
@@ -12,16 +15,65 @@ interface ActiveTaskViewProps {
 function ActiveTaskView({
   task,
   onNotesChange,
+  onTextChange,
   onDone,
   onDeactivate,
 }: ActiveTaskViewProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
   if (!task) {
     return <h2 className="text-2xl font-semibold text-muted-foreground mt-6">No active task</h2>;
   }
 
+  const handleStartEdit = () => {
+    setEditText(task.text);
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    const trimmed = editText.trim();
+    if (trimmed && trimmed !== task.text) {
+      onTextChange(task, trimmed);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      setIsEditing(false);
+    }
+  };
+
   return (
     <div className="mt-6">
-      <h2 className="text-2xl font-semibold mb-3">{task.text}</h2>
+      {isEditing ? (
+        <Input
+          ref={inputRef}
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className="text-2xl font-semibold h-auto py-1 mb-3"
+        />
+      ) : (
+        <h2
+          className="text-2xl font-semibold mb-3 cursor-text hover:bg-muted/50 rounded px-1 -mx-1"
+          onClick={handleStartEdit}
+        >
+          {task.text}
+        </h2>
+      )}
       <Textarea
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}
