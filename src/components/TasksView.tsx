@@ -22,7 +22,6 @@ import {
   closestCenter,
   PointerSensor,
   TouchSensor,
-  KeyboardSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -33,7 +32,6 @@ import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
-  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import type { DraggableSyntheticListeners, DraggableAttributes } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -81,6 +79,7 @@ function TasksView({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Configure sensors for drag detection
+  // Note: KeyboardSensor removed to avoid conflicts with existing arrow key reordering
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -92,9 +91,6 @@ function TasksView({
         delay: 200, // 200ms delay prevents scroll conflicts on touch
         tolerance: 5,
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
