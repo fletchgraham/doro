@@ -141,4 +141,36 @@ describe("getAccomplishable", () => {
     expect(result.get("3")?.isAccomplishable).toBe(true);
     expect(result.get("4")?.isAccomplishable).toBe(true);
   });
+
+  it("user scenario: 1h budget with 5x20m, 1x10m, 1x5m tasks", () => {
+    const tasks = [
+      createTestTask("1", 20 * MINUTE),
+      createTestTask("2", 20 * MINUTE),
+      createTestTask("3", 20 * MINUTE),
+      createTestTask("4", 20 * MINUTE),
+      createTestTask("5", 20 * MINUTE),
+      createTestTask("6", 10 * MINUTE),
+      createTestTask("7", 5 * MINUTE),
+    ];
+    // Total: 115 minutes. With 1 hour budget, only first 3 (60 min) should be green
+    const result = getAccomplishable(tasks, HOUR);
+
+    // Verify cumulative values
+    expect(result.get("1")?.cumulativeWork).toBe(20 * MINUTE);
+    expect(result.get("2")?.cumulativeWork).toBe(40 * MINUTE);
+    expect(result.get("3")?.cumulativeWork).toBe(60 * MINUTE);
+    expect(result.get("4")?.cumulativeWork).toBe(80 * MINUTE);
+    expect(result.get("5")?.cumulativeWork).toBe(100 * MINUTE);
+    expect(result.get("6")?.cumulativeWork).toBe(110 * MINUTE);
+    expect(result.get("7")?.cumulativeWork).toBe(115 * MINUTE);
+
+    // First 3 tasks fit in 60 minutes, rest don't
+    expect(result.get("1")?.isAccomplishable).toBe(true);
+    expect(result.get("2")?.isAccomplishable).toBe(true);
+    expect(result.get("3")?.isAccomplishable).toBe(true);
+    expect(result.get("4")?.isAccomplishable).toBe(false);
+    expect(result.get("5")?.isAccomplishable).toBe(false);
+    expect(result.get("6")?.isAccomplishable).toBe(false);
+    expect(result.get("7")?.isAccomplishable).toBe(false);
+  });
 });
