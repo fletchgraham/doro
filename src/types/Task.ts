@@ -6,7 +6,7 @@ export default interface Task {
   status: "backlog" | "ready" | "working" | "active" | "done";
   duration: number;
   order: number;
-  projectId?: string;
+  color?: string;
   estimate?: number;
 }
 

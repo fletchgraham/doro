@@ -5,7 +5,6 @@ import TasksView from "./components/TasksView";
 import AddTaskModal from "./components/AddTaskModal";
 import SwitchTaskModal from "./components/SwitchTaskModal";
 import useTasks from "./hooks/useTasks";
-import useProjects from "./hooks/useProjects";
 import useTimer from "./hooks/useTimer";
 import type Task from "./types/Task";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,6 @@ function App() {
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const taskManager = useTasks();
-  const projectManager = useProjects();
   const { isPaused, countdownRef, ...timer } = useTimer();
 
   // Keyboard shortcuts for modals
@@ -223,7 +221,6 @@ function App() {
       {isPaused && (
         <TasksView
           taskManager={taskManager}
-          projectManager={projectManager}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
         />

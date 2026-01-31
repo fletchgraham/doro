@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import type Task from "../types/Task";
-import type Project from "../types/Project";
 import { formatDuration } from "../lib/formatDuration";
 import { parseTime, formatEstimate } from "../lib/parseTime";
 import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
-import { PROJECT_COLORS } from "../hooks/useProjects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +34,17 @@ import {
 import type { DraggableSyntheticListeners, DraggableAttributes } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 
+// Task colors (Tailwind 400-level)
+const TASK_COLORS = [
+  { name: "gray", hex: "#9ca3af" },
+  { name: "red", hex: "#f87171" },
+  { name: "orange", hex: "#fb923c" },
+  { name: "yellow", hex: "#facc15" },
+  { name: "green", hex: "#4ade80" },
+  { name: "blue", hex: "#60a5fa" },
+  { name: "purple", hex: "#c084fc" },
+];
+
 interface TaskManager {
   tasks: Task[];
   getActiveTask: () => Task | undefined;
@@ -46,29 +55,20 @@ interface TaskManager {
   setNotes: (task: Task, text: string) => void;
   setText: (task: Task, text: string) => void;
   setStatus: (task: Task, status: Task["status"]) => void;
-  setProject: (task: Task, projectId: string | undefined) => void;
+  setColor: (task: Task, color: string | undefined) => void;
   setEstimate: (task: Task, estimate: number | undefined) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
   moveTask: (task: Task, toStatus: Task["status"], newOrder: number) => void;
-}
-
-interface ProjectManager {
-  projects: Project[];
-  getOrCreateProject: (name: string) => Project;
-  getProjectById: (projectId: string) => Project | undefined;
-  updateProject: (projectId: string, updates: Partial<Project>) => void;
 }
 
 type DroppableStatus = "working" | "ready" | "done";
 
 function TasksView({
   taskManager,
-  projectManager,
   selectedTaskId,
   onSelectTask,
 }: {
   taskManager: TaskManager;
-  projectManager: ProjectManager;
   selectedTaskId: string | null;
   onSelectTask: (taskId: string | null) => void;
 }) {
@@ -164,13 +164,7 @@ function TasksView({
 
       lines.push(status);
       for (const task of tasks) {
-        const project = task.projectId
-          ? projectManager.getProjectById(task.projectId)
-          : undefined;
         lines.push(`\t${task.text}`);
-        if (project) {
-          lines.push(`\t\tproject: ${project.name}`);
-        }
         if (task.duration > 0) {
           lines.push(`\t\tduration: ${formatDuration(task.duration)}`);
         }
@@ -317,7 +311,6 @@ function TasksView({
                 key={task.id}
                 task={task}
                 manager={taskManager}
-                projectManager={projectManager}
                 isSelected={selectedTaskId === task.id}
                 onSelect={(id) => onSelectTask(id)}
                 accomplishable={accomplishableMap.get(task.id)}
@@ -339,7 +332,6 @@ function TasksView({
                 key={task.id}
                 task={task}
                 manager={taskManager}
-                projectManager={projectManager}
                 isSelected={selectedTaskId === task.id}
                 onSelect={(id) => onSelectTask(id)}
                 accomplishable={accomplishableMap.get(task.id)}
@@ -376,7 +368,6 @@ function TasksView({
                 key={task.id}
                 task={task}
                 manager={taskManager}
-                projectManager={projectManager}
                 isSelected={selectedTaskId === task.id}
                 onSelect={(id) => onSelectTask(id)}
                 showAccomplishable={false}
@@ -390,20 +381,10 @@ function TasksView({
             Export to Clipboard
           </Button>
         </div>
-        <datalist id="doro-projects">
-          {projectManager.projects.map((p) => (
-            <option key={p.id} value={p.name} />
-          ))}
-        </datalist>
       </div>
 
       <DragOverlay>
-        {activeTask ? (
-          <TaskItemOverlay
-            task={activeTask}
-            projectManager={projectManager}
-          />
-        ) : null}
+        {activeTask ? <TaskItemOverlay task={activeTask} /> : null}
       </DragOverlay>
     </DndContext>
   );
@@ -412,7 +393,6 @@ function TasksView({
 interface TaskItemProps {
   task: Task;
   manager: TaskManager;
-  projectManager: ProjectManager;
   isSelected: boolean;
   onSelect: (taskId: string) => void;
   accomplishable?: AccomplishableResult;
@@ -420,24 +400,14 @@ interface TaskItemProps {
 }
 
 // Drag overlay component - simplified preview shown during drag
-const TaskItemOverlay = ({
-  task,
-  projectManager,
-}: {
-  task: Task;
-  projectManager: ProjectManager;
-}) => {
-  const project = task.projectId
-    ? projectManager.getProjectById(task.projectId)
-    : undefined;
-
+const TaskItemOverlay = ({ task }: { task: Task }) => {
   return (
     <div className="list-none rounded-md bg-background border border-border shadow-lg p-2 px-3 flex items-center gap-2">
       {/* Placeholder for expand button */}
       <div className="size-6 shrink-0" />
       <div
-        className="w-4 h-4 rounded-full border border-muted-foreground shrink-0"
-        style={{ backgroundColor: project?.color || "#ccc" }}
+        className="w-3 h-3 rounded-full shrink-0"
+        style={{ backgroundColor: task.color || "#9ca3af" }}
       />
       <span className="flex-1">{task.text}</span>
       <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded min-w-[3rem] text-center">
@@ -515,7 +485,6 @@ interface TaskItemInternalProps extends TaskItemProps {
 const TaskItem = ({
   task,
   manager,
-  projectManager,
   isSelected,
   onSelect,
   accomplishable,
@@ -529,15 +498,9 @@ const TaskItem = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [projectInput, setProjectInput] = useState("");
-  const [estimateInput, setEstimateInput] = useState("");
   const [isEditingEstimate, setIsEditingEstimate] = useState(false);
   const [inlineEstimateInput, setInlineEstimateInput] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
-
-  const project = task.projectId
-    ? projectManager.getProjectById(task.projectId)
-    : undefined;
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -573,12 +536,6 @@ const TaskItem = ({
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
-  };
-
-  const handleEstimateBlur = () => {
-    const parsed = parseTime(estimateInput);
-    manager.setEstimate(task, parsed ?? undefined);
-    setEstimateInput("");
   };
 
   const handleInlineEstimateClick = (e: React.MouseEvent) => {
@@ -648,35 +605,30 @@ const TaskItem = ({
             <button
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
-              className="w-4 h-4 rounded-full border border-muted-foreground cursor-pointer p-0 shrink-0"
-              style={{ backgroundColor: project?.color || "#ccc" }}
-              title={project?.name || "No project"}
+              className="w-3 h-3 rounded-full cursor-pointer p-0 shrink-0 hover:ring-2 hover:ring-ring hover:ring-offset-1"
+              style={{ backgroundColor: task.color || "#9ca3af" }}
             />
           </PopoverTrigger>
-          {project && (
-            <PopoverContent className="w-auto p-2" align="start">
-              <div className="flex gap-1">
-                {PROJECT_COLORS.map((c) => (
-                  <button
-                    key={c.hex}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      projectManager.updateProject(project.id, { color: c.hex });
-                      setColorPickerOpen(false);
-                    }}
-                    className={cn(
-                      "w-4 h-4 rounded-full cursor-pointer p-0",
-                      c.hex === project.color
-                        ? "border-2 border-foreground"
-                        : "border border-muted-foreground"
-                    )}
-                    style={{ backgroundColor: c.hex }}
-                    title={c.name}
-                  />
-                ))}
-              </div>
-            </PopoverContent>
-          )}
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="flex gap-1.5">
+              {TASK_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    manager.setColor(task, c.hex);
+                    setColorPickerOpen(false);
+                  }}
+                  className={cn(
+                    "w-6 h-6 rounded-full cursor-pointer p-0 hover:scale-110 transition-transform",
+                    c.hex === task.color && "ring-2 ring-ring ring-offset-2"
+                  )}
+                  style={{ backgroundColor: c.hex }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          </PopoverContent>
         </Popover>
 
         {isEditing ? (
@@ -749,63 +701,6 @@ const TaskItem = ({
 
       {isExpanded && (
         <div className="px-3 pb-3 pl-10">
-          <div className="mb-2 flex gap-4">
-            <label className="text-xs text-muted-foreground flex items-center gap-2">
-              Project:
-              <Input
-                type="text"
-                list="doro-projects"
-                value={projectInput}
-                placeholder={project?.name || "none"}
-                onChange={(e) => setProjectInput(e.target.value)}
-                onBlur={() => {
-                  if (projectInput.trim()) {
-                    const p = projectManager.getOrCreateProject(
-                      projectInput.trim()
-                    );
-                    manager.setProject(task, p.id);
-                  }
-                  setProjectInput("");
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (projectInput.trim()) {
-                      const p = projectManager.getOrCreateProject(
-                        projectInput.trim()
-                      );
-                      manager.setProject(task, p.id);
-                    }
-                    setProjectInput("");
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="w-32 h-7 text-xs"
-              />
-            </label>
-            <label className="text-xs text-muted-foreground flex items-center gap-2">
-              Estimate:
-              <Input
-                type="text"
-                value={estimateInput}
-                placeholder={formatEstimate(task.estimate) || "e.g., 20m"}
-                onChange={(e) => setEstimateInput(e.target.value)}
-                onBlur={handleEstimateBlur}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleEstimateBlur();
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="w-24 h-7 text-xs"
-              />
-            </label>
-          </div>
           <Textarea
             value={task.notes}
             onChange={(e) => manager.setNotes(task, e.target.value)}

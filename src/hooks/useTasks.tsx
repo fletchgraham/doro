@@ -84,8 +84,8 @@ const useTasks = () => {
   const setText = (task: Task, text: string) =>
     dispatch({ type: "SET_TEXT", taskId: task.id, text });
 
-  const setProject = (task: Task, projectId: string | undefined) =>
-    dispatch({ type: "SET_PROJECT", taskId: task.id, projectId });
+  const setColor = (task: Task, color: string | undefined) =>
+    dispatch({ type: "SET_COLOR", taskId: task.id, color });
 
   const setEstimate = (task: Task, estimate: number | undefined) =>
     dispatch({ type: "SET_ESTIMATE", taskId: task.id, estimate });
@@ -113,7 +113,7 @@ const useTasks = () => {
     setNotes,
     setText,
     setStatus,
-    setProject,
+    setColor,
     setEstimate,
     reorderTask,
     moveTask,

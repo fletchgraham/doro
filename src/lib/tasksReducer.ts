@@ -15,7 +15,7 @@ export type TasksAction =
   | { type: "SET_STATUS"; taskId: string; status: Task["status"] }
   | { type: "SET_NOTES"; taskId: string; text: string }
   | { type: "SET_TEXT"; taskId: string; text: string }
-  | { type: "SET_PROJECT"; taskId: string; projectId: string | undefined }
+  | { type: "SET_COLOR"; taskId: string; color: string | undefined }
   | { type: "SET_ESTIMATE"; taskId: string; estimate: number | undefined }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
   | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
@@ -203,9 +203,9 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       return state.map((t) =>
         t.id === action.taskId ? { ...t, text: action.text } : t
       );
-    case "SET_PROJECT":
+    case "SET_COLOR":
       return state.map((t) =>
-        t.id === action.taskId ? { ...t, projectId: action.projectId } : t
+        t.id === action.taskId ? { ...t, color: action.color } : t
       );
     case "SET_ESTIMATE":
       return state.map((t) =>
