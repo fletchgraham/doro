@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  rectIntersection,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -255,7 +255,7 @@ function TasksView({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={rectIntersection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
