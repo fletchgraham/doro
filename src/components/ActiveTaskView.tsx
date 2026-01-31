@@ -56,8 +56,13 @@ function ActiveTaskView({
     }
   };
 
+  const bgColor = task.color || "#9ca3af";
+
   return (
-    <div className="mt-6">
+    <div
+      className="mt-6 p-4 rounded-lg"
+      style={{ backgroundColor: `${bgColor}20` }}
+    >
       <div className="flex items-baseline gap-3 mb-3">
         {isEditing ? (
           <Input
@@ -86,7 +91,7 @@ function ActiveTaskView({
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}
         placeholder="Notes..."
-        className="min-h-[80px] resize-y"
+        className="min-h-[80px] resize-y bg-white"
       />
       {(onDone || onDeactivate) && (
         <div className="mt-2 flex gap-2">
