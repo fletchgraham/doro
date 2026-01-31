@@ -66,8 +66,9 @@ const useTasks = () => {
   const addTaskWithOptions = (
     text: string,
     status: Task["status"],
-    position: "top" | "bottom"
-  ) => dispatch({ type: "ADD_TASK_WITH_OPTIONS", text, status, position });
+    position: "top" | "bottom",
+    estimate?: number
+  ) => dispatch({ type: "ADD_TASK_WITH_OPTIONS", text, status, position, estimate });
 
   const removeTask = (task: Task) =>
     dispatch({ type: "REMOVE_TASK", taskId: task.id });

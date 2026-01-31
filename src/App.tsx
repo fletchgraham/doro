@@ -50,7 +50,8 @@ function App() {
   const handleAddTask = (
     text: string,
     status: Task["status"],
-    position: "top" | "bottom"
+    position: "top" | "bottom",
+    estimate?: number
   ) => {
     // If adding as active, handle timer state
     if (status === "active") {
@@ -58,12 +59,12 @@ function App() {
       if (taskManager.getActiveTask()) {
         taskManager.logPause();
       }
-      taskManager.addTaskWithOptions(text, status, position);
+      taskManager.addTaskWithOptions(text, status, position, estimate);
       taskManager.logStart();
       setDate(makeDate(mins));
       timer.start();
     } else {
-      taskManager.addTaskWithOptions(text, status, position);
+      taskManager.addTaskWithOptions(text, status, position, estimate);
     }
   };
 
