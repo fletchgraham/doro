@@ -1,6 +1,8 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import type Task from "../types/Task";
 import tasksReducer from "../lib/tasksReducer";
+
+const STORAGE_DEBOUNCE_MS = 500;
 
 const migrateTask = (task: Task, index: number): Task => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,9 +32,22 @@ const useTasks = () => {
     JSON.parse(localStorage.getItem("doroTasks") || "[]"),
     (initial: Task[]) => initial.map(migrateTask)
   );
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Debounce localStorage writes to reduce lag during rapid updates (e.g., typing notes)
   useEffect(() => {
-    localStorage.setItem("doroTasks", JSON.stringify(tasks));
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      localStorage.setItem("doroTasks", JSON.stringify(tasks));
+    }, STORAGE_DEBOUNCE_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [tasks]);
 
   const getActiveTask = (): Task | undefined =>
