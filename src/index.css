@@ -5,7 +5,7 @@
 
 /* Preserve body centering */
 body {
-  @apply m-0 flex justify-center items-start min-w-80 min-h-screen pt-8;
+  @apply m-0 flex justify-center items-start min-w-80 min-h-screen;
 }
 
 @theme inline {
