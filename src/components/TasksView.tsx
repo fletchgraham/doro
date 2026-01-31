@@ -44,12 +44,15 @@ interface ProjectManager {
 function TasksView({
   taskManager,
   projectManager,
+  selectedTaskId,
+  onSelectTask,
 }: {
   taskManager: TaskManager;
   projectManager: ProjectManager;
+  selectedTaskId: string | null;
+  onSelectTask: (taskId: string | null) => void;
 }) {
   const [newTask, setNewTask] = useState("");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const exportTasks = () => {
     const lines: string[] = [];
@@ -98,13 +101,13 @@ function TasksView({
         e.preventDefault();
         taskManager.reorderTask(task, "down");
       } else if (e.key === "Escape") {
-        setSelectedTaskId(null);
+        onSelectTask(null);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedTaskId, taskManager]);
+  }, [selectedTaskId, taskManager, onSelectTask]);
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +118,7 @@ function TasksView({
   };
 
   return (
-    <div onClick={() => setSelectedTaskId(null)}>
+    <div>
       <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>
       <ul className="space-y-1 p-0">
         {taskManager.getTasksByStatus("working").map((task: Task) => (
@@ -125,7 +128,7 @@ function TasksView({
             manager={taskManager}
             projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
-            onSelect={(id) => setSelectedTaskId(id)}
+            onSelect={(id) => onSelectTask(id)}
           />
         ))}
       </ul>
@@ -138,7 +141,7 @@ function TasksView({
             manager={taskManager}
             projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
-            onSelect={(id) => setSelectedTaskId(id)}
+            onSelect={(id) => onSelectTask(id)}
           />
         ))}
       </ul>
@@ -165,7 +168,7 @@ function TasksView({
             manager={taskManager}
             projectManager={projectManager}
             isSelected={selectedTaskId === task.id}
-            onSelect={(id) => setSelectedTaskId(id)}
+            onSelect={(id) => onSelectTask(id)}
           />
         ))}
       </ul>

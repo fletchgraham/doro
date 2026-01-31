@@ -16,12 +16,12 @@ function ActiveTaskView({
   onDeactivate,
 }: ActiveTaskViewProps) {
   if (!task) {
-    return <h2 className="text-muted-foreground">No active task</h2>;
+    return <h2 className="text-2xl font-semibold text-muted-foreground mt-6">No active task</h2>;
   }
 
   return (
-    <div>
-      <h2>{task.text}</h2>
+    <div className="mt-6">
+      <h2 className="text-2xl font-semibold mb-3">{task.text}</h2>
       <Textarea
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}
@@ -30,7 +30,7 @@ function ActiveTaskView({
       />
       {(onDone || onDeactivate) && (
         <div className="mt-2 flex gap-2">
-          {onDone && <Button onClick={onDone}>Done</Button>}
+          {onDone && <Button onClick={onDone}>Complete</Button>}
           {onDeactivate && (
             <Button variant="secondary" onClick={onDeactivate}>
               Deactivate

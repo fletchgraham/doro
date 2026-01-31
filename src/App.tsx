@@ -19,6 +19,7 @@ function App() {
   const [date, setDate] = useState(makeDate(mins));
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const taskManager = useTasks();
   const projectManager = useProjects();
   const { isPaused, countdownRef, ...timer } = useTimer();
@@ -131,7 +132,10 @@ function App() {
   };
 
   return (
-    <main className="w-[32em] max-w-full">
+    <main
+      className="w-full max-w-2xl px-4"
+      onClick={() => setSelectedTaskId(null)}
+    >
       <div className="flex items-center gap-2 mb-4">
         <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
         <Input
@@ -188,7 +192,12 @@ function App() {
         }
       />
       {isPaused && (
-        <TasksView taskManager={taskManager} projectManager={projectManager} />
+        <TasksView
+          taskManager={taskManager}
+          projectManager={projectManager}
+          selectedTaskId={selectedTaskId}
+          onSelectTask={setSelectedTaskId}
+        />
       )}
       <AddTaskModal
         isOpen={isAddModalOpen}
