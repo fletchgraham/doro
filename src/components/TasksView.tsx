@@ -692,6 +692,7 @@ const TaskItem = ({
             onKeyDown={handleInlineEstimateKeyDown}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
+            onFocus={(e) => e.target.select()}
             autoFocus
             className="w-16 h-6 text-xs px-1.5"
             placeholder="20m"
