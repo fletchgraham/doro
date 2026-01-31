@@ -47,6 +47,32 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isAddModalOpen, isSwitchModalOpen]);
 
+  // Paste handler to bulk add tasks when paused
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Only when paused and not in an input
+      if (!isPaused) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      const text = e.clipboardData?.getData("text");
+      if (!text) return;
+
+      e.preventDefault();
+      const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+      for (const line of lines) {
+        taskManager.addTaskWithOptions(line, "ready", "bottom");
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [isPaused, taskManager]);
+
   const handleAddTask = (
     text: string,
     status: Task["status"],
