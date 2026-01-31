@@ -11,13 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -499,7 +492,6 @@ const TaskItem = ({
   const [inlineEstimateInput, setInlineEstimateInput] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
-  const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
   const project = task.projectId
     ? projectManager.getProjectById(task.projectId)
     : undefined;
@@ -690,28 +682,6 @@ const TaskItem = ({
             {formatEstimate(task.estimate) || "—"}
           </span>
         )}
-
-        <Select
-          value={task.status}
-          onValueChange={(value) =>
-            manager.setStatus(task, value as Task["status"])
-          }
-        >
-          <SelectTrigger
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-24 h-7 text-xs opacity-0 group-hover:opacity-100"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {statuses.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         <span className="text-muted-foreground text-xs min-w-[50px] text-right">
           {formatDuration(task.duration)}
