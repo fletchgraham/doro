@@ -4,6 +4,7 @@ import type Project from "../types/Project";
 import { formatDuration } from "../lib/formatDuration";
 import { parseTime, formatEstimate } from "../lib/parseTime";
 import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
+import { calculateDropOrder } from "../lib/calculateDropOrder";
 import { PROJECT_COLORS } from "../hooks/useProjects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,26 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import type { DraggableSyntheticListeners, DraggableAttributes } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 interface TaskManager {
   tasks: Task[];
@@ -36,6 +57,7 @@ interface TaskManager {
   setProject: (task: Task, projectId: string | undefined) => void;
   setEstimate: (task: Task, estimate: number | undefined) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
+  moveTask: (task: Task, toStatus: Task["status"], newOrder: number) => void;
 }
 
 interface ProjectManager {
@@ -44,6 +66,8 @@ interface ProjectManager {
   getProjectById: (projectId: string) => Project | undefined;
   updateProject: (projectId: string, updates: Partial<Project>) => void;
 }
+
+type DroppableStatus = "working" | "ready" | "done";
 
 function TasksView({
   taskManager,
@@ -60,13 +84,58 @@ function TasksView({
   const [timeBudgetInput, setTimeBudgetInput] = useState("");
   const [timeBudget, setTimeBudget] = useState<number>(0);
   const [showAccomplishable, setShowAccomplishable] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Configure sensors for drag detection
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px activation distance prevents click conflicts
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms delay prevents scroll conflicts on touch
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Get tasks by status
+  const workingTasks = useMemo(
+    () => taskManager.getTasksByStatus("working"),
+    [taskManager]
+  );
+  const readyTasks = useMemo(
+    () => taskManager.getTasksByStatus("ready"),
+    [taskManager]
+  );
+  const doneTasks = useMemo(
+    () => taskManager.getTasksByStatus("done"),
+    [taskManager]
+  );
+
+  // Get task IDs for SortableContext
+  const workingIds = useMemo(
+    () => workingTasks.map((t) => t.id),
+    [workingTasks]
+  );
+  const readyIds = useMemo(() => readyTasks.map((t) => t.id), [readyTasks]);
+  const doneIds = useMemo(() => doneTasks.map((t) => t.id), [doneTasks]);
+
+  // Get the active task being dragged
+  const activeTask = useMemo(
+    () => taskManager.tasks.find((t) => t.id === activeId),
+    [taskManager.tasks, activeId]
+  );
 
   // Get tasks in display order for accomplishable calculation
   const orderedTasks = useMemo(() => {
-    const working = taskManager.getTasksByStatus("working");
-    const ready = taskManager.getTasksByStatus("ready");
-    return [...working, ...ready];
-  }, [taskManager]);
+    return [...workingTasks, ...readyTasks];
+  }, [workingTasks, readyTasks]);
 
   // Calculate accomplishable map
   const accomplishableMap = useMemo(() => {
@@ -144,102 +213,190 @@ function TasksView({
     setTimeBudget(parsed ?? 0);
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const activeTask = taskManager.tasks.find((t) => t.id === active.id);
+    if (!activeTask) return;
+
+    // Determine the target container and drop index
+    const overData = over.data.current;
+    let targetStatus: DroppableStatus;
+    let dropIndex: number;
+
+    if (overData?.sortable) {
+      // Dropped on another sortable item
+      targetStatus = overData.sortable.containerId as DroppableStatus;
+      dropIndex = overData.sortable.index;
+    } else {
+      // Dropped on an empty container
+      targetStatus = over.id as DroppableStatus;
+      dropIndex = 0;
+    }
+
+    // Get the target tasks list
+    const targetTasks =
+      targetStatus === "working"
+        ? workingTasks
+        : targetStatus === "ready"
+          ? readyTasks
+          : doneTasks;
+
+    // Calculate the new order value
+    const newOrder = calculateDropOrder(targetTasks, dropIndex, activeTask.id);
+
+    // Only move if something changed
+    if (activeTask.status !== targetStatus || activeTask.order !== newOrder) {
+      taskManager.moveTask(activeTask, targetStatus, newOrder);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+  };
+
   return (
-    <div>
-      {/* Time budget controls */}
-      <div className="flex items-center gap-4 mt-6 mb-4 p-3 bg-muted/50 rounded-lg">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground whitespace-nowrap">
-            Time left:
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div>
+        {/* Time budget controls */}
+        <div className="flex items-center gap-4 mt-6 mb-4 p-3 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground whitespace-nowrap">
+              Time left:
+            </label>
+            <Input
+              value={timeBudgetInput}
+              onChange={(e) => setTimeBudgetInput(e.target.value)}
+              onBlur={handleTimeBudgetBlur}
+              onKeyDown={(e) => e.key === "Enter" && handleTimeBudgetBlur()}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="e.g., 3h"
+              className="w-24 h-8"
+            />
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Switch
+              checked={showAccomplishable}
+              onCheckedChange={setShowAccomplishable}
+            />
+            <span className="text-sm">Show accomplishable</span>
           </label>
-          <Input
-            value={timeBudgetInput}
-            onChange={(e) => setTimeBudgetInput(e.target.value)}
-            onBlur={handleTimeBudgetBlur}
-            onKeyDown={(e) => e.key === "Enter" && handleTimeBudgetBlur()}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="e.g., 3h"
-            className="w-24 h-8"
-          />
         </div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Switch
-            checked={showAccomplishable}
-            onCheckedChange={setShowAccomplishable}
-          />
-          <span className="text-sm">Show accomplishable</span>
-        </label>
+
+        <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>
+        <SortableContext
+          id="working"
+          items={workingIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-1 p-0 min-h-[40px]">
+            {workingTasks.map((task: Task) => (
+              <SortableTaskItem
+                key={task.id}
+                task={task}
+                manager={taskManager}
+                projectManager={projectManager}
+                isSelected={selectedTaskId === task.id}
+                onSelect={(id) => onSelectTask(id)}
+                accomplishable={accomplishableMap.get(task.id)}
+                showAccomplishable={showAccomplishable}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+
+        <h3 className="text-lg font-semibold mt-6 mb-2">Ready</h3>
+        <SortableContext
+          id="ready"
+          items={readyIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-1 p-0 min-h-[40px]">
+            {readyTasks.map((task: Task) => (
+              <SortableTaskItem
+                key={task.id}
+                task={task}
+                manager={taskManager}
+                projectManager={projectManager}
+                isSelected={selectedTaskId === task.id}
+                onSelect={(id) => onSelectTask(id)}
+                accomplishable={accomplishableMap.get(task.id)}
+                showAccomplishable={showAccomplishable}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+
+        <div className="mt-4">
+          <form onSubmit={handleAddTask} className="flex gap-2">
+            <Input
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="New task..."
+              className="flex-1"
+            />
+            <Button type="submit" disabled={newTask.length === 0}>
+              Add
+            </Button>
+          </form>
+        </div>
+
+        <h3 className="text-lg font-semibold mt-6 mb-2">Done</h3>
+        <SortableContext
+          id="done"
+          items={doneIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-1 p-0 min-h-[40px]">
+            {doneTasks.map((task: Task) => (
+              <SortableTaskItem
+                key={task.id}
+                task={task}
+                manager={taskManager}
+                projectManager={projectManager}
+                isSelected={selectedTaskId === task.id}
+                onSelect={(id) => onSelectTask(id)}
+                showAccomplishable={false}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+
+        <div className="mt-8">
+          <Button variant="outline" onClick={exportTasks}>
+            Export to Clipboard
+          </Button>
+        </div>
+        <datalist id="doro-projects">
+          {projectManager.projects.map((p) => (
+            <option key={p.id} value={p.name} />
+          ))}
+        </datalist>
       </div>
 
-      <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>
-      <ul className="space-y-1 p-0">
-        {taskManager.getTasksByStatus("working").map((task: Task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            manager={taskManager}
+      <DragOverlay>
+        {activeTask ? (
+          <TaskItemOverlay
+            task={activeTask}
             projectManager={projectManager}
-            isSelected={selectedTaskId === task.id}
-            onSelect={(id) => onSelectTask(id)}
-            accomplishable={accomplishableMap.get(task.id)}
-            showAccomplishable={showAccomplishable}
           />
-        ))}
-      </ul>
-      <h3 className="text-lg font-semibold mt-6 mb-2">Ready</h3>
-      <ul className="space-y-1 p-0">
-        {taskManager.getTasksByStatus("ready").map((task: Task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            manager={taskManager}
-            projectManager={projectManager}
-            isSelected={selectedTaskId === task.id}
-            onSelect={(id) => onSelectTask(id)}
-            accomplishable={accomplishableMap.get(task.id)}
-            showAccomplishable={showAccomplishable}
-          />
-        ))}
-      </ul>
-      <div className="mt-4">
-        <form onSubmit={handleAddTask} className="flex gap-2">
-          <Input
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="New task..."
-            className="flex-1"
-          />
-          <Button type="submit" disabled={newTask.length === 0}>
-            Add
-          </Button>
-        </form>
-      </div>
-      <h3 className="text-lg font-semibold mt-6 mb-2">Done</h3>
-      <ul className="space-y-1 p-0">
-        {taskManager.getTasksByStatus("done").map((task: Task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            manager={taskManager}
-            projectManager={projectManager}
-            isSelected={selectedTaskId === task.id}
-            onSelect={(id) => onSelectTask(id)}
-            showAccomplishable={false}
-          />
-        ))}
-      </ul>
-      <div className="mt-8">
-        <Button variant="outline" onClick={exportTasks}>
-          Export to Clipboard
-        </Button>
-      </div>
-      <datalist id="doro-projects">
-        {projectManager.projects.map((p) => (
-          <option key={p.id} value={p.name} />
-        ))}
-      </datalist>
-    </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
@@ -253,6 +410,72 @@ interface TaskItemProps {
   showAccomplishable: boolean;
 }
 
+// Drag overlay component - simplified preview shown during drag
+const TaskItemOverlay = ({
+  task,
+  projectManager,
+}: {
+  task: Task;
+  projectManager: ProjectManager;
+}) => {
+  const project = task.projectId
+    ? projectManager.getProjectById(task.projectId)
+    : undefined;
+
+  return (
+    <div className="list-none rounded-md bg-background border border-border shadow-lg p-2 px-3 flex items-center gap-2">
+      <div
+        className="w-4 h-4 rounded-full border border-muted-foreground shrink-0"
+        style={{ backgroundColor: project?.color || "#ccc" }}
+      />
+      <span className="flex-1">{task.text}</span>
+      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded min-w-[3rem] text-center">
+        {formatEstimate(task.estimate) || "—"}
+      </span>
+      <span className="text-muted-foreground text-xs min-w-[50px] text-right">
+        {formatDuration(task.duration)}
+      </span>
+    </div>
+  );
+};
+
+// Sortable wrapper for TaskItem
+const SortableTaskItem = (props: TaskItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TaskItem
+      {...props}
+      sortableRef={setNodeRef}
+      sortableStyle={style}
+      sortableAttributes={attributes}
+      sortableListeners={listeners}
+      isDragging={isDragging}
+    />
+  );
+};
+
+interface TaskItemInternalProps extends TaskItemProps {
+  sortableRef?: (node: HTMLElement | null) => void;
+  sortableStyle?: React.CSSProperties;
+  sortableAttributes?: DraggableAttributes;
+  sortableListeners?: DraggableSyntheticListeners;
+  isDragging?: boolean;
+}
+
 const TaskItem = ({
   task,
   manager,
@@ -261,7 +484,12 @@ const TaskItem = ({
   onSelect,
   accomplishable,
   showAccomplishable,
-}: TaskItemProps) => {
+  sortableRef,
+  sortableStyle,
+  sortableAttributes,
+  sortableListeners,
+  isDragging,
+}: TaskItemInternalProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -352,20 +580,26 @@ const TaskItem = ({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={cn(
         "list-none rounded-md mb-1 group",
         isSelected ? "ring-2 ring-ring" : "",
+        isDragging ? "opacity-50" : "",
         getAccomplishableClasses()
       )}
     >
       <div
         onClick={handleClick}
         className="cursor-pointer p-2 px-3 flex items-center gap-2"
+        {...sortableAttributes}
+        {...sortableListeners}
       >
         <Button
           variant="ghost"
           size="icon-xs"
           onClick={toggleExpand}
+          onPointerDown={(e) => e.stopPropagation()}
           className={cn(
             "opacity-0 group-hover:opacity-100",
             isExpanded && "opacity-100"
@@ -378,6 +612,7 @@ const TaskItem = ({
           <PopoverTrigger asChild>
             <button
               onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               className="w-4 h-4 rounded-full border border-muted-foreground cursor-pointer p-0 shrink-0"
               style={{ backgroundColor: project?.color || "#ccc" }}
               title={project?.name || "No project"}
@@ -417,6 +652,7 @@ const TaskItem = ({
             onKeyDown={handleKeyDown}
             autoFocus
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             className="flex-1 h-7"
           />
         ) : (
@@ -439,6 +675,7 @@ const TaskItem = ({
             onBlur={handleInlineEstimateBlur}
             onKeyDown={handleInlineEstimateKeyDown}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             autoFocus
             className="w-16 h-6 text-xs px-1.5"
             placeholder="20m"
@@ -446,6 +683,7 @@ const TaskItem = ({
         ) : (
           <span
             onClick={handleInlineEstimateClick}
+            onPointerDown={(e) => e.stopPropagation()}
             className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded cursor-text hover:bg-muted/80 min-w-[3rem] text-center"
             title="Click to edit estimate"
           >
@@ -461,6 +699,7 @@ const TaskItem = ({
         >
           <SelectTrigger
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             className="w-24 h-7 text-xs opacity-0 group-hover:opacity-100"
           >
             <SelectValue />
@@ -487,6 +726,7 @@ const TaskItem = ({
               manager.removeTask(task);
             }
           }}
+          onPointerDown={(e) => e.stopPropagation()}
           className="opacity-0 group-hover:opacity-100"
         >
           ×
@@ -527,6 +767,7 @@ const TaskItem = ({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 className="w-32 h-7 text-xs"
               />
             </label>
@@ -546,6 +787,7 @@ const TaskItem = ({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 className="w-24 h-7 text-xs"
               />
             </label>
@@ -554,6 +796,7 @@ const TaskItem = ({
             value={task.notes}
             onChange={(e) => manager.setNotes(task, e.target.value)}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             placeholder="Notes..."
             className="min-h-[60px] resize-y"
           />

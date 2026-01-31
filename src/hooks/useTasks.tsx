@@ -92,6 +92,9 @@ const useTasks = () => {
   const reorderTask = (task: Task, direction: "up" | "down") =>
     dispatch({ type: "REORDER_TASK", taskId: task.id, direction });
 
+  const moveTask = (task: Task, toStatus: Task["status"], newOrder: number) =>
+    dispatch({ type: "MOVE_TASK", taskId: task.id, toStatus, newOrder });
+
   const completeTask = () => dispatch({ type: "COMPLETE_TASK" });
 
   const logStart = () => dispatch({ type: "LOG_START" });
@@ -112,6 +115,7 @@ const useTasks = () => {
     setProject,
     setEstimate,
     reorderTask,
+    moveTask,
     completeTask,
     logStart,
     logPause,

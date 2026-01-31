@@ -165,3 +165,218 @@ test("switching tasks multiple times preserves all tasks", () => {
   expect(updated.filter((t) => t.status === "active").length).toBe(1);
   expect(updated.find((t) => t.text === "task A")?.status).toBe("active");
 });
+
+// MOVE_TASK tests
+
+test("MOVE_TASK moves task to new status with specified order", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "working", order: 1000 },
+    { ...createTask("task B"), status: "working", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "ready",
+    newOrder: 5000,
+  });
+
+  const movedTask = updated.find((t) => t.text === "task A");
+  expect(movedTask?.status).toBe("ready");
+  expect(movedTask?.order).toBe(5000);
+});
+
+test("MOVE_TASK preserves all other task properties", () => {
+  const tasks: Task[] = [
+    {
+      ...createTask("task A"),
+      status: "working",
+      order: 1000,
+      notes: "some notes",
+      estimate: 30000,
+      projectId: "project-123",
+    },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "ready",
+    newOrder: 5000,
+  });
+
+  const movedTask = updated.find((t) => t.text === "task A");
+  expect(movedTask?.notes).toBe("some notes");
+  expect(movedTask?.estimate).toBe(30000);
+  expect(movedTask?.projectId).toBe("project-123");
+});
+
+test("MOVE_TASK does not affect other tasks", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "working", order: 1000 },
+    { ...createTask("task B"), status: "working", order: 2000 },
+    { ...createTask("task C"), status: "ready", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "ready",
+    newOrder: 5000,
+  });
+
+  const taskB = updated.find((t) => t.text === "task B");
+  const taskC = updated.find((t) => t.text === "task C");
+  expect(taskB?.status).toBe("working");
+  expect(taskB?.order).toBe(2000);
+  expect(taskC?.status).toBe("ready");
+  expect(taskC?.order).toBe(3000);
+});
+
+test("MOVE_TASK cross-list: Working to Ready", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "working", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "ready",
+    newOrder: 5000,
+  });
+
+  const task = updated.find((t) => t.text === "task A");
+  expect(task?.status).toBe("ready");
+  expect(task?.order).toBe(5000);
+});
+
+test("MOVE_TASK cross-list: Ready to Done", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "ready", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "done",
+    newOrder: 5000,
+  });
+
+  const task = updated.find((t) => t.text === "task A");
+  expect(task?.status).toBe("done");
+  expect(task?.order).toBe(5000);
+});
+
+test("MOVE_TASK cross-list: Done to Working", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "done", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "working",
+    newOrder: 5000,
+  });
+
+  const task = updated.find((t) => t.text === "task A");
+  expect(task?.status).toBe("working");
+  expect(task?.order).toBe(5000);
+});
+
+test("MOVE_TASK same-list reorder updates only order", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "working", order: 1000 },
+    { ...createTask("task B"), status: "working", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[0].id,
+    toStatus: "working",
+    newOrder: 3000,
+  });
+
+  const task = updated.find((t) => t.text === "task A");
+  expect(task?.status).toBe("working");
+  expect(task?.order).toBe(3000);
+});
+
+test("MOVE_TASK to active demotes current active to working", () => {
+  const tasks: Task[] = [
+    { ...createTask("current active"), status: "active", order: 1000 },
+    { ...createTask("task to move"), status: "ready", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[1].id,
+    toStatus: "active",
+    newOrder: 500,
+  });
+
+  // The moved task should be active
+  const movedTask = updated.find((t) => t.text === "task to move");
+  expect(movedTask?.status).toBe("active");
+  expect(movedTask?.order).toBe(500);
+
+  // The previously active task should be demoted to working
+  const previousActive = updated.find((t) => t.text === "current active");
+  expect(previousActive?.status).toBe("working");
+});
+
+test("MOVE_TASK to active: demoted task gets order at end of working list", () => {
+  const tasks: Task[] = [
+    { ...createTask("current active"), status: "active", order: 1000 },
+    { ...createTask("working task"), status: "working", order: 2000 },
+    { ...createTask("task to move"), status: "ready", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[2].id,
+    toStatus: "active",
+    newOrder: 500,
+  });
+
+  const previousActive = updated.find((t) => t.text === "current active");
+  expect(previousActive?.status).toBe("working");
+  expect(previousActive?.order).toBe(3000); // 2000 + 1000
+});
+
+test("MOVE_TASK to active works when no current active task exists", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "working", order: 1000 },
+    { ...createTask("task B"), status: "ready", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: tasks[1].id,
+    toStatus: "active",
+    newOrder: 500,
+  });
+
+  const task = updated.find((t) => t.text === "task B");
+  expect(task?.status).toBe("active");
+  expect(task?.order).toBe(500);
+
+  // Verify only one active task
+  const activeTasks = updated.filter((t) => t.status === "active");
+  expect(activeTasks.length).toBe(1);
+});
+
+test("MOVE_TASK with non-existent task returns unchanged state", () => {
+  const tasks: Task[] = [
+    { ...createTask("task A"), status: "working", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "MOVE_TASK",
+    taskId: "non-existent-id",
+    toStatus: "ready",
+    newOrder: 5000,
+  });
+
+  expect(updated).toBe(tasks);
+});

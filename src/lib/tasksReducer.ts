@@ -17,6 +17,7 @@ export type TasksAction =
   | { type: "SET_PROJECT"; taskId: string; projectId: string | undefined }
   | { type: "SET_ESTIMATE"; taskId: string; estimate: number | undefined }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
+  | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
   | { type: "COMPLETE_TASK" }
   | { type: "LOG_START" }
   | { type: "LOG_PAUSE" };
@@ -212,6 +213,33 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       const newOrder = calculateNewOrder(state, action.taskId, action.direction);
       return state.map((t) =>
         t.id === action.taskId ? { ...t, order: newOrder } : t
+      );
+    }
+    case "MOVE_TASK": {
+      const task = state.find((t) => t.id === action.taskId);
+      if (!task) return state;
+
+      // If moving to active, demote current active to working first
+      if (action.toStatus === "active") {
+        const maxWorkingOrder = Math.max(
+          ...state.filter((t) => t.status === "working").map((t) => t.order),
+          0
+        );
+        return state.map((t) => {
+          if (t.id === action.taskId) {
+            return { ...t, status: action.toStatus, order: action.newOrder };
+          }
+          if (t.status === "active") {
+            return { ...t, status: "working" as const, order: maxWorkingOrder + 1000 };
+          }
+          return t;
+        });
+      }
+
+      return state.map((t) =>
+        t.id === action.taskId
+          ? { ...t, status: action.toStatus, order: action.newOrder }
+          : t
       );
     }
     case "COMPLETE_TASK": {
