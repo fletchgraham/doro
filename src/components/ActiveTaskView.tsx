@@ -1,4 +1,6 @@
 import type Task from "../types/Task";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 interface ActiveTaskViewProps {
   task: Task | undefined;
@@ -14,22 +16,26 @@ function ActiveTaskView({
   onDeactivate,
 }: ActiveTaskViewProps) {
   if (!task) {
-    return <h2 style={{ color: "#888" }}>No active task</h2>;
+    return <h2 className="text-muted-foreground">No active task</h2>;
   }
 
   return (
     <div>
       <h2>{task.text}</h2>
-      <textarea
+      <Textarea
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}
         placeholder="Notes..."
-        style={{ width: "100%", minHeight: "80px", resize: "vertical" }}
+        className="min-h-[80px] resize-y"
       />
       {(onDone || onDeactivate) && (
-        <div style={{ marginTop: "8px" }}>
-          {onDone && <button onClick={onDone}>Done</button>}
-          {onDeactivate && <button onClick={onDeactivate}>Deactivate</button>}
+        <div className="mt-2 flex gap-2">
+          {onDone && <Button onClick={onDone}>Done</Button>}
+          {onDeactivate && (
+            <Button variant="secondary" onClick={onDeactivate}>
+              Deactivate
+            </Button>
+          )}
         </div>
       )}
     </div>

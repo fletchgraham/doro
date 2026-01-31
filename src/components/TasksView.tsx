@@ -3,6 +3,22 @@ import type Task from "../types/Task";
 import type Project from "../types/Project";
 import { formatDuration } from "../lib/formatDuration";
 import { PROJECT_COLORS } from "../hooks/useProjects";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface TaskManager {
   tasks: Task[];
@@ -100,8 +116,8 @@ function TasksView({
 
   return (
     <div onClick={() => setSelectedTaskId(null)}>
-      <h3>Working</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>
+      <ul className="space-y-1 p-0">
         {taskManager.getTasksByStatus("working").map((task: Task) => (
           <TaskItem
             key={task.id}
@@ -113,8 +129,8 @@ function TasksView({
           />
         ))}
       </ul>
-      <h3>Ready</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <h3 className="text-lg font-semibold mt-6 mb-2">Ready</h3>
+      <ul className="space-y-1 p-0">
         {taskManager.getTasksByStatus("ready").map((task: Task) => (
           <TaskItem
             key={task.id}
@@ -126,20 +142,22 @@ function TasksView({
           />
         ))}
       </ul>
-      <div>
-        <form onSubmit={handleAddTask}>
-          <input
+      <div className="mt-4">
+        <form onSubmit={handleAddTask} className="flex gap-2">
+          <Input
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
             onClick={(e) => e.stopPropagation()}
+            placeholder="New task..."
+            className="flex-1"
           />
-          <button type="submit" disabled={newTask.length === 0}>
+          <Button type="submit" disabled={newTask.length === 0}>
             Add
-          </button>
+          </Button>
         </form>
       </div>
-      <h3>Done</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <h3 className="text-lg font-semibold mt-6 mb-2">Done</h3>
+      <ul className="space-y-1 p-0">
         {taskManager.getTasksByStatus("done").map((task: Task) => (
           <TaskItem
             key={task.id}
@@ -151,8 +169,10 @@ function TasksView({
           />
         ))}
       </ul>
-      <div style={{ marginTop: "2rem" }}>
-        <button onClick={exportTasks}>Export to Clipboard</button>
+      <div className="mt-8">
+        <Button variant="outline" onClick={exportTasks}>
+          Export to Clipboard
+        </Button>
       </div>
       <datalist id="doro-projects">
         {projectManager.projects.map((p) => (
@@ -183,7 +203,6 @@ const TaskItem = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectInput, setProjectInput] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   const statuses: Task["status"][] = ["backlog", "ready", "working", "done"];
   const project = task.projectId
@@ -228,163 +247,132 @@ const TaskItem = ({
 
   return (
     <li
-      style={{
-        backgroundColor: isSelected ? "#e0e0ff" : "transparent",
-        border: isSelected ? "2px solid #6666ff" : "2px solid transparent",
-        borderRadius: "6px",
-        marginBottom: "4px",
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className={cn(
+        "list-none rounded-md mb-1 group",
+        isSelected
+          ? "bg-accent border-2 border-ring"
+          : "bg-transparent border-2 border-transparent"
+      )}
     >
       <div
         onClick={handleClick}
-        style={{
-          cursor: "pointer",
-          padding: "8px 12px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
+        className="cursor-pointer p-2 px-3 flex items-center gap-2"
       >
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={toggleExpand}
-          style={{
-            padding: "2px 6px",
-            fontSize: "12px",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            visibility: isHovered || isExpanded ? "visible" : "hidden",
-          }}
+          className={cn(
+            "opacity-0 group-hover:opacity-100",
+            isExpanded && "opacity-100"
+          )}
         >
           {isExpanded ? "▼" : "▶"}
-        </button>
+        </Button>
 
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setColorPickerOpen(!colorPickerOpen);
-            }}
-            style={{
-              width: "16px",
-              height: "16px",
-              borderRadius: "50%",
-              backgroundColor: project?.color || "#ccc",
-              border: "1px solid #999",
-              cursor: "pointer",
-              padding: 0,
-            }}
-            title={project?.name || "No project"}
-          />
-          {colorPickerOpen && project && (
-            <div
-              style={{
-                position: "absolute",
-                top: "20px",
-                left: 0,
-                display: "flex",
-                gap: "4px",
-                padding: "4px",
-                backgroundColor: "white",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                zIndex: 10,
-              }}
-            >
-              {PROJECT_COLORS.map((c) => (
-                <button
-                  key={c.hex}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    projectManager.updateProject(project.id, { color: c.hex });
-                    setColorPickerOpen(false);
-                  }}
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    borderRadius: "50%",
-                    backgroundColor: c.hex,
-                    border: c.hex === project.color ? "2px solid #333" : "1px solid #999",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                  title={c.name}
-                />
-              ))}
-            </div>
+        <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+          <PopoverTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="w-4 h-4 rounded-full border border-muted-foreground cursor-pointer p-0 shrink-0"
+              style={{ backgroundColor: project?.color || "#ccc" }}
+              title={project?.name || "No project"}
+            />
+          </PopoverTrigger>
+          {project && (
+            <PopoverContent className="w-auto p-2" align="start">
+              <div className="flex gap-1">
+                {PROJECT_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      projectManager.updateProject(project.id, { color: c.hex });
+                      setColorPickerOpen(false);
+                    }}
+                    className={cn(
+                      "w-4 h-4 rounded-full cursor-pointer p-0",
+                      c.hex === project.color
+                        ? "border-2 border-foreground"
+                        : "border border-muted-foreground"
+                    )}
+                    style={{ backgroundColor: c.hex }}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
           )}
-        </div>
+        </Popover>
 
         {isEditing ? (
-          <input
+          <Input
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onBlur={handleSave}
             onKeyDown={handleKeyDown}
             autoFocus
             onClick={(e) => e.stopPropagation()}
-            style={{ flex: 1 }}
+            className="flex-1 h-7"
           />
         ) : (
           <span
             onDoubleClick={handleDoubleClick}
-            style={{
-              flex: 1,
-              textDecoration: task.status === "done" ? "line-through" : "",
-              color: task.status === "done" ? "#888" : "inherit",
-            }}
+            className={cn(
+              "flex-1",
+              task.status === "done" && "line-through text-muted-foreground"
+            )}
           >
             {task.text}
           </span>
         )}
 
-        <select
+        <Select
           value={task.status}
-          onChange={(e) =>
-            manager.setStatus(task, e.target.value as Task["status"])
+          onValueChange={(value) =>
+            manager.setStatus(task, value as Task["status"])
           }
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            fontSize: "12px",
-            visibility: isHovered ? "visible" : "hidden",
-          }}
         >
-          {statuses.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            onClick={(e) => e.stopPropagation()}
+            className="w-24 h-7 text-xs opacity-0 group-hover:opacity-100"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {statuses.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <span style={{ color: "#666", fontSize: "12px", minWidth: "50px" }}>
+        <span className="text-muted-foreground text-xs min-w-[50px] text-right">
           {formatDuration(task.duration)}
         </span>
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={(e) => {
             e.stopPropagation();
             if (window.confirm(`Delete "${task.text}"?`)) {
               manager.removeTask(task);
             }
           }}
-          style={{
-            padding: "2px 6px",
-            fontSize: "12px",
-            visibility: isHovered ? "visible" : "hidden",
-          }}
+          className="opacity-0 group-hover:opacity-100"
         >
           ×
-        </button>
+        </Button>
       </div>
 
       {isExpanded && (
-        <div style={{ padding: "0 12px 12px 40px" }}>
-          <div style={{ marginBottom: "8px" }}>
-            <label style={{ fontSize: "12px", color: "#666" }}>
-              Project:{" "}
-              <input
+        <div className="px-3 pb-3 pl-10">
+          <div className="mb-2">
+            <label className="text-xs text-muted-foreground flex items-center gap-2">
+              Project:
+              <Input
                 type="text"
                 list="doro-projects"
                 value={projectInput}
@@ -413,21 +401,16 @@ const TaskItem = ({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                style={{ fontSize: "12px", width: "120px" }}
+                className="w-32 h-7 text-xs"
               />
             </label>
           </div>
-          <textarea
+          <Textarea
             value={task.notes}
             onChange={(e) => manager.setNotes(task, e.target.value)}
             onClick={(e) => e.stopPropagation()}
             placeholder="Notes..."
-            style={{
-              width: "100%",
-              minHeight: "60px",
-              resize: "vertical",
-              boxSizing: "border-box",
-            }}
+            className="min-h-[60px] resize-y"
           />
         </div>
       )}

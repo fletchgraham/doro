@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import "./App.css";
 import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
@@ -9,6 +8,9 @@ import useTasks from "./hooks/useTasks";
 import useProjects from "./hooks/useProjects";
 import useTimer from "./hooks/useTimer";
 import type Task from "./types/Task";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
@@ -129,16 +131,21 @@ function App() {
   };
 
   return (
-    <main style={{ width: "32em", maxWidth: "100%" }}>
-      <button onClick={() => setIsAddModalOpen(true)}>+ Add Task</button>
-      <input
-        value={mins}
-        onChange={(e) => setMins(Number(e.target.value) | 0)}
-      />
+    <main className="w-[32em] max-w-full">
+      <div className="flex items-center gap-2 mb-4">
+        <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
+        <Input
+          type="number"
+          value={mins}
+          onChange={(e) => setMins(Number(e.target.value) | 0)}
+          className="w-20"
+        />
+      </div>
       <h1
-        style={{
-          backgroundColor: isPaused ? "yellow" : "lightgreen",
-        }}
+        className={cn(
+          "text-5xl font-bold py-4 px-6 rounded-lg text-center",
+          isPaused ? "bg-yellow-300 text-yellow-900" : "bg-green-300 text-green-900"
+        )}
       >
         <Countdown
           ref={countdownRef}
@@ -151,15 +158,19 @@ function App() {
           }}
         />
       </h1>
-      {isPaused ? (
-        <button onClick={handleStart}>Start</button>
-      ) : (
-        <button onClick={handlePause}>Pause</button>
-      )}
-      <button onClick={handleReset}>Reset</button>
-      <button onClick={handleContinue}>
-        {taskManager.getActiveTask() ? "Next Task >>" : "Begin"}
-      </button>
+      <div className="flex gap-2 mt-4">
+        {isPaused ? (
+          <Button onClick={handleStart}>Start</Button>
+        ) : (
+          <Button onClick={handlePause}>Pause</Button>
+        )}
+        <Button variant="secondary" onClick={handleReset}>
+          Reset
+        </Button>
+        <Button variant="secondary" onClick={handleContinue}>
+          {taskManager.getActiveTask() ? "Next Task >>" : "Begin"}
+        </Button>
+      </div>
       <ActiveTaskView
         task={taskManager.getActiveTask()}
         onNotesChange={taskManager.setNotes}
