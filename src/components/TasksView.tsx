@@ -73,10 +73,29 @@ function TasksView({
   onSelectTask: (taskId: string | null) => void;
 }) {
   const [newTask, setNewTask] = useState("");
-  const [timeBudgetInput, setTimeBudgetInput] = useState("");
-  const [timeBudget, setTimeBudget] = useState<number>(0);
-  const [showAccomplishable, setShowAccomplishable] = useState(false);
+  const [timeBudgetInput, setTimeBudgetInput] = useState(
+    () => localStorage.getItem("doroTimeBudgetInput") || ""
+  );
+  const [timeBudget, setTimeBudget] = useState<number>(
+    () => Number(localStorage.getItem("doroTimeBudget")) || 0
+  );
+  const [showAccomplishable, setShowAccomplishable] = useState(
+    () => localStorage.getItem("doroShowAccomplishable") === "true"
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Persist time budget settings to localStorage
+  useEffect(() => {
+    localStorage.setItem("doroTimeBudgetInput", timeBudgetInput);
+  }, [timeBudgetInput]);
+
+  useEffect(() => {
+    localStorage.setItem("doroTimeBudget", String(timeBudget));
+  }, [timeBudget]);
+
+  useEffect(() => {
+    localStorage.setItem("doroShowAccomplishable", String(showAccomplishable));
+  }, [showAccomplishable]);
 
   // Configure sensors for drag detection
   // Note: KeyboardSensor removed to avoid conflicts with existing arrow key reordering
