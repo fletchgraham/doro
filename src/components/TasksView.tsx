@@ -25,6 +25,7 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -295,7 +296,7 @@ function TasksView({
           items={workingIds}
           strategy={verticalListSortingStrategy}
         >
-          <ul className="space-y-1 p-0 min-h-[40px]">
+          <DroppableList id="working">
             {workingTasks.map((task: Task) => (
               <SortableTaskItem
                 key={task.id}
@@ -308,7 +309,7 @@ function TasksView({
                 showAccomplishable={showAccomplishable}
               />
             ))}
-          </ul>
+          </DroppableList>
         </SortableContext>
 
         <h3 className="text-lg font-semibold mt-6 mb-2">Ready</h3>
@@ -317,7 +318,7 @@ function TasksView({
           items={readyIds}
           strategy={verticalListSortingStrategy}
         >
-          <ul className="space-y-1 p-0 min-h-[40px]">
+          <DroppableList id="ready">
             {readyTasks.map((task: Task) => (
               <SortableTaskItem
                 key={task.id}
@@ -330,7 +331,7 @@ function TasksView({
                 showAccomplishable={showAccomplishable}
               />
             ))}
-          </ul>
+          </DroppableList>
         </SortableContext>
 
         <div className="mt-4">
@@ -354,7 +355,7 @@ function TasksView({
           items={doneIds}
           strategy={verticalListSortingStrategy}
         >
-          <ul className="space-y-1 p-0 min-h-[40px]">
+          <DroppableList id="done">
             {doneTasks.map((task: Task) => (
               <SortableTaskItem
                 key={task.id}
@@ -366,7 +367,7 @@ function TasksView({
                 showAccomplishable={false}
               />
             ))}
-          </ul>
+          </DroppableList>
         </SortableContext>
 
         <div className="mt-8">
@@ -433,6 +434,29 @@ const TaskItemOverlay = ({
       {/* Placeholder for delete button */}
       <div className="size-6 shrink-0" />
     </div>
+  );
+};
+
+// Droppable list container for empty list support
+const DroppableList = ({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <ul
+      ref={setNodeRef}
+      className={cn(
+        "space-y-1 p-0 min-h-[40px] rounded-md transition-colors",
+        isOver && "bg-muted/50"
+      )}
+    >
+      {children}
+    </ul>
   );
 };
 
