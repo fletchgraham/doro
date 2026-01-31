@@ -223,16 +223,12 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         t.status === "active" ? { ...t, status: "done" as const } : t
       );
 
-      let workingTasks = updated
-        .filter((t) => t.status === "working")
-        .sort((a, b) => a.order - b.order);
-
       const readyTasks = updated
         .filter((t) => t.status === "ready")
         .sort((a, b) => a.order - b.order);
 
-      // Auto-promote a ready task if working queue is low
-      if (workingTasks.length < 3 && readyTasks.length > 0) {
+      // Always promote a ready task to working to maintain the pool
+      if (readyTasks.length > 0) {
         const maxWorkingOrder = Math.max(
           ...updated.filter((t) => t.status === "working").map((t) => t.order),
           0
@@ -243,13 +239,13 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
             ? { ...t, status: "working" as const, order: maxWorkingOrder + 1000 }
             : t
         );
-
-        workingTasks = updated
-          .filter((t) => t.status === "working")
-          .sort((a, b) => a.order - b.order);
       }
 
       // Activate the first working task
+      const workingTasks = updated
+        .filter((t) => t.status === "working")
+        .sort((a, b) => a.order - b.order);
+
       if (workingTasks.length > 0) {
         updated = updated.map((t) =>
           t.id === workingTasks[0].id ? { ...t, status: "active" as const } : t
