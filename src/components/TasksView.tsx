@@ -376,9 +376,38 @@ function TasksView({
           </DroppableList>
         </SortableContext>
 
-        <div className="mt-8">
+        <div className="mt-8 flex gap-2">
           <Button variant="outline" onClick={exportTasks}>
             Export to Clipboard
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (doneTasks.length === 0) return;
+              if (window.confirm(`Delete ${doneTasks.length} completed task(s)?`)) {
+                for (const task of doneTasks) {
+                  taskManager.removeTask(task);
+                }
+              }
+            }}
+            disabled={doneTasks.length === 0}
+          >
+            Delete Completed
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const allTasks = [...workingTasks, ...readyTasks, ...doneTasks];
+              if (allTasks.length === 0) return;
+              if (window.confirm(`Delete all ${allTasks.length} task(s)? This cannot be undone.`)) {
+                for (const task of allTasks) {
+                  taskManager.removeTask(task);
+                }
+              }
+            }}
+            disabled={workingTasks.length + readyTasks.length + doneTasks.length === 0}
+          >
+            Delete All
           </Button>
         </div>
       </div>
