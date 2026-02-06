@@ -90,6 +90,9 @@ const useTasks = () => {
   const setEstimate = (task: Task, estimate: number | undefined) =>
     dispatch({ type: "SET_ESTIMATE", taskId: task.id, estimate });
 
+  const setUrl = (task: Task, url: string | undefined) =>
+    dispatch({ type: "SET_URL", taskId: task.id, url });
+
   const reorderTask = (task: Task, direction: "up" | "down") =>
     dispatch({ type: "REORDER_TASK", taskId: task.id, direction });
 
@@ -115,6 +118,7 @@ const useTasks = () => {
     setStatus,
     setColor,
     setEstimate,
+    setUrl,
     reorderTask,
     moveTask,
     completeTask,

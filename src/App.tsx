@@ -205,6 +205,7 @@ function App() {
         task={taskManager.getActiveTask()}
         onNotesChange={taskManager.setNotes}
         onTextChange={taskManager.setText}
+        onUrlChange={taskManager.setUrl}
         onDone={taskManager.getActiveTask() ? handleDone : undefined}
         onDeactivate={
           isPaused && taskManager.getActiveTask()

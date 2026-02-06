@@ -14,6 +14,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { ExternalLink } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -57,6 +58,7 @@ interface TaskManager {
   setStatus: (task: Task, status: Task["status"]) => void;
   setColor: (task: Task, color: string | undefined) => void;
   setEstimate: (task: Task, estimate: number | undefined) => void;
+  setUrl: (task: Task, url: string | undefined) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
   moveTask: (task: Task, toStatus: Task["status"], newOrder: number) => void;
 }
@@ -675,11 +677,24 @@ const TaskItem = ({
           <span
             onDoubleClick={handleDoubleClick}
             className={cn(
-              "flex-1",
+              "flex-1 flex items-center gap-1",
               task.status === "done" && "line-through text-muted-foreground"
             )}
           >
             {task.text}
+            {task.url && (
+              <a
+                href={task.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="inline-flex text-muted-foreground hover:text-foreground"
+                title={task.url}
+              >
+                <ExternalLink className="size-3.5" />
+              </a>
+            )}
           </span>
         )}
 
@@ -729,7 +744,15 @@ const TaskItem = ({
       </div>
 
       {isExpanded && (
-        <div className="px-3 pb-3 pl-10">
+        <div className="px-3 pb-3 pl-10 space-y-2">
+          <Input
+            value={task.url || ""}
+            onChange={(e) => manager.setUrl(task, e.target.value || undefined)}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            placeholder="URL..."
+            className="h-7 text-sm"
+          />
           <Textarea
             value={task.notes}
             onChange={(e) => manager.setNotes(task, e.target.value)}

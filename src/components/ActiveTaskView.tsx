@@ -4,11 +4,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatEstimate } from "@/lib/parseTime";
+import { ExternalLink } from "lucide-react";
 
 interface ActiveTaskViewProps {
   task: Task | undefined;
   onNotesChange: (task: Task, notes: string) => void;
   onTextChange: (task: Task, text: string) => void;
+  onUrlChange: (task: Task, url: string | undefined) => void;
   onDone?: () => void;
   onDeactivate?: () => void;
 }
@@ -17,6 +19,7 @@ function ActiveTaskView({
   task,
   onNotesChange,
   onTextChange,
+  onUrlChange,
   onDone,
   onDeactivate,
 }: ActiveTaskViewProps) {
@@ -75,10 +78,22 @@ function ActiveTaskView({
           />
         ) : (
           <h2
-            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1"
+            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 flex items-center gap-2"
             onClick={handleStartEdit}
           >
             {task.text}
+            {task.url && (
+              <a
+                href={task.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-foreground"
+                title={task.url}
+              >
+                <ExternalLink className="size-4" />
+              </a>
+            )}
           </h2>
         )}
         {task.duration > 0 && (
@@ -87,6 +102,12 @@ function ActiveTaskView({
           </span>
         )}
       </div>
+      <Input
+        value={task.url || ""}
+        onChange={(e) => onUrlChange(task, e.target.value || undefined)}
+        placeholder="URL..."
+        className="mb-2 text-sm"
+      />
       <Textarea
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}

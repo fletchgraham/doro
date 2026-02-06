@@ -8,6 +8,7 @@ export default interface Task {
   order: number;
   color?: string;
   estimate?: number;
+  url?: string;
 }
 
 interface TaskEvent {
