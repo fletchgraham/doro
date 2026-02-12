@@ -149,9 +149,9 @@ function TasksView({
   }, [workingTasks, readyTasks]);
 
   // Calculate accomplishable map
-  const accomplishableMap = useMemo(() => {
+  const { results: accomplishableMap, totalRemainingWork } = useMemo(() => {
     if (!showAccomplishable || timeBudget <= 0) {
-      return new Map<string, AccomplishableResult>();
+      return { results: new Map<string, AccomplishableResult>(), totalRemainingWork: 0 };
     }
     return getAccomplishable(orderedTasks, timeBudget);
   }, [orderedTasks, timeBudget, showAccomplishable]);
@@ -299,6 +299,22 @@ function TasksView({
             />
             <span className="text-sm">Show accomplishable</span>
           </label>
+          {showAccomplishable && timeBudget > 0 && (
+            <span
+              className={cn(
+                "text-sm font-medium ml-auto",
+                totalRemainingWork <= timeBudget
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+              )}
+            >
+              {totalRemainingWork === timeBudget
+                ? "On budget"
+                : totalRemainingWork < timeBudget
+                  ? `${formatEstimate(timeBudget - totalRemainingWork)} under`
+                  : `${formatEstimate(totalRemainingWork - timeBudget)} over`}
+            </span>
+          )}
         </div>
 
         <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>

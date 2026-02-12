@@ -9,19 +9,24 @@ export interface AccomplishableResult {
   isAccomplishable: boolean;
 }
 
+export interface AccomplishableOutput {
+  results: Map<string, AccomplishableResult>;
+  totalRemainingWork: number;
+}
+
 /**
  * Calculate which tasks can be accomplished within a given time budget.
  * Tasks are evaluated in the order provided.
  *
  * @param tasks - Tasks in display order (should be working/ready tasks only)
  * @param timeBudget - Total time available in milliseconds
- * @returns Map of task ID to accomplishable result
+ * @returns Per-task results map and total remaining work across all tasks
  */
 export function getAccomplishable(
   tasks: Task[],
   timeBudget: number
-): Map<string, AccomplishableResult> {
-  const result = new Map<string, AccomplishableResult>();
+): AccomplishableOutput {
+  const results = new Map<string, AccomplishableResult>();
   let cumulative = 0;
 
   for (const task of tasks) {
@@ -33,7 +38,7 @@ export function getAccomplishable(
 
     cumulative += remainingWork;
 
-    result.set(task.id, {
+    results.set(task.id, {
       taskId: task.id,
       remainingWork,
       cumulativeWork: cumulative,
@@ -41,5 +46,5 @@ export function getAccomplishable(
     });
   }
 
-  return result;
+  return { results, totalRemainingWork: cumulative };
 }
