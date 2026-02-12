@@ -19,8 +19,19 @@ function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [pausedLong, setPausedLong] = useState(false);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
+
+  // Start pulsing the paused indicator after 2 minutes
+  useEffect(() => {
+    if (!isPaused) {
+      setPausedLong(false);
+      return;
+    }
+    const timeout = setTimeout(() => setPausedLong(true), 2 * 60 * 1000);
+    return () => clearTimeout(timeout);
+  }, [isPaused]);
 
   // Keyboard shortcuts for modals
   useEffect(() => {
@@ -176,7 +187,8 @@ function App() {
       <h1
         className={cn(
           "text-5xl font-bold py-4 px-6 rounded-lg text-center",
-          isPaused ? "bg-yellow-300 text-yellow-900" : "bg-green-300 text-green-900"
+          isPaused ? "bg-yellow-300 text-yellow-900" : "bg-green-300 text-green-900",
+          pausedLong && "animate-pause-pulse"
         )}
       >
         <Countdown

@@ -117,6 +117,15 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+@keyframes pause-pulse {
+  0%, 100% { background-color: #fde047; }
+  50% { background-color: #f87171; }
+}
+
+.animate-pause-pulse {
+  animation: pause-pulse 1s ease-in-out infinite;
+}
+
 @layer base {
   html {
     scrollbar-gutter: stable;
