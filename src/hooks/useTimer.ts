@@ -1,18 +1,61 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Countdown from "react-countdown";
-import timerAudio from "./../assets/kitchen-timer-33043.mp3";
+import timerAudioUrl from "./../assets/kitchen-timer-33043.mp3";
 
 const useTimer = () => {
   const countdownRef = useRef<InstanceType<typeof Countdown>>(null);
-  const audioRef = useRef(new Audio(timerAudio));
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const [isPaused, setIsPaused] = useState(true);
 
+  useEffect(() => {
+    const ctx = new AudioContext();
+    audioContextRef.current = ctx;
+
+    fetch(timerAudioUrl)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((decoded) => {
+        audioBufferRef.current = decoded;
+      });
+
+    return () => {
+      ctx.close();
+    };
+  }, []);
+
   const playAudio = () => {
-    audioRef.current.play();
+    const ctx = audioContextRef.current;
+    const buffer = audioBufferRef.current;
+    if (!ctx || !buffer) return;
+
+    // Stop any existing playback first
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.stop();
+      } catch {
+        // Already stopped
+      }
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(ctx.destination);
+    source.start();
+    sourceNodeRef.current = source;
   };
 
   const pauseAudio = () => {
-    audioRef.current.pause();
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.stop();
+      } catch {
+        // Already stopped
+      }
+      sourceNodeRef.current = null;
+    }
   };
 
   const start = () => {
@@ -30,7 +73,6 @@ const useTimer = () => {
   };
 
   return {
-    audioRef,
     countdownRef,
     isPaused,
     start,

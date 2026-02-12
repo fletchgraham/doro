@@ -115,6 +115,7 @@ function App() {
   };
 
   const handlePause = () => {
+    timer.pauseAudio();
     timer.pause();
     taskManager.logPause();
   };
@@ -148,6 +149,7 @@ function App() {
   };
 
   const handleDone = () => {
+    timer.pauseAudio();
     taskManager.logPause();
     taskManager.completeTask();
     if (taskManager.getActiveTask()) {
