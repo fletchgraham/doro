@@ -10,6 +10,7 @@ import type Task from "./types/Task";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "./lib/formatDuration";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
@@ -183,6 +184,9 @@ function App() {
           onChange={(e) => setMins(Number(e.target.value) | 0)}
           className="w-20"
         />
+        <span className="ml-auto text-sm text-muted-foreground">
+          {formatDuration(taskManager.tasks.reduce((sum, t) => sum + t.duration, 0))} worked
+        </span>
       </div>
       <h1
         className={cn(
