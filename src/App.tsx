@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
+import { getLiveDuration } from "./lib/getDuration";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
@@ -35,18 +36,40 @@ function App() {
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
 
-  const totalDuration = taskManager.tasks.reduce((sum, t) => sum + t.duration, 0);
+  const [tick, setTick] = useState(0);
+
+  // Tick every second while running to keep totals live
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isPaused]);
+
+  const getTaskDuration = (task: Task) => {
+    if (!isPaused && task.status === "active") {
+      return getLiveDuration(task.events);
+    }
+    return task.duration;
+  };
+
+  // Use tick in dependency to force recalc while running
+  const totalDuration = useMemo(() => {
+    return taskManager.tasks.reduce((sum, t) => sum + getTaskDuration(t), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskManager.tasks, isPaused, tick]);
 
   const colorBreakdown = useMemo(() => {
     const map = new Map<string, number>();
     for (const task of taskManager.tasks) {
-      if (task.duration <= 0) continue;
+      const dur = getTaskDuration(task);
+      if (dur <= 0) continue;
       const color = task.color || "#9ca3af";
-      map.set(color, (map.get(color) || 0) + task.duration);
+      map.set(color, (map.get(color) || 0) + dur);
     }
     // Sort by duration descending
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [taskManager.tasks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskManager.tasks, isPaused, tick]);
 
   // Start pulsing the paused indicator after 2 minutes
   useEffect(() => {
