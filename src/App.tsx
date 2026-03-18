@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
@@ -14,15 +14,39 @@ import { formatDuration } from "./lib/formatDuration";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
+const TASK_COLORS: Record<string, string> = {
+  "#9ca3af": "Gray",
+  "#f87171": "Red",
+  "#fb923c": "Orange",
+  "#facc15": "Yellow",
+  "#4ade80": "Green",
+  "#60a5fa": "Blue",
+  "#c084fc": "Purple",
+};
+
 function App() {
   const [mins, setMins] = useState(20);
   const [date, setDate] = useState(makeDate(mins));
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const [isColorBreakdownOpen, setIsColorBreakdownOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pausedLong, setPausedLong] = useState(false);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
+
+  const totalDuration = taskManager.tasks.reduce((sum, t) => sum + t.duration, 0);
+
+  const colorBreakdown = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const task of taskManager.tasks) {
+      if (task.duration <= 0) continue;
+      const color = task.color || "#9ca3af";
+      map.set(color, (map.get(color) || 0) + task.duration);
+    }
+    // Sort by duration descending
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [taskManager.tasks]);
 
   // Start pulsing the paused indicator after 2 minutes
   useEffect(() => {
@@ -51,11 +75,13 @@ function App() {
       } else if (e.key === "s" && !isAddModalOpen && !isSwitchModalOpen) {
         e.preventDefault();
         setIsSwitchModalOpen(true);
+      } else if (e.key === "Escape" && isColorBreakdownOpen) {
+        setIsColorBreakdownOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isAddModalOpen, isSwitchModalOpen]);
+  }, [isAddModalOpen, isSwitchModalOpen, isColorBreakdownOpen]);
 
   // Paste handler to bulk add tasks when paused
   useEffect(() => {
@@ -184,8 +210,15 @@ function App() {
           onChange={(e) => setMins(Number(e.target.value) | 0)}
           className="w-20"
         />
-        <span className="ml-auto text-sm text-muted-foreground">
-          {formatDuration(taskManager.tasks.reduce((sum, t) => sum + t.duration, 0))} worked
+        <span
+          className="ml-auto text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (totalDuration > 0) setIsColorBreakdownOpen(true);
+          }}
+          title="Click to see breakdown by color"
+        >
+          {formatDuration(totalDuration)} worked
         </span>
       </div>
       <h1
@@ -221,9 +254,11 @@ function App() {
       </div>
       <ActiveTaskView
         task={taskManager.getActiveTask()}
+        isPaused={isPaused}
         onNotesChange={taskManager.setNotes}
         onTextChange={taskManager.setText}
         onUrlChange={taskManager.setUrl}
+        onDurationOverride={taskManager.overrideDuration}
         onDone={taskManager.getActiveTask() ? handleDone : undefined}
         onDeactivate={
           isPaused && taskManager.getActiveTask()
@@ -256,6 +291,55 @@ function App() {
         onSwitch={handleSwitchTask}
         onCreate={handleCreateAndStart}
       />
+
+      {/* Color breakdown modal */}
+      {isColorBreakdownOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setIsColorBreakdownOpen(false)}
+        >
+          <div
+            className="bg-background rounded-lg shadow-lg p-6 min-w-[280px] max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold mb-4">Time by Color</h2>
+            {colorBreakdown.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No time recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {colorBreakdown.map(([color, duration]) => (
+                  <div key={color} className="flex items-center gap-3">
+                    <div
+                      className="w-4 h-4 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-sm flex-1">
+                      {TASK_COLORS[color] || color}
+                    </span>
+                    <span className="text-sm font-medium">
+                      {formatDuration(duration)}
+                    </span>
+                  </div>
+                ))}
+                <div className="border-t pt-2 mt-2 flex items-center gap-3">
+                  <div className="w-4 h-4 shrink-0" />
+                  <span className="text-sm font-semibold flex-1">Total</span>
+                  <span className="text-sm font-semibold">
+                    {formatDuration(totalDuration)}
+                  </span>
+                </div>
+              </div>
+            )}
+            <Button
+              className="mt-4 w-full"
+              variant="secondary"
+              onClick={() => setIsColorBreakdownOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

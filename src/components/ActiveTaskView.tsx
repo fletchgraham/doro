@@ -3,28 +3,37 @@ import type Task from "../types/Task";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatEstimate } from "@/lib/parseTime";
+import { formatEstimate, parseTime } from "@/lib/parseTime";
+import { getLiveDuration } from "@/lib/getDuration";
+import { formatDuration } from "@/lib/formatDuration";
 import { ExternalLink } from "lucide-react";
 
 interface ActiveTaskViewProps {
   task: Task | undefined;
+  isPaused: boolean;
   onNotesChange: (task: Task, notes: string) => void;
   onTextChange: (task: Task, text: string) => void;
   onUrlChange: (task: Task, url: string | undefined) => void;
+  onDurationOverride: (task: Task, duration: number) => void;
   onDone?: () => void;
   onDeactivate?: () => void;
 }
 
 function ActiveTaskView({
   task,
+  isPaused,
   onNotesChange,
   onTextChange,
   onUrlChange,
+  onDurationOverride,
   onDone,
   onDeactivate,
 }: ActiveTaskViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [editDurationInput, setEditDurationInput] = useState("");
+  const [liveDuration, setLiveDuration] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +42,26 @@ function ActiveTaskView({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  // Live duration ticker
+  useEffect(() => {
+    if (!task) return;
+
+    const update = () => {
+      if (!isPaused) {
+        setLiveDuration(getLiveDuration(task.events));
+      } else {
+        setLiveDuration(task.duration);
+      }
+    };
+
+    update();
+
+    if (!isPaused) {
+      const interval = setInterval(update, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [task, task?.events, task?.duration, isPaused]);
 
   if (!task) {
     return <h2 className="text-2xl font-semibold text-muted-foreground mt-6">No active task</h2>;
@@ -59,7 +88,30 @@ function ActiveTaskView({
     }
   };
 
+  const handleStartDurationEdit = () => {
+    const currentDuration = !isPaused ? liveDuration : task.duration;
+    setEditDurationInput(formatEstimate(currentDuration) || formatDuration(currentDuration));
+    setIsEditingDuration(true);
+  };
+
+  const handleDurationSave = () => {
+    const parsed = parseTime(editDurationInput);
+    if (parsed !== null) {
+      onDurationOverride(task, parsed);
+    }
+    setIsEditingDuration(false);
+  };
+
+  const handleDurationKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleDurationSave();
+    } else if (e.key === "Escape") {
+      setIsEditingDuration(false);
+    }
+  };
+
   const bgColor = task.color || "#9ca3af";
+  const displayDuration = liveDuration;
 
   return (
     <div
@@ -96,10 +148,27 @@ function ActiveTaskView({
             )}
           </h2>
         )}
-        {task.duration > 0 && (
-          <span className="text-lg text-muted-foreground">
-            {formatEstimate(task.duration)}
-          </span>
+        {isEditingDuration ? (
+          <Input
+            value={editDurationInput}
+            onChange={(e) => setEditDurationInput(e.target.value)}
+            onBlur={handleDurationSave}
+            onKeyDown={handleDurationKeyDown}
+            onFocus={(e) => e.target.select()}
+            autoFocus
+            className="w-24 text-lg h-auto py-1"
+            placeholder="20m"
+          />
+        ) : (
+          displayDuration > 0 && (
+            <span
+              className="text-lg text-muted-foreground cursor-text hover:bg-muted/50 rounded px-1"
+              onClick={handleStartDurationEdit}
+              title="Click to edit duration"
+            >
+              {formatEstimate(displayDuration)}
+            </span>
+          )
         )}
       </div>
       <Input
