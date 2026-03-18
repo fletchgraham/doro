@@ -7,7 +7,9 @@ const getDuration = (
   for (const event of events) {
     if (event.eventType === "duration_override") {
       total = event.duration ?? 0;
-      curStart = null;
+      // If there was an active session, restart it from the override timestamp
+      // so time after the override continues to accumulate
+      curStart = curStart !== null ? event.timestamp : null;
       continue;
     }
 
@@ -38,7 +40,7 @@ export const getLiveDuration = (
   for (const event of events) {
     if (event.eventType === "duration_override") {
       total = event.duration ?? 0;
-      curStart = null;
+      curStart = curStart !== null ? event.timestamp : null;
       continue;
     }
 
