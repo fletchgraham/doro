@@ -61,6 +61,7 @@ interface TaskManager {
   setUrl: (task: Task, url: string | undefined) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
   moveTask: (task: Task, toStatus: Task["status"], newOrder: number) => void;
+  overrideDuration: (task: Task, duration: number) => void;
 }
 
 type DroppableStatus = "working" | "ready" | "done";
@@ -547,6 +548,8 @@ const TaskItem = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingEstimate, setIsEditingEstimate] = useState(false);
   const [inlineEstimateInput, setInlineEstimateInput] = useState("");
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [inlineDurationInput, setInlineDurationInput] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -606,6 +609,30 @@ const TaskItem = ({
     } else if (e.key === "Escape") {
       setIsEditingEstimate(false);
       setInlineEstimateInput("");
+    }
+  };
+
+  const handleInlineDurationClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingDuration(true);
+    setInlineDurationInput(formatEstimate(task.duration) || formatDuration(task.duration));
+  };
+
+  const handleInlineDurationBlur = () => {
+    const parsed = parseTime(inlineDurationInput);
+    if (parsed !== null) {
+      manager.overrideDuration(task, parsed);
+    }
+    setIsEditingDuration(false);
+    setInlineDurationInput("");
+  };
+
+  const handleInlineDurationKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleInlineDurationBlur();
+    } else if (e.key === "Escape") {
+      setIsEditingDuration(false);
+      setInlineDurationInput("");
     }
   };
 
@@ -739,9 +766,29 @@ const TaskItem = ({
           </span>
         )}
 
-        <span className="text-muted-foreground text-xs min-w-[50px] text-right">
-          {formatDuration(task.duration)}
-        </span>
+        {isEditingDuration ? (
+          <Input
+            value={inlineDurationInput}
+            onChange={(e) => setInlineDurationInput(e.target.value)}
+            onBlur={handleInlineDurationBlur}
+            onKeyDown={handleInlineDurationKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onFocus={(e) => e.target.select()}
+            autoFocus
+            className="w-16 h-6 text-xs px-1.5"
+            placeholder="20m"
+          />
+        ) : (
+          <span
+            onClick={handleInlineDurationClick}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="text-muted-foreground text-xs min-w-[50px] text-right cursor-text hover:bg-muted/80 rounded px-1"
+            title="Click to edit duration"
+          >
+            {formatDuration(task.duration)}
+          </span>
+        )}
 
         <Button
           variant="ghost"

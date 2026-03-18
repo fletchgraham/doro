@@ -11,7 +11,8 @@ export default interface Task {
   url?: string;
 }
 
-interface TaskEvent {
+export interface TaskEvent {
   timestamp: number;
-  eventType: "start" | "stop";
+  eventType: "start" | "stop" | "duration_override";
+  duration?: number;
 }

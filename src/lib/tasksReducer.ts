@@ -22,7 +22,8 @@ export type TasksAction =
   | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
   | { type: "COMPLETE_TASK" }
   | { type: "LOG_START" }
-  | { type: "LOG_PAUSE" };
+  | { type: "LOG_PAUSE" }
+  | { type: "OVERRIDE_DURATION"; taskId: string; duration: number };
 
 const DEFAULT_ESTIMATE = 20 * 60 * 1000; // 20 minutes
 
@@ -248,6 +249,20 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
           ? { ...t, status: action.toStatus, order: action.newOrder }
           : t
       );
+    }
+    case "OVERRIDE_DURATION": {
+      return state.map((t) => {
+        if (t.id !== action.taskId) return t;
+        const newEvents = [
+          ...t.events,
+          {
+            eventType: "duration_override" as const,
+            timestamp: Date.now(),
+            duration: action.duration,
+          },
+        ];
+        return { ...t, events: newEvents, duration: getDuration(newEvents) };
+      });
     }
     case "COMPLETE_TASK": {
       const activeTask = state.find((t) => t.status === "active");

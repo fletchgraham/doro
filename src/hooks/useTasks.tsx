@@ -104,6 +104,9 @@ const useTasks = () => {
   const logStart = () => dispatch({ type: "LOG_START" });
   const logPause = () => dispatch({ type: "LOG_PAUSE" });
 
+  const overrideDuration = (task: Task, duration: number) =>
+    dispatch({ type: "OVERRIDE_DURATION", taskId: task.id, duration });
+
   return {
     tasks,
     getActiveTask,
@@ -124,6 +127,7 @@ const useTasks = () => {
     completeTask,
     logStart,
     logPause,
+    overrideDuration,
   };
 };
 
