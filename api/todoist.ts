@@ -11,7 +11,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const response = await fetch("https://api.todoist.com/api/v1/tasks", {
+    const url = new URL("https://api.todoist.com/api/v1/tasks/filter");
+    url.searchParams.set("query", "today | overdue");
+
+    const response = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -22,9 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await response.json();
-    // v1 returns { results: [...], nextCursor: ... }
-    const tasks = data.results ?? data;
-    return res.status(200).json(tasks);
+    return res.status(200).json(data.results ?? []);
   } catch {
     return res.status(500).json({ error: "Failed to fetch from Todoist" });
   }

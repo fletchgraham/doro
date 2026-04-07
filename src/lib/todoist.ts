@@ -3,11 +3,8 @@ interface TodoistTask {
   content: string;
   description: string;
   priority: number; // 1 (normal) to 4 (urgent)
-  due: { date: string; string: string; datetime?: string } | null;
   url: string;
-  labels: string[];
   order: number;
-  is_completed: boolean;
 }
 
 export interface ImportableTask {
@@ -38,10 +35,8 @@ export async function fetchTodaysTasks(
   }
 
   const tasks: TodoistTask[] = await response.json();
-  const today = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" in local timezone
 
   return tasks
-    .filter((t) => !t.is_completed && t.due?.date === today)
     .sort((a, b) => a.order - b.order)
     .map((t) => ({
       text: t.content,
