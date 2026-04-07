@@ -23,7 +23,18 @@ export type TasksAction =
   | { type: "COMPLETE_TASK" }
   | { type: "LOG_START" }
   | { type: "LOG_PAUSE" }
-  | { type: "OVERRIDE_DURATION"; taskId: string; duration: number };
+  | { type: "OVERRIDE_DURATION"; taskId: string; duration: number }
+  | {
+      type: "IMPORT_TASKS";
+      tasks: Array<{
+        text: string;
+        notes: string;
+        url?: string;
+        color?: string;
+        estimate?: number;
+        todoistId?: string;
+      }>;
+    };
 
 const DEFAULT_ESTIMATE = 20 * 60 * 1000; // 20 minutes
 
@@ -263,6 +274,30 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         ];
         return { ...t, events: newEvents, duration: getDuration(newEvents) };
       });
+    }
+    case "IMPORT_TASKS": {
+      const existingTodoistIds = new Set(
+        state.filter((t) => t.todoistId).map((t) => t.todoistId)
+      );
+      const newTasks = action.tasks.filter(
+        (t) => !t.todoistId || !existingTodoistIds.has(t.todoistId)
+      );
+
+      const maxOrder = Math.max(...state.map((t) => t.order), 0);
+
+      return [
+        ...state,
+        ...newTasks.map((t, i) => ({
+          ...createTask(t.text),
+          notes: t.notes,
+          url: t.url,
+          color: t.color,
+          estimate: t.estimate ?? DEFAULT_ESTIMATE,
+          todoistId: t.todoistId,
+          status: "ready" as const,
+          order: maxOrder + (i + 1) * 1000,
+        })),
+      ];
     }
     case "COMPLETE_TASK": {
       const activeTask = state.find((t) => t.status === "active");

@@ -107,6 +107,17 @@ const useTasks = () => {
   const overrideDuration = (task: Task, duration: number) =>
     dispatch({ type: "OVERRIDE_DURATION", taskId: task.id, duration });
 
+  const importTasks = (
+    tasks: Array<{
+      text: string;
+      notes: string;
+      url?: string;
+      color?: string;
+      estimate?: number;
+      todoistId?: string;
+    }>
+  ) => dispatch({ type: "IMPORT_TASKS", tasks });
+
   return {
     tasks,
     getActiveTask,
@@ -128,6 +139,7 @@ const useTasks = () => {
     logStart,
     logPause,
     overrideDuration,
+    importTasks,
   };
 };
 

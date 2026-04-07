@@ -366,6 +366,87 @@ test("MOVE_TASK to active works when no current active task exists", () => {
   expect(activeTasks.length).toBe(1);
 });
 
+// IMPORT_TASKS tests
+
+test("IMPORT_TASKS imports tasks as ready with correct fields", () => {
+  const tasks: Task[] = [];
+
+  const updated = tasksReducer(tasks, {
+    type: "IMPORT_TASKS",
+    tasks: [
+      {
+        text: "Write report",
+        notes: "Q1 summary",
+        url: "https://todoist.com/task/1",
+        color: "#f87171",
+        todoistId: "101",
+      },
+      {
+        text: "Review PR",
+        notes: "",
+        color: "#9ca3af",
+        todoistId: "102",
+      },
+    ],
+  });
+
+  expect(updated.length).toBe(2);
+  expect(updated[0].text).toBe("Write report");
+  expect(updated[0].notes).toBe("Q1 summary");
+  expect(updated[0].url).toBe("https://todoist.com/task/1");
+  expect(updated[0].color).toBe("#f87171");
+  expect(updated[0].todoistId).toBe("101");
+  expect(updated[0].status).toBe("ready");
+  expect(updated[1].text).toBe("Review PR");
+  expect(updated[1].todoistId).toBe("102");
+});
+
+test("IMPORT_TASKS deduplicates by todoistId", () => {
+  const existing = { ...createTask("Existing"), todoistId: "101" };
+  const tasks: Task[] = [existing];
+
+  const updated = tasksReducer(tasks, {
+    type: "IMPORT_TASKS",
+    tasks: [
+      { text: "Existing (dupe)", notes: "", todoistId: "101" },
+      { text: "New task", notes: "", todoistId: "102" },
+    ],
+  });
+
+  expect(updated.length).toBe(2);
+  expect(updated[0].text).toBe("Existing");
+  expect(updated[1].text).toBe("New task");
+  expect(updated[1].todoistId).toBe("102");
+});
+
+test("IMPORT_TASKS orders after existing tasks", () => {
+  const tasks: Task[] = [
+    { ...createTask("Existing"), order: 5000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "IMPORT_TASKS",
+    tasks: [
+      { text: "First", notes: "", todoistId: "1" },
+      { text: "Second", notes: "", todoistId: "2" },
+    ],
+  });
+
+  expect(updated[1].order).toBe(6000);
+  expect(updated[2].order).toBe(7000);
+});
+
+test("IMPORT_TASKS with empty array adds nothing", () => {
+  const tasks: Task[] = [createTask("Existing")];
+
+  const updated = tasksReducer(tasks, {
+    type: "IMPORT_TASKS",
+    tasks: [],
+  });
+
+  expect(updated.length).toBe(1);
+});
+
 test("MOVE_TASK with non-existent task returns unchanged state", () => {
   const tasks: Task[] = [
     { ...createTask("task A"), status: "working", order: 1000 },
