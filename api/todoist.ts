@@ -5,16 +5,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing authorization header" });
+  const token = req.query.token;
+  if (!token || typeof token !== "string") {
+    return res.status(401).json({ error: "Missing token parameter" });
   }
 
   try {
     const response = await fetch("https://api.todoist.com/sync/v9/sync", {
       method: "POST",
       headers: {
-        Authorization: authHeader,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

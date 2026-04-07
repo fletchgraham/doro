@@ -27,9 +27,9 @@ const PRIORITY_COLOR_MAP: Record<number, string> = {
 export async function fetchTodaysTasks(
   token: string
 ): Promise<ImportableTask[]> {
-  const response = await fetch("/api/todoist", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await fetch(
+    `/api/todoist?token=${encodeURIComponent(token)}`
+  );
 
   if (!response.ok) {
     if (response.status === 401) throw new Error("Invalid Todoist API token");
