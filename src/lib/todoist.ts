@@ -1,18 +1,18 @@
-interface TodoistTask {
+interface TodoistItem {
   id: string;
   content: string;
   description: string;
   priority: number; // 1 (normal) to 4 (urgent)
-  due: { date: string; string: string; datetime?: string } | null;
-  url: string;
+  due: { date: string; string: string; is_recurring?: boolean } | null;
   labels: string[];
-  order: number;
+  child_order: number;
+  checked: boolean;
 }
 
 export interface ImportableTask {
   text: string;
   notes: string;
-  url: string;
+  url?: string;
   color: string;
   todoistId: string;
 }
@@ -36,17 +36,15 @@ export async function fetchTodaysTasks(
     throw new Error(`Todoist API error: ${response.status}`);
   }
 
-  const data = await response.json();
-  const allTasks: TodoistTask[] = Array.isArray(data) ? data : data.results ?? [];
+  const items: TodoistItem[] = await response.json();
   const today = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" in local timezone
 
-  return allTasks
-    .filter((t) => t.due?.date === today)
-    .sort((a, b) => a.order - b.order)
+  return items
+    .filter((t) => !t.checked && t.due?.date === today)
+    .sort((a, b) => a.child_order - b.child_order)
     .map((t) => ({
       text: t.content,
       notes: t.description,
-      url: t.url,
       color: PRIORITY_COLOR_MAP[t.priority] ?? "#9ca3af",
       todoistId: t.id,
     }));
