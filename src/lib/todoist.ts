@@ -27,7 +27,7 @@ const PRIORITY_COLOR_MAP: Record<number, string> = {
 export async function fetchTodaysTasks(
   token: string
 ): Promise<ImportableTask[]> {
-  const response = await fetch("https://api.todoist.com/rest/v2/tasks", {
+  const response = await fetch("/api/todoist", {
     headers: { Authorization: `Bearer ${token}` },
   });
 
