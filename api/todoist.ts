@@ -11,16 +11,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const response = await fetch("https://api.todoist.com/sync/v9/sync", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sync_token: "*",
-        resource_types: ["items"],
-      }),
+    const response = await fetch("https://api.todoist.com/api/v1/tasks", {
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
@@ -30,7 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await response.json();
-    return res.status(200).json(data.items ?? []);
+    // v1 returns { results: [...], nextCursor: ... }
+    const tasks = data.results ?? data;
+    return res.status(200).json(tasks);
   } catch {
     return res.status(500).json({ error: "Failed to fetch from Todoist" });
   }
