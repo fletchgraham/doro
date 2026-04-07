@@ -36,11 +36,11 @@ export async function fetchTodaysTasks(
     throw new Error(`Todoist API error: ${response.status}`);
   }
 
-  const tasks: TodoistTask[] = await response.json();
-  const today = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" in local timezone
+  const data = await response.json();
+  // v1 filter endpoint returns { results: [...] } or an array directly
+  const tasks: TodoistTask[] = Array.isArray(data) ? data : data.results ?? [];
 
   return tasks
-    .filter((t) => t.due?.date === today)
     .sort((a, b) => a.order - b.order)
     .map((t) => ({
       text: t.content,
