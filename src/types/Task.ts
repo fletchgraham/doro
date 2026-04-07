@@ -9,6 +9,7 @@ export default interface Task {
   color?: string;
   estimate?: number;
   url?: string;
+  todoistId?: string;
 }
 
 export interface TaskEvent {

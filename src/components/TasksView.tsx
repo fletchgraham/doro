@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
+import TodoistImport from "./TodoistImport";
 import {
   DndContext,
   DragOverlay,
@@ -62,6 +63,14 @@ interface TaskManager {
   reorderTask: (task: Task, direction: "up" | "down") => void;
   moveTask: (task: Task, toStatus: Task["status"], newOrder: number) => void;
   overrideDuration: (task: Task, duration: number) => void;
+  importTasks: (tasks: Array<{
+    text: string;
+    notes: string;
+    url?: string;
+    color?: string;
+    estimate?: number;
+    todoistId?: string;
+  }>) => void;
 }
 
 type DroppableStatus = "working" | "ready" | "done";
@@ -395,7 +404,11 @@ function TasksView({
           </DroppableList>
         </SortableContext>
 
-        <div className="mt-8 flex gap-2">
+        <div className="mt-6">
+          <TodoistImport onImport={taskManager.importTasks} />
+        </div>
+
+        <div className="mt-4 flex gap-2">
           <Button variant="outline" onClick={exportTasks}>
             Export to Clipboard
           </Button>
