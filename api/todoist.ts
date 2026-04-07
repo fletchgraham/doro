@@ -11,10 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const url = new URL("https://api.todoist.com/api/v1/tasks/filter");
-    url.searchParams.set("query", "today | overdue");
-
-    const response = await fetch(url.toString(), {
+    const response = await fetch("https://api.todoist.com/api/v1/tasks", {
       headers: { Authorization: authHeader },
     });
 

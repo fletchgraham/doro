@@ -37,10 +37,11 @@ export async function fetchTodaysTasks(
   }
 
   const data = await response.json();
-  // v1 filter endpoint returns { results: [...] } or an array directly
-  const tasks: TodoistTask[] = Array.isArray(data) ? data : data.results ?? [];
+  const allTasks: TodoistTask[] = Array.isArray(data) ? data : data.results ?? [];
+  const today = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" in local timezone
 
-  return tasks
+  return allTasks
+    .filter((t) => t.due?.date === today)
     .sort((a, b) => a.order - b.order)
     .map((t) => ({
       text: t.content,
