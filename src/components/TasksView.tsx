@@ -193,6 +193,17 @@ function TasksView({
     navigator.clipboard.writeText(text);
   };
 
+  const exportTasksForSheets = () => {
+    const today = new Date().toLocaleDateString("en-CA");
+    const allTasks = [...workingTasks, ...readyTasks, ...doneTasks];
+    const rows = allTasks.map((task) => {
+      const hours = (task.duration / 3_600_000).toFixed(2);
+      const notes = task.notes.replace(/[\r\n]+/g, " ").trim();
+      return `${today}\t${task.text}\t${notes}\t${hours}`;
+    });
+    navigator.clipboard.writeText(rows.join("\n"));
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!selectedTaskId) return;
@@ -411,6 +422,9 @@ function TasksView({
         <div className="mt-4 flex gap-2">
           <Button variant="outline" onClick={exportTasks}>
             Export to Clipboard
+          </Button>
+          <Button variant="outline" onClick={exportTasksForSheets}>
+            Export for Sheets
           </Button>
           <Button
             variant="outline"
