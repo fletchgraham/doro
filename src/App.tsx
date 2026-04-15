@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
 import { getLiveDuration } from "./lib/getDuration";
+import { Shuffle } from "lucide-react";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
@@ -33,6 +34,13 @@ function App() {
   const [isColorBreakdownOpen, setIsColorBreakdownOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pausedLong, setPausedLong] = useState(false);
+  const [shuffleMode, setShuffleMode] = useState(
+    () => localStorage.getItem("doroShuffleMode") === "true"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("doroShuffleMode", String(shuffleMode));
+  }, [shuffleMode]);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
 
@@ -169,7 +177,7 @@ function App() {
   const handleContinue = () => {
     timer.pauseAudio();
     taskManager.logPause();
-    taskManager.nextTask();
+    taskManager.nextTask(shuffleMode);
     taskManager.logStart();
     setDate(makeDate(mins));
     timer.start();
@@ -233,6 +241,20 @@ function App() {
           onChange={(e) => setMins(Number(e.target.value) | 0)}
           className="w-20"
         />
+        <Button
+          variant={shuffleMode ? "default" : "outline"}
+          size="icon"
+          onClick={() => setShuffleMode((s) => !s)}
+          title={
+            shuffleMode
+              ? "Shuffle mode on: Next Task picks randomly"
+              : "Shuffle mode off: Next Task picks in order"
+          }
+          aria-pressed={shuffleMode}
+          aria-label="Toggle shuffle mode"
+        >
+          <Shuffle />
+        </Button>
         <span
           className="ml-auto text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
           onClick={(e) => {
