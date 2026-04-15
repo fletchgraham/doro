@@ -1,7 +1,7 @@
 import tasksReducer from "./tasksReducer";
 import { createTask } from "./tasksReducer";
 import type Task from "../types/Task";
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 
 test("adds a new task to the list of tasks", () => {
   const tasks: Task[] = [];
@@ -460,4 +460,193 @@ test("MOVE_TASK with non-existent task returns unchanged state", () => {
   });
 
   expect(updated).toBe(tasks);
+});
+
+// NEXT_TASK shuffle mode tests
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+test("NEXT_TASK without shuffle picks first working task by order", () => {
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("first"), status: "working", order: 2000 },
+    { ...createTask("second"), status: "working", order: 3000 },
+    { ...createTask("third"), status: "working", order: 4000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: false });
+
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("first");
+});
+
+test("NEXT_TASK with shuffle picks a random working task (last index)", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("first"), status: "working", order: 2000 },
+    { ...createTask("second"), status: "working", order: 3000 },
+    { ...createTask("third"), status: "working", order: 4000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // Math.floor(0.99 * 3) = 2 -> last task in the working pool ("third")
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("third");
+});
+
+test("NEXT_TASK with shuffle picks a random working task (middle index)", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("first"), status: "working", order: 2000 },
+    { ...createTask("second"), status: "working", order: 3000 },
+    { ...createTask("third"), status: "working", order: 4000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // Math.floor(0.5 * 3) = 1 -> "second"
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("second");
+});
+
+test("NEXT_TASK with shuffle picks a random working task (first index)", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("first"), status: "working", order: 2000 },
+    { ...createTask("second"), status: "working", order: 3000 },
+    { ...createTask("third"), status: "working", order: 4000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // Math.floor(0 * 3) = 0 -> "first"
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("first");
+});
+
+test("NEXT_TASK with shuffle and only one other working task picks that one", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.7);
+
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("only one"), status: "working", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("only one");
+
+  // Old active should now be in working
+  const oldActive = updated.find((t) => t.text === "active");
+  expect(oldActive?.status).toBe("working");
+});
+
+test("NEXT_TASK with shuffle and no other working tasks keeps state consistent", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+  const tasks: Task[] = [
+    { ...createTask("only active"), status: "active", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // The previously active task gets moved to working (standard logic),
+  // and with no other candidates, no new active task is set.
+  const activeTasks = updated.filter((t) => t.status === "active");
+  expect(activeTasks.length).toBe(0);
+  const working = updated.filter((t) => t.status === "working");
+  expect(working.length).toBe(1);
+  expect(working[0].text).toBe("only active");
+});
+
+test("NEXT_TASK with shuffle when no task is currently active picks from working", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+  const tasks: Task[] = [
+    { ...createTask("first"), status: "working", order: 1000 },
+    { ...createTask("second"), status: "working", order: 2000 },
+    { ...createTask("third"), status: "working", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // Math.floor(0.99 * 3) = 2 -> "third"
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("third");
+
+  // Only one active task in result
+  expect(updated.filter((t) => t.status === "active").length).toBe(1);
+});
+
+test("NEXT_TASK with shuffle moves old active to end of working bucket", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+
+  const tasks: Task[] = [
+    { ...createTask("old active"), status: "active", order: 500 },
+    { ...createTask("working a"), status: "working", order: 2000 },
+    { ...createTask("working b"), status: "working", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // Old active should now be working with order > max previous working order
+  const oldActive = updated.find((t) => t.text === "old active");
+  expect(oldActive?.status).toBe("working");
+  expect(oldActive?.order).toBeGreaterThan(3000);
+});
+
+test("NEXT_TASK with shuffle excludes the old active task from random pool", () => {
+  // If we included the old active task, Math.random = 0 could pick it back.
+  // This test ensures the pool only contains the other working tasks.
+  vi.spyOn(Math, "random").mockReturnValue(0);
+
+  const tasks: Task[] = [
+    { ...createTask("old active"), status: "active", order: 500 },
+    { ...createTask("candidate"), status: "working", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // The only candidate should be activated — never the old active task
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("candidate");
+});
+
+test("NEXT_TASK with shuffle does not call Math.random when no candidates", () => {
+  const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+  const tasks: Task[] = [
+    { ...createTask("only active"), status: "active", order: 1000 },
+  ];
+
+  tasksReducer(tasks, { type: "NEXT_TASK", shuffle: true });
+
+  // Early return before Math.random is called
+  expect(randomSpy).not.toHaveBeenCalled();
+});
+
+test("NEXT_TASK with shuffle=undefined behaves like non-shuffle (first in order)", () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("first"), status: "working", order: 2000 },
+    { ...createTask("second"), status: "working", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK" });
+
+  // Should ignore Math.random and pick "first"
+  const activeNow = updated.find((t) => t.status === "active");
+  expect(activeNow?.text).toBe("first");
 });

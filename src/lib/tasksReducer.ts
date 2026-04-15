@@ -11,7 +11,7 @@ export type TasksAction =
       estimate?: number;
     }
   | { type: "REMOVE_TASK"; taskId: string }
-  | { type: "NEXT_TASK" }
+  | { type: "NEXT_TASK"; shuffle?: boolean }
   | { type: "SET_STATUS"; taskId: string; status: Task["status"] }
   | { type: "SET_NOTES"; taskId: string; text: string }
   | { type: "SET_TEXT"; taskId: string; text: string }
@@ -153,9 +153,14 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         return updatedState;
       }
 
-      // Activate the first working task
+      // Pick the next task: random if shuffle mode, else first in order
+      const pickIndex = action.shuffle
+        ? Math.floor(Math.random() * workingTasks.length)
+        : 0;
+      const nextActive = workingTasks[pickIndex];
+
       return updatedState.map((t) => {
-        if (t.id === workingTasks[0].id) {
+        if (t.id === nextActive.id) {
           return { ...t, status: "active" as const };
         }
         return t;

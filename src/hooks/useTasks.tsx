@@ -73,7 +73,8 @@ const useTasks = () => {
   const removeTask = (task: Task) =>
     dispatch({ type: "REMOVE_TASK", taskId: task.id });
 
-  const nextTask = () => dispatch({ type: "NEXT_TASK" });
+  const nextTask = (shuffle = false) =>
+    dispatch({ type: "NEXT_TASK", shuffle });
 
   const setStatus = (task: Task, status: Task["status"]) =>
     dispatch({ type: "SET_STATUS", taskId: task.id, status });
