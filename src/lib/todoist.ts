@@ -3,7 +3,6 @@ interface TodoistTask {
   content: string;
   description: string;
   priority: number; // 1 (normal) to 4 (urgent)
-  url: string;
   order: number;
 }
 
@@ -21,6 +20,32 @@ const PRIORITY_COLOR_MAP: Record<number, string> = {
   2: "#60a5fa", // medium -> blue
   1: "#9ca3af", // normal -> gray
 };
+
+const TODOIST_WEB_URI = "https://app.todoist.com/app";
+
+/**
+ * Slugify a string the same way the Todoist SDK does (Django-style):
+ * NFKD normalize, strip combining marks, drop non-ASCII, lowercase,
+ * remove non-word chars, collapse spaces/dashes to single dashes,
+ * trim leading/trailing dashes.
+ */
+export function slugifyTodoistContent(value: string): string {
+  let result = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  result = result.replace(/[^\x20-\x7E]/g, "");
+  result = result.toLowerCase().replace(/[^\w\s-]/g, "");
+  result = result.replace(/[-\s]+/g, "-");
+  return result.replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Build a Todoist task URL from its id and content, matching the format
+ * the Todoist SDK generates: https://app.todoist.com/app/task/<slug>-<id>
+ */
+export function getTodoistTaskUrl(id: string, content: string): string {
+  const slug = content ? slugifyTodoistContent(content) : "";
+  const path = slug ? `${slug}-${id}` : id;
+  return `${TODOIST_WEB_URI}/task/${path}`;
+}
 
 export async function fetchTodaysTasks(
   token: string
@@ -41,7 +66,7 @@ export async function fetchTodaysTasks(
     .map((t) => ({
       text: t.content,
       notes: t.description,
-      url: t.url,
+      url: getTodoistTaskUrl(t.id, t.content),
       color: PRIORITY_COLOR_MAP[t.priority] ?? "#9ca3af",
       todoistId: t.id,
     }));
