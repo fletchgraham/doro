@@ -6,6 +6,8 @@ import {
   getTodoistToken,
   setTodoistToken,
   clearTodoistToken,
+  getTodoistLabel,
+  setTodoistLabel,
   type ImportableTask,
 } from "../lib/todoist";
 
@@ -16,8 +18,14 @@ interface TodoistImportProps {
 function TodoistImport({ onImport }: TodoistImportProps) {
   const [token, setToken] = useState(getTodoistToken);
   const [tokenInput, setTokenInput] = useState("");
+  const [label, setLabel] = useState(getTodoistLabel);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+
+  const handleLabelChange = (value: string) => {
+    setLabel(value);
+    setTodoistLabel(value);
+  };
 
   const handleSaveToken = () => {
     const trimmed = tokenInput.trim();
@@ -39,9 +47,13 @@ function TodoistImport({ onImport }: TodoistImportProps) {
     setLoading(true);
     setStatus(null);
     try {
-      const tasks = await fetchTodaysTasks(token);
+      const tasks = await fetchTodaysTasks(token, label);
       if (tasks.length === 0) {
-        setStatus("No tasks due today");
+        setStatus(
+          label.trim()
+            ? `No tasks due today with label "${label.trim()}"`
+            : "No tasks due today"
+        );
       } else {
         onImport(tasks);
         setStatus(`Imported ${tasks.length} task${tasks.length === 1 ? "" : "s"}`);
@@ -87,6 +99,13 @@ function TodoistImport({ onImport }: TodoistImportProps) {
       <Button variant="outline" onClick={handleImport} disabled={loading}>
         {loading ? "Importing..." : "Import from Todoist"}
       </Button>
+      <Input
+        value={label}
+        onChange={(e) => handleLabelChange(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        placeholder="label filter (optional)"
+        className="w-44 h-8 text-sm"
+      />
       <button
         onClick={handleDisconnect}
         className="text-xs text-muted-foreground hover:text-foreground underline"

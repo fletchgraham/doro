@@ -48,11 +48,14 @@ export function getTodoistTaskUrl(id: string, content: string): string {
 }
 
 export async function fetchTodaysTasks(
-  token: string
+  token: string,
+  label?: string
 ): Promise<ImportableTask[]> {
-  const response = await fetch(
-    `/api/todoist?token=${encodeURIComponent(token)}`
-  );
+  const params = new URLSearchParams({ token });
+  if (label?.trim()) {
+    params.set("label", label.trim());
+  }
+  const response = await fetch(`/api/todoist?${params.toString()}`);
 
   if (!response.ok) {
     if (response.status === 401) throw new Error("Invalid Todoist API token");
@@ -82,4 +85,12 @@ export function setTodoistToken(token: string): void {
 
 export function clearTodoistToken(): void {
   localStorage.removeItem("doroTodoistToken");
+}
+
+export function getTodoistLabel(): string {
+  return localStorage.getItem("doroTodoistLabel") ?? "";
+}
+
+export function setTodoistLabel(label: string): void {
+  localStorage.setItem("doroTodoistLabel", label);
 }
