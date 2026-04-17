@@ -10,9 +10,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: "Missing token parameter" });
   }
 
+  const label = typeof req.query.label === "string" ? req.query.label.trim() : "";
+
   try {
     const url = new URL("https://api.todoist.com/api/v1/tasks/filter");
-    url.searchParams.set("query", "today | overdue");
+    // Label names in Todoist filter syntax are prefixed with @. Escape with
+    // backslash for any special chars; conservatively strip whitespace/@ from
+    // user input so the filter parses.
+    const safeLabel = label.replace(/[^\w-]/g, "");
+    const query = safeLabel
+      ? `(today | overdue) & @${safeLabel}`
+      : "today | overdue";
+    url.searchParams.set("query", query);
 
     const response = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${token}` },
