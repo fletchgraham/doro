@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { formatEstimate, parseTime } from "@/lib/parseTime";
 import { getLiveDuration } from "@/lib/getDuration";
 import { formatDuration } from "@/lib/formatDuration";
+import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
 interface ActiveTaskViewProps {
@@ -112,6 +113,7 @@ function ActiveTaskView({
 
   const bgColor = task.color || "#9ca3af";
   const displayDuration = liveDuration;
+  const isOverEstimate = !!task.estimate && displayDuration > task.estimate;
 
   return (
     <div
@@ -160,13 +162,19 @@ function ActiveTaskView({
             placeholder="20m"
           />
         ) : (
-          displayDuration > 0 && (
+          (displayDuration > 0 || task.estimate) && (
             <span
-              className="text-lg text-muted-foreground cursor-text hover:bg-muted/50 rounded px-1"
+              className={cn(
+                "text-lg cursor-text hover:bg-muted/50 rounded px-1 whitespace-nowrap",
+                isOverEstimate
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              )}
               onClick={handleStartDurationEdit}
               title="Click to edit duration"
             >
-              {formatEstimate(displayDuration)}
+              {formatEstimate(displayDuration) || "0m"}
+              {task.estimate ? ` / ${formatEstimate(task.estimate)}` : ""}
             </span>
           )
         )}

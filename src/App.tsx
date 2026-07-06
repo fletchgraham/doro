@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
 import TasksView from "./components/TasksView";
@@ -16,6 +16,18 @@ import { Shuffle } from "lucide-react";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
+const formatPausedFor = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  return formatDuration(ms);
+};
+
+const requestNotificationPermission = () => {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+};
+
 const TASK_COLORS: Record<string, string> = {
   "#9ca3af": "Gray",
   "#f87171": "Red",
@@ -27,8 +39,10 @@ const TASK_COLORS: Record<string, string> = {
 };
 
 function App() {
-  const [mins, setMins] = useState(20);
-  const [date, setDate] = useState(makeDate(mins));
+  const [minsInput, setMinsInput] = useState("20");
+  const parsedMins = Math.floor(Number(minsInput));
+  const mins = Number.isFinite(parsedMins) && parsedMins >= 1 ? parsedMins : 1;
+  const [date, setDate] = useState(() => makeDate(20));
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isColorBreakdownOpen, setIsColorBreakdownOpen] = useState(false);
@@ -45,6 +59,29 @@ function App() {
   const { isPaused, countdownRef, ...timer } = useTimer();
 
   const [tick, setTick] = useState(0);
+  const [pausedElapsed, setPausedElapsed] = useState(0);
+  const lastTimeRef = useRef("20:00");
+
+  // Reflect running/paused state in the tab title so a glance at the
+  // tab strip shows the timer state from another window
+  useEffect(() => {
+    document.title = `${isPaused ? "⏸" : "▶"} ${lastTimeRef.current} - Doro`;
+  }, [isPaused]);
+
+  // Track how long the timer has been paused
+  useEffect(() => {
+    if (!isPaused) {
+      setPausedElapsed(0);
+      return;
+    }
+    const since = Date.now();
+    setPausedElapsed(0);
+    const interval = setInterval(
+      () => setPausedElapsed(Date.now() - since),
+      1000
+    );
+    return () => clearInterval(interval);
+  }, [isPaused]);
 
   // Tick every second while running to keep totals live
   useEffect(() => {
@@ -148,6 +185,7 @@ function App() {
   ) => {
     // If adding as active, handle timer state
     if (status === "active") {
+      requestNotificationPermission();
       // Pause current active task if exists
       if (taskManager.getActiveTask()) {
         taskManager.logPause();
@@ -166,15 +204,29 @@ function App() {
     setDate(makeDate(mins));
     timer.pause();
     taskManager.logPause();
-    document.title = `${mins}:00 - Doro`;
+    lastTimeRef.current = `${mins}:00`;
+    document.title = `⏸ ${mins}:00 - Doro`;
   };
 
   const handleComplete = () => {
     timer.playAudio();
     taskManager.logPause();
+    lastTimeRef.current = "0:00";
+    document.title = "⏰ Time's up! - Doro";
+    if (
+      "Notification" in window &&
+      Notification.permission === "granted" &&
+      !document.hasFocus()
+    ) {
+      const active = taskManager.getActiveTask();
+      new Notification("Doro — time's up", {
+        body: active ? active.text : "Timer finished",
+      });
+    }
   };
 
   const handleContinue = () => {
+    requestNotificationPermission();
     timer.pauseAudio();
     taskManager.logPause();
     taskManager.nextTask(shuffleMode);
@@ -190,11 +242,13 @@ function App() {
   };
 
   const handleStart = () => {
+    requestNotificationPermission();
     timer.start();
     taskManager.logStart();
   };
 
   const handleSwitchTask = (task: Task) => {
+    requestNotificationPermission();
     // Pause current active task if exists
     if (taskManager.getActiveTask()) {
       taskManager.logPause();
@@ -207,6 +261,7 @@ function App() {
   };
 
   const handleCreateAndStart = (text: string) => {
+    requestNotificationPermission();
     // Pause current active task if exists
     if (taskManager.getActiveTask()) {
       taskManager.logPause();
@@ -237,8 +292,10 @@ function App() {
         <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
         <Input
           type="number"
-          value={mins}
-          onChange={(e) => setMins(Number(e.target.value) | 0)}
+          min={1}
+          value={minsInput}
+          onChange={(e) => setMinsInput(e.target.value)}
+          onBlur={() => setMinsInput(String(mins))}
           className="w-20"
         />
         <Button
@@ -278,11 +335,19 @@ function App() {
           autoStart={false}
           date={date}
           onComplete={handleComplete}
-          onTick={({ minutes, seconds }) => {
-            const time = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-            document.title = `${time} - Doro`;
+          onTick={({ hours, minutes, seconds }) => {
+            const time = `${hours * 60 + minutes}:${seconds
+              .toString()
+              .padStart(2, "0")}`;
+            lastTimeRef.current = time;
+            document.title = `▶ ${time} - Doro`;
           }}
         />
+        {isPaused && (
+          <div className="text-base font-medium mt-1">
+            paused for {formatPausedFor(pausedElapsed)}
+          </div>
+        )}
       </h1>
       <div className="flex gap-2 mt-4">
         {isPaused ? (

@@ -3,7 +3,7 @@ export default interface Task {
   notes: string;
   id: string;
   events: TaskEvent[];
-  status: "backlog" | "ready" | "working" | "active" | "done";
+  status: "ready" | "working" | "active" | "done";
   duration: number;
   order: number;
   color?: string;

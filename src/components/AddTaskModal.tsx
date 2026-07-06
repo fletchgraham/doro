@@ -60,7 +60,7 @@ function AddTaskModal({ isOpen, onClose, onAdd }: AddTaskModalProps) {
     }
   };
 
-  const statuses: Task["status"][] = ["active", "working", "ready", "backlog"];
+  const statuses: Task["status"][] = ["active", "working", "ready"];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>

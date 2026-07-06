@@ -19,12 +19,14 @@ import TodoistImport from "./TodoistImport";
 import {
   DndContext,
   DragOverlay,
+  pointerWithin,
   rectIntersection,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -74,6 +76,21 @@ interface TaskManager {
 }
 
 type DroppableStatus = "working" | "ready" | "done";
+
+const CONTAINER_IDS = new Set<string>(["working", "ready", "done"]);
+
+// Target whatever is under the pointer, preferring task items over their
+// list containers — rectIntersection alone often picks the container,
+// which loses the precise drop position
+const preferItemCollision: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  const collisions =
+    pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+  const itemCollision = collisions.find(
+    (c) => !CONTAINER_IDS.has(String(c.id))
+  );
+  return itemCollision ? [itemCollision] : collisions;
+};
 
 function TasksView({
   taskManager,
@@ -261,10 +278,23 @@ function TasksView({
       // Dropped on another sortable item
       targetStatus = overData.sortable.containerId as DroppableStatus;
       dropIndex = overData.sortable.index;
+      // When dragging across lists, the target list's items don't shift to
+      // make room, so the hovered item's index alone is ambiguous: dropping
+      // on its lower half means "insert after it"
+      if (activeTask.status !== targetStatus) {
+        const activeRect = active.rect.current.translated;
+        if (activeRect) {
+          const activeMiddle = activeRect.top + activeRect.height / 2;
+          const overMiddle = over.rect.top + over.rect.height / 2;
+          if (activeMiddle > overMiddle) {
+            dropIndex += 1;
+          }
+        }
+      }
     } else {
-      // Dropped on an empty container
+      // Dropped on a container's empty space: place at the end
       targetStatus = over.id as DroppableStatus;
-      dropIndex = 0;
+      dropIndex = Number.MAX_SAFE_INTEGER;
     }
 
     // Get the target tasks list
@@ -291,7 +321,7 @@ function TasksView({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={rectIntersection}
+      collisionDetection={preferItemCollision}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
