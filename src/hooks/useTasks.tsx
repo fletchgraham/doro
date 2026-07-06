@@ -7,7 +7,11 @@ const STORAGE_DEBOUNCE_MS = 500;
 const migrateTask = (task: Task, index: number): Task => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const legacy = task as any;
-  let status = task.status ?? "backlog";
+  // Backlog is no longer a status; fold legacy backlog tasks into ready
+  let status: Task["status"] =
+    task.status == null || (task.status as string) === "backlog"
+      ? "ready"
+      : task.status;
 
   // Migrate from old active boolean to active status
   if (legacy.active === true) {
