@@ -4,6 +4,7 @@ import { formatDuration } from "../lib/formatDuration";
 import { parseTime, formatEstimate } from "../lib/parseTime";
 import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
+import { handleLineMoveKeyDown } from "../lib/moveLine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -876,6 +877,10 @@ const TaskItem = ({
           <Textarea
             value={task.notes}
             onChange={(e) => manager.setNotes(task, e.target.value)}
+            onKeyDown={(e) => {
+              const moved = handleLineMoveKeyDown(e);
+              if (moved !== null) manager.setNotes(task, moved);
+            }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             placeholder="Notes..."
