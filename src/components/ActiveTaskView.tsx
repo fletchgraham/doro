@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { formatEstimate, parseTime } from "@/lib/parseTime";
 import { getLiveDuration } from "@/lib/getDuration";
 import { formatDuration } from "@/lib/formatDuration";
+import { handleLineMoveKeyDown } from "@/lib/moveLine";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
@@ -188,6 +189,10 @@ function ActiveTaskView({
       <Textarea
         value={task.notes}
         onChange={(e) => onNotesChange(task, e.target.value)}
+        onKeyDown={(e) => {
+          const moved = handleLineMoveKeyDown(e);
+          if (moved !== null) onNotesChange(task, moved);
+        }}
         placeholder="Notes..."
         className="min-h-[80px] resize-y bg-white"
       />
