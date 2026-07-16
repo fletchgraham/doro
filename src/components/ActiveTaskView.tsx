@@ -7,6 +7,7 @@ import { formatEstimate, parseTime } from "@/lib/parseTime";
 import { getLiveDuration } from "@/lib/getDuration";
 import { formatDuration } from "@/lib/formatDuration";
 import { handleLineMoveKeyDown } from "@/lib/moveLine";
+import { fireConfetti } from "@/lib/confetti";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
@@ -198,7 +199,16 @@ function ActiveTaskView({
       />
       {(onDone || onDeactivate) && (
         <div className="mt-2 flex gap-2">
-          {onDone && <Button onClick={onDone}>Complete</Button>}
+          {onDone && (
+            <Button
+              onClick={(e) => {
+                fireConfetti(e.clientX, e.clientY);
+                onDone();
+              }}
+            >
+              Complete
+            </Button>
+          )}
           {onDeactivate && (
             <Button variant="secondary" onClick={onDeactivate}>
               Deactivate

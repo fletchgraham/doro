@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type Task from "../types/Task";
 import tasksReducer from "../lib/tasksReducer";
 
@@ -37,6 +37,14 @@ const useTasks = () => {
     (initial: Task[]) => initial.map(migrateTask)
   );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // When locked, the ready list doesn't feed new tasks into working/active
+  const [readyLocked, setReadyLocked] = useState(
+    () => localStorage.getItem("doroReadyLocked") === "true"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("doroReadyLocked", String(readyLocked));
+  }, [readyLocked]);
 
   // Debounce localStorage writes to reduce lag during rapid updates (e.g., typing notes)
   useEffect(() => {
@@ -78,7 +86,7 @@ const useTasks = () => {
     dispatch({ type: "REMOVE_TASK", taskId: task.id });
 
   const nextTask = (shuffle = false) =>
-    dispatch({ type: "NEXT_TASK", shuffle });
+    dispatch({ type: "NEXT_TASK", shuffle, pullFromReady: !readyLocked });
 
   const setStatus = (task: Task, status: Task["status"]) =>
     dispatch({ type: "SET_STATUS", taskId: task.id, status });
@@ -104,7 +112,8 @@ const useTasks = () => {
   const moveTask = (task: Task, toStatus: Task["status"], newOrder: number) =>
     dispatch({ type: "MOVE_TASK", taskId: task.id, toStatus, newOrder });
 
-  const completeTask = () => dispatch({ type: "COMPLETE_TASK" });
+  const completeTask = () =>
+    dispatch({ type: "COMPLETE_TASK", pullFromReady: !readyLocked });
 
   const logStart = () => dispatch({ type: "LOG_START" });
   const logPause = () => dispatch({ type: "LOG_PAUSE" });
@@ -125,6 +134,8 @@ const useTasks = () => {
 
   return {
     tasks,
+    readyLocked,
+    setReadyLocked,
     getActiveTask,
     getInactiveTasks,
     getTasksByStatus,
