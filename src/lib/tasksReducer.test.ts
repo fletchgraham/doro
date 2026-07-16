@@ -635,6 +635,95 @@ test("NEXT_TASK with shuffle does not call Math.random when no candidates", () =
   expect(randomSpy).not.toHaveBeenCalled();
 });
 
+// COMPLETE_TASK / ready-lock tests
+
+test("COMPLETE_TASK promotes a ready task and activates the first working task", () => {
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("working"), status: "working", order: 2000 },
+    { ...createTask("ready"), status: "ready", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "COMPLETE_TASK" });
+
+  expect(updated.find((t) => t.text === "active")?.status).toBe("done");
+  expect(updated.find((t) => t.text === "working")?.status).toBe("active");
+  expect(updated.find((t) => t.text === "ready")?.status).toBe("working");
+});
+
+test("COMPLETE_TASK with pullFromReady=false leaves ready tasks alone", () => {
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("working"), status: "working", order: 2000 },
+    { ...createTask("ready"), status: "ready", order: 3000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "COMPLETE_TASK",
+    pullFromReady: false,
+  });
+
+  expect(updated.find((t) => t.text === "active")?.status).toBe("done");
+  // Still activates from the existing working pool
+  expect(updated.find((t) => t.text === "working")?.status).toBe("active");
+  // But nothing is pulled from ready
+  expect(updated.find((t) => t.text === "ready")?.status).toBe("ready");
+});
+
+test("COMPLETE_TASK with pullFromReady=false and empty working leaves no active task", () => {
+  const tasks: Task[] = [
+    { ...createTask("active"), status: "active", order: 1000 },
+    { ...createTask("ready"), status: "ready", order: 2000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "COMPLETE_TASK",
+    pullFromReady: false,
+  });
+
+  expect(updated.find((t) => t.text === "active")?.status).toBe("done");
+  expect(updated.find((t) => t.text === "ready")?.status).toBe("ready");
+  expect(updated.filter((t) => t.status === "active").length).toBe(0);
+});
+
+test("NEXT_TASK with empty working pulls the first ready task", () => {
+  const tasks: Task[] = [
+    { ...createTask("ready b"), status: "ready", order: 2000 },
+    { ...createTask("ready a"), status: "ready", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK" });
+
+  expect(updated.find((t) => t.text === "ready a")?.status).toBe("active");
+  expect(updated.find((t) => t.text === "ready b")?.status).toBe("ready");
+});
+
+test("NEXT_TASK with empty working and pullFromReady=false does nothing", () => {
+  const tasks: Task[] = [
+    { ...createTask("ready"), status: "ready", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "NEXT_TASK",
+    pullFromReady: false,
+  });
+
+  expect(updated.find((t) => t.text === "ready")?.status).toBe("ready");
+  expect(updated.filter((t) => t.status === "active").length).toBe(0);
+});
+
+test("NEXT_TASK prefers working tasks over ready tasks", () => {
+  const tasks: Task[] = [
+    { ...createTask("working"), status: "working", order: 5000 },
+    { ...createTask("ready"), status: "ready", order: 1000 },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "NEXT_TASK" });
+
+  expect(updated.find((t) => t.text === "working")?.status).toBe("active");
+  expect(updated.find((t) => t.text === "ready")?.status).toBe("ready");
+});
+
 test("NEXT_TASK with shuffle=undefined behaves like non-shuffle (first in order)", () => {
   vi.spyOn(Math, "random").mockReturnValue(0.99);
 

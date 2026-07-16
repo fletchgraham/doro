@@ -11,7 +11,7 @@ export type TasksAction =
       estimate?: number;
     }
   | { type: "REMOVE_TASK"; taskId: string }
-  | { type: "NEXT_TASK"; shuffle?: boolean }
+  | { type: "NEXT_TASK"; shuffle?: boolean; pullFromReady?: boolean }
   | { type: "SET_STATUS"; taskId: string; status: Task["status"] }
   | { type: "SET_NOTES"; taskId: string; text: string }
   | { type: "SET_TEXT"; taskId: string; text: string }
@@ -20,7 +20,7 @@ export type TasksAction =
   | { type: "SET_URL"; taskId: string; url: string | undefined }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
   | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
-  | { type: "COMPLETE_TASK" }
+  | { type: "COMPLETE_TASK"; pullFromReady?: boolean }
   | { type: "LOG_START" }
   | { type: "LOG_PAUSE" }
   | { type: "OVERRIDE_DURATION"; taskId: string; duration: number }
@@ -150,7 +150,16 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         .sort((a, b) => a.order - b.order);
 
       if (workingTasks.length === 0) {
-        return updatedState;
+        // Working is empty: fall back to the first ready task unless the
+        // ready list is locked (pullFromReady defaults to true)
+        if (action.pullFromReady === false) return updatedState;
+        const readyTasks = updatedState
+          .filter((t) => t.status === "ready")
+          .sort((a, b) => a.order - b.order);
+        if (readyTasks.length === 0) return updatedState;
+        return updatedState.map((t) =>
+          t.id === readyTasks[0].id ? { ...t, status: "active" as const } : t
+        );
       }
 
       // Pick the next task: random if shuffle mode, else first in order
@@ -317,8 +326,9 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         .filter((t) => t.status === "ready")
         .sort((a, b) => a.order - b.order);
 
-      // Always promote a ready task to working to maintain the pool
-      if (readyTasks.length > 0) {
+      // Promote a ready task to working to maintain the pool, unless the
+      // ready list is locked (pullFromReady defaults to true)
+      if (action.pullFromReady !== false && readyTasks.length > 0) {
         const maxWorkingOrder = Math.max(
           ...updated.filter((t) => t.status === "working").map((t) => t.order),
           0

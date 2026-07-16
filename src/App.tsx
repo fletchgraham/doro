@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Countdown from "react-countdown";
 import ActiveTaskView from "./components/ActiveTaskView";
+import AllClear from "./components/AllClear";
 import TasksView from "./components/TasksView";
 import AddTaskModal from "./components/AddTaskModal";
 import SwitchTaskModal from "./components/SwitchTaskModal";
@@ -38,11 +39,79 @@ const TASK_COLORS: Record<string, string> = {
   "#c084fc": "Purple",
 };
 
+const DONUT_RADIUS = 40;
+const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
+
+// Donut of time share per color. Colors are the task colors themselves
+// (they carry identity in the rest of the app), values live in the legend.
+function ColorDonut({
+  data,
+  total,
+}: {
+  data: [string, number][];
+  total: number;
+}) {
+  // 2px gap between segments so adjacent fills never touch
+  const gap = data.length > 1 ? 2 : 0;
+  const segments: Array<{
+    color: string;
+    duration: number;
+    frac: number;
+    start: number;
+  }> = [];
+  for (const [color, duration] of data) {
+    const frac = duration / total;
+    const prev = segments[segments.length - 1];
+    const start = prev ? prev.start + prev.frac * DONUT_CIRCUMFERENCE : 0;
+    segments.push({ color, duration, frac, start });
+  }
+  return (
+    <div className="relative w-[140px] h-[140px]">
+      <svg
+        width="140"
+        height="140"
+        viewBox="0 0 140 140"
+        role="img"
+        aria-label="Share of time by task color"
+      >
+        {segments.map(({ color, duration, frac, start }) => {
+          const len = Math.max(frac * DONUT_CIRCUMFERENCE - gap, 0);
+          return (
+            <circle
+              key={color}
+              cx="70"
+              cy="70"
+              r={DONUT_RADIUS}
+              fill="none"
+              stroke={color}
+              strokeWidth="18"
+              strokeDasharray={`${len} ${DONUT_CIRCUMFERENCE - len}`}
+              strokeDashoffset={-(start + gap / 2)}
+              transform="rotate(-90 70 70)"
+            >
+              <title>
+                {`${TASK_COLORS[color] || color}: ${formatDuration(
+                  duration
+                )} (${Math.round(frac * 100)}%)`}
+              </title>
+            </circle>
+          );
+        })}
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-sm font-semibold">{formatDuration(total)}</span>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [minsInput, setMinsInput] = useState("20");
   const parsedMins = Math.floor(Number(minsInput));
   const mins = Number.isFinite(parsedMins) && parsedMins >= 1 ? parsedMins : 1;
   const [date, setDate] = useState(() => makeDate(20));
+  const [timerEpoch, setTimerEpoch] = useState(0);
+  const pendingStartRef = useRef(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isColorBreakdownOpen, setIsColorBreakdownOpen] = useState(false);
@@ -57,6 +126,25 @@ function App() {
   }, [shuffleMode]);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
+
+  // Give the countdown a fresh full duration, optionally starting it once
+  // the new date prop has reached the Countdown (its componentDidUpdate
+  // resets even a COMPLETED countdown). Starting synchronously would run
+  // against the old — possibly already expired — date, which completes
+  // immediately and re-rings the bell.
+  const resetTimer = (autoStart: boolean) => {
+    pendingStartRef.current = autoStart;
+    setDate(makeDate(mins));
+    setTimerEpoch((e) => e + 1);
+  };
+
+  useEffect(() => {
+    if (pendingStartRef.current) {
+      pendingStartRef.current = false;
+      timer.start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerEpoch]);
 
   const [tick, setTick] = useState(0);
   const [pausedElapsed, setPausedElapsed] = useState(0);
@@ -177,6 +265,13 @@ function App() {
     return () => window.removeEventListener("paste", handlePaste);
   }, [isPaused, taskManager]);
 
+  const activeTask = taskManager.getActiveTask();
+  const workingCount = taskManager.getTasksByStatus("working").length;
+  const readyCount = taskManager.getTasksByStatus("ready").length;
+  // A task can be pulled in from working, or from ready when it's unlocked
+  const hasNextCandidate =
+    workingCount > 0 || (!taskManager.readyLocked && readyCount > 0);
+
   const handleAddTask = (
     text: string,
     status: Task["status"],
@@ -192,8 +287,7 @@ function App() {
       }
       taskManager.addTaskWithOptions(text, status, position, estimate);
       taskManager.logStart();
-      setDate(makeDate(mins));
-      timer.start();
+      resetTimer(true);
     } else {
       taskManager.addTaskWithOptions(text, status, position, estimate);
     }
@@ -201,7 +295,7 @@ function App() {
 
   const handleReset = () => {
     timer.pauseAudio();
-    setDate(makeDate(mins));
+    resetTimer(false);
     timer.pause();
     taskManager.logPause();
     lastTimeRef.current = `${mins}:00`;
@@ -230,9 +324,12 @@ function App() {
     timer.pauseAudio();
     taskManager.logPause();
     taskManager.nextTask(shuffleMode);
-    taskManager.logStart();
-    setDate(makeDate(mins));
-    timer.start();
+    if (hasNextCandidate) {
+      taskManager.logStart();
+      resetTimer(true);
+    } else {
+      timer.pause();
+    }
   };
 
   const handlePause = () => {
@@ -243,7 +340,13 @@ function App() {
 
   const handleStart = () => {
     requestNotificationPermission();
-    timer.start();
+    if (date <= Date.now()) {
+      // The countdown already ran out; starting it as-is would just
+      // re-ring the bell. Give it a fresh window instead.
+      resetTimer(true);
+    } else {
+      timer.start();
+    }
     taskManager.logStart();
   };
 
@@ -256,8 +359,7 @@ function App() {
     // Set the selected task as active
     taskManager.setStatus(task, "active");
     taskManager.logStart();
-    setDate(makeDate(mins));
-    timer.start();
+    resetTimer(true);
   };
 
   const handleCreateAndStart = (text: string) => {
@@ -268,18 +370,20 @@ function App() {
     }
     taskManager.addTaskWithOptions(text, "active", "bottom");
     taskManager.logStart();
-    setDate(makeDate(mins));
-    timer.start();
+    resetTimer(true);
   };
 
   const handleDone = () => {
     timer.pauseAudio();
     taskManager.logPause();
     taskManager.completeTask();
-    if (taskManager.getActiveTask()) {
+    // completeTask will activate a successor iff one is available; the
+    // local tasks array is still pre-dispatch here, so check candidates
+    if (hasNextCandidate) {
       taskManager.logStart();
-      setDate(makeDate(mins));
-      timer.start();
+      resetTimer(true);
+    } else {
+      timer.pause();
     }
   };
 
@@ -350,18 +454,37 @@ function App() {
         )}
       </h1>
       <div className="flex gap-2 mt-4">
-        {isPaused ? (
-          <Button onClick={handleStart}>Start</Button>
-        ) : (
+        {/* Start only makes sense with a task to work on; without one,
+            Begin (which pulls a task in) is the way to get going */}
+        {!isPaused ? (
           <Button onClick={handlePause}>Pause</Button>
+        ) : (
+          activeTask && <Button onClick={handleStart}>Start</Button>
         )}
         <Button variant="secondary" onClick={handleReset}>
           Reset
         </Button>
-        <Button variant="secondary" onClick={handleContinue}>
-          {taskManager.getActiveTask() ? "Next Task >>" : "Begin"}
+        <Button
+          variant="secondary"
+          onClick={handleContinue}
+          disabled={!hasNextCandidate}
+          title={
+            hasNextCandidate
+              ? undefined
+              : taskManager.readyLocked && readyCount > 0
+                ? "Ready list is locked — unlock it to pull in more tasks"
+                : "No tasks available to pull in"
+          }
+        >
+          {activeTask ? "Next Task >>" : "Begin"}
         </Button>
       </div>
+      {!activeTask && workingCount === 0 ? (
+        <AllClear
+          readyCount={readyCount}
+          readyLocked={taskManager.readyLocked}
+        />
+      ) : (
       <ActiveTaskView
         task={taskManager.getActiveTask()}
         isPaused={isPaused}
@@ -382,6 +505,7 @@ function App() {
             : undefined
         }
       />
+      )}
       {isPaused && (
         <TasksView
           taskManager={taskManager}
@@ -417,6 +541,9 @@ function App() {
               <p className="text-muted-foreground text-sm">No time recorded yet.</p>
             ) : (
               <div className="space-y-3">
+                <div className="flex justify-center">
+                  <ColorDonut data={colorBreakdown} total={totalDuration} />
+                </div>
                 {colorBreakdown.map(([color, duration]) => (
                   <div key={color} className="flex items-center gap-3">
                     <div
@@ -429,6 +556,9 @@ function App() {
                     <span className="text-sm font-medium">
                       {formatDuration(duration)}
                     </span>
+                    <span className="text-sm text-muted-foreground w-10 text-right">
+                      {Math.round((duration / totalDuration) * 100)}%
+                    </span>
                   </div>
                 ))}
                 <div className="border-t pt-2 mt-2 flex items-center gap-3">
@@ -436,6 +566,9 @@ function App() {
                   <span className="text-sm font-semibold flex-1">Total</span>
                   <span className="text-sm font-semibold">
                     {formatDuration(totalDuration)}
+                  </span>
+                  <span className="text-sm text-muted-foreground w-10 text-right">
+                    100%
                   </span>
                 </div>
               </div>

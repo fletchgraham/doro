@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Lock, LockOpen } from "lucide-react";
 import TodoistImport from "./TodoistImport";
 import {
   DndContext,
@@ -52,6 +52,8 @@ const TASK_COLORS = [
 
 interface TaskManager {
   tasks: Task[];
+  readyLocked: boolean;
+  setReadyLocked: (locked: boolean) => void;
   getActiveTask: () => Task | undefined;
   getInactiveTasks: () => Task[];
   getTasksByStatus: (status: string) => Task[];
@@ -226,6 +228,16 @@ function TasksView({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!selectedTaskId) return;
 
+      // Don't hijack keys while typing in a field (task text edits, notes,
+      // estimates...) — arrow keys should move the caret, not the task
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
       const task = taskManager.tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
 
@@ -390,7 +402,33 @@ function TasksView({
           </DroppableList>
         </SortableContext>
 
-        <h3 className="text-lg font-semibold mt-6 mb-2">Ready</h3>
+        <div className="flex items-center gap-2 mt-6 mb-2">
+          <h3 className="text-lg font-semibold">Ready</h3>
+          <Button
+            variant={taskManager.readyLocked ? "default" : "ghost"}
+            size="icon-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              taskManager.setReadyLocked(!taskManager.readyLocked);
+            }}
+            title={
+              taskManager.readyLocked
+                ? "Ready is locked: completing a task won't pull new work from here"
+                : "Ready is unlocked: completing a task pulls the next one from here"
+            }
+            aria-pressed={taskManager.readyLocked}
+            aria-label="Toggle ready list lock"
+          >
+            {taskManager.readyLocked ? (
+              <Lock className="size-3.5" />
+            ) : (
+              <LockOpen className="size-3.5" />
+            )}
+          </Button>
+          {taskManager.readyLocked && (
+            <span className="text-xs text-muted-foreground">locked</span>
+          )}
+        </div>
         <SortableContext
           id="ready"
           items={readyIds}
