@@ -5,6 +5,7 @@ import AllClear from "./components/AllClear";
 import TasksView from "./components/TasksView";
 import AddTaskModal from "./components/AddTaskModal";
 import SwitchTaskModal from "./components/SwitchTaskModal";
+import WorkflowyMode from "./components/WorkflowyMode";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 import type Task from "./types/Task";
@@ -513,6 +514,7 @@ function App() {
           onSelectTask={setSelectedTaskId}
         />
       )}
+      <WorkflowyMode taskManager={taskManager} />
       <AddTaskModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

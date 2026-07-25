@@ -739,3 +739,128 @@ test("NEXT_TASK with shuffle=undefined behaves like non-shuffle (first in order)
   const activeNow = updated.find((t) => t.status === "active");
   expect(activeNow?.text).toBe("first");
 });
+
+const wfNode = (
+  workflowyId: string,
+  text: string,
+  overrides: Partial<{
+    notes: string;
+    url: string;
+    completed: boolean;
+    durationMs: number;
+  }> = {}
+) => ({
+  workflowyId,
+  text,
+  notes: "",
+  url: `https://workflowy.com/#/${workflowyId.slice(-12)}`,
+  completed: false,
+  durationMs: 0,
+  ...overrides,
+});
+
+test("WORKFLOWY_MERGE imports new remote nodes as ready tasks", () => {
+  const updated = tasksReducer([], {
+    type: "WORKFLOWY_MERGE",
+    nodes: [
+      wfNode("wf-aaaaaaaaaaaa", "first"),
+      wfNode("wf-bbbbbbbbbbbb", "second", { durationMs: 60000 }),
+      wfNode("wf-cccccccccccc", "finished", { completed: true }),
+    ],
+  });
+
+  expect(updated.length).toBe(3);
+  const first = updated.find((t) => t.text === "first");
+  expect(first?.status).toBe("ready");
+  expect(first?.workflowyId).toBe("wf-aaaaaaaaaaaa");
+  expect(first?.url).toContain("workflowy.com");
+
+  // Remote duration marker seeds the local duration
+  expect(updated.find((t) => t.text === "second")?.duration).toBe(60000);
+  expect(updated.find((t) => t.text === "finished")?.status).toBe("done");
+
+  // Sibling order preserved
+  const ready = updated
+    .filter((t) => t.status === "ready")
+    .sort((a, b) => a.order - b.order);
+  expect(ready.map((t) => t.text)).toEqual(["first", "second"]);
+});
+
+test("WORKFLOWY_MERGE keeps local status but adopts remote text and completion", () => {
+  const tasks: Task[] = [
+    {
+      ...createTask("old text"),
+      status: "working",
+      workflowyId: "wf-aaaaaaaaaaaa",
+    },
+    { ...createTask("was done"), status: "done", workflowyId: "wf-bbbbbbbbbbbb" },
+    { ...createTask("now done"), status: "active", workflowyId: "wf-cccccccccccc" },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "WORKFLOWY_MERGE",
+    nodes: [
+      wfNode("wf-aaaaaaaaaaaa", "new text"),
+      wfNode("wf-bbbbbbbbbbbb", "was done"),
+      wfNode("wf-cccccccccccc", "now done", { completed: true }),
+    ],
+  });
+
+  const renamed = updated.find((t) => t.workflowyId === "wf-aaaaaaaaaaaa");
+  expect(renamed?.text).toBe("new text");
+  expect(renamed?.status).toBe("working"); // local status survives
+
+  // Uncompleted upstream -> back to ready
+  expect(updated.find((t) => t.workflowyId === "wf-bbbbbbbbbbbb")?.status).toBe(
+    "ready"
+  );
+  // Completed upstream -> done locally
+  expect(updated.find((t) => t.workflowyId === "wf-cccccccccccc")?.status).toBe(
+    "done"
+  );
+});
+
+test("WORKFLOWY_MERGE removes linked tasks deleted upstream but keeps done and local-only tasks", () => {
+  const tasks: Task[] = [
+    { ...createTask("gone"), status: "ready", workflowyId: "wf-aaaaaaaaaaaa" },
+    { ...createTask("done stays"), status: "done", workflowyId: "wf-bbbbbbbbbbbb" },
+    { ...createTask("local only"), status: "ready" },
+  ];
+
+  const updated = tasksReducer(tasks, { type: "WORKFLOWY_MERGE", nodes: [] });
+
+  expect(updated.find((t) => t.text === "gone")).toBeUndefined();
+  expect(updated.find((t) => t.text === "done stays")).toBeDefined();
+  expect(updated.find((t) => t.text === "local only")).toBeDefined();
+});
+
+test("WORKFLOWY_MERGE adopts a larger remote duration", () => {
+  const tasks: Task[] = [
+    {
+      ...createTask("tracked elsewhere"),
+      status: "ready",
+      workflowyId: "wf-aaaaaaaaaaaa",
+    },
+  ];
+
+  const updated = tasksReducer(tasks, {
+    type: "WORKFLOWY_MERGE",
+    nodes: [wfNode("wf-aaaaaaaaaaaa", "tracked elsewhere", { durationMs: 120000 })],
+  });
+
+  expect(updated[0].duration).toBe(120000);
+});
+
+test("SET_WORKFLOWY_ID links a task and fills an empty url", () => {
+  const tasks: Task[] = [createTask("new task")];
+
+  const updated = tasksReducer(tasks, {
+    type: "SET_WORKFLOWY_ID",
+    taskId: tasks[0].id,
+    workflowyId: "wf-aaaaaaaaaaaa",
+    url: "https://workflowy.com/#/wf-aaaaaaaaaaaa",
+  });
+
+  expect(updated[0].workflowyId).toBe("wf-aaaaaaaaaaaa");
+  expect(updated[0].url).toBe("https://workflowy.com/#/wf-aaaaaaaaaaaa");
+});

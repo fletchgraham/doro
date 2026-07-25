@@ -34,7 +34,19 @@ export type TasksAction =
         estimate?: number;
         todoistId?: string;
       }>;
-    };
+    }
+  | {
+      type: "WORKFLOWY_MERGE";
+      nodes: Array<{
+        workflowyId: string;
+        text: string;
+        notes: string;
+        url: string;
+        completed: boolean;
+        durationMs: number;
+      }>;
+    }
+  | { type: "SET_WORKFLOWY_ID"; taskId: string; workflowyId: string; url: string };
 
 const DEFAULT_ESTIMATE = 20 * 60 * 1000; // 20 minutes
 
@@ -313,6 +325,90 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         })),
       ];
     }
+    case "WORKFLOWY_MERGE": {
+      // Workflowy is the source of truth: its children define which tasks
+      // exist and whether they're completed. Local-only fields (status
+      // among ready/working/active, color, estimate, order, events) are
+      // doro's own state and survive the merge.
+      const remoteById = new Map(action.nodes.map((n) => [n.workflowyId, n]));
+
+      let merged: Task[] = [];
+      for (const task of state) {
+        if (!task.workflowyId) {
+          // Tasks not linked to workflowy are left alone
+          merged.push(task);
+          continue;
+        }
+        const remote = remoteById.get(task.workflowyId);
+        if (!remote) {
+          // Gone from the parent node. Keep local done tasks (the API may
+          // omit completed children); anything else was removed upstream.
+          if (task.status === "done") merged.push(task);
+          continue;
+        }
+        remoteById.delete(task.workflowyId);
+
+        let updated: Task = {
+          ...task,
+          text: remote.text || task.text,
+          notes: remote.notes,
+          url: remote.url,
+        };
+        if (remote.completed && task.status !== "done") {
+          updated = { ...updated, status: "done" };
+        } else if (!remote.completed && task.status === "done") {
+          updated = { ...updated, status: "ready" };
+        }
+        // Adopt a larger remote duration (e.g. tracked on another device)
+        if (remote.durationMs > task.duration) {
+          const events = [
+            ...updated.events,
+            {
+              eventType: "duration_override" as const,
+              timestamp: Date.now(),
+              duration: remote.durationMs,
+            },
+          ];
+          updated = { ...updated, events, duration: getDuration(events) };
+        }
+        merged.push(updated);
+      }
+
+      // Remaining remote nodes are new tasks; preserve their sibling order
+      const maxOrder = Math.max(...merged.map((t) => t.order), Date.now());
+      let i = 0;
+      for (const remote of remoteById.values()) {
+        const events = remote.durationMs
+          ? [
+              {
+                eventType: "duration_override" as const,
+                timestamp: Date.now(),
+                duration: remote.durationMs,
+              },
+            ]
+          : [];
+        merged = [
+          ...merged,
+          {
+            ...createTask(remote.text),
+            notes: remote.notes,
+            url: remote.url,
+            workflowyId: remote.workflowyId,
+            status: remote.completed ? ("done" as const) : ("ready" as const),
+            order: maxOrder + ++i * 1000,
+            events,
+            duration: getDuration(events),
+          },
+        ];
+      }
+      return merged;
+    }
+    case "SET_WORKFLOWY_ID":
+      return state.map((t) =>
+        t.id === action.taskId
+          ? { ...t, workflowyId: action.workflowyId, url: t.url || action.url }
+          : t
+      );
     case "COMPLETE_TASK": {
       const activeTask = state.find((t) => t.status === "active");
       if (!activeTask) return state;
