@@ -10,6 +10,7 @@ export default interface Task {
   estimate?: number;
   url?: string;
   todoistId?: string;
+  workflowyId?: string;
 }
 
 export interface TaskEvent {

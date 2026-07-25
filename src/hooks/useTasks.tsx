@@ -132,6 +132,20 @@ const useTasks = () => {
     }>
   ) => dispatch({ type: "IMPORT_TASKS", tasks });
 
+  const mergeWorkflowyTasks = (
+    nodes: Array<{
+      workflowyId: string;
+      text: string;
+      notes: string;
+      url: string;
+      completed: boolean;
+      durationMs: number;
+    }>
+  ) => dispatch({ type: "WORKFLOWY_MERGE", nodes });
+
+  const setWorkflowyId = (taskId: string, workflowyId: string, url: string) =>
+    dispatch({ type: "SET_WORKFLOWY_ID", taskId, workflowyId, url });
+
   return {
     tasks,
     readyLocked,
@@ -156,6 +170,8 @@ const useTasks = () => {
     logPause,
     overrideDuration,
     importTasks,
+    mergeWorkflowyTasks,
+    setWorkflowyId,
   };
 };
 
