@@ -16,6 +16,7 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
     private var startPauseButton: NSButton!
     private var resetButton: NSButton!
     private var nextButton: NSButton!
+    private var goToSpaceButton: NSButton!
     private var webView: WKWebView!
     private var loadedURL: String?
 
@@ -37,12 +38,12 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
         totalLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         totalLabel.textColor = .secondaryLabelColor
 
-        startPauseButton = NSButton(title: "Start", target: self, action: #selector(startPauseClicked))
-        resetButton = NSButton(title: "Reset", target: self, action: #selector(resetClicked))
-        nextButton = NSButton(title: "Next Task →", target: self, action: #selector(nextClicked))
-        [startPauseButton, resetButton, nextButton].forEach { $0.bezelStyle = .rounded }
+        startPauseButton = symbolButton("play.fill", tooltip: "Start", target: self, action: #selector(startPauseClicked))
+        resetButton = symbolButton("arrow.counterclockwise", tooltip: "Reset timer", target: self, action: #selector(resetClicked))
+        nextButton = symbolButton("forward.fill", tooltip: "Next task", target: self, action: #selector(nextClicked))
+        goToSpaceButton = symbolButton("arrow.right.to.line", tooltip: "Go to this task's space", target: self, action: #selector(goToSpaceClicked))
 
-        let buttonRow = NSStackView(views: [startPauseButton, resetButton, nextButton])
+        let buttonRow = NSStackView(views: [startPauseButton, resetButton, nextButton, goToSpaceButton])
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 8
 
@@ -86,18 +87,14 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
     func refreshFromStore(switchSpace: Bool) {
         guard let task = store.currentTask else {
             taskLabel.stringValue = "No tasks — add some in Settings"
-            startPauseButton.isEnabled = false
-            resetButton.isEnabled = false
-            nextButton.isEnabled = false
+            [startPauseButton, resetButton, nextButton, goToSpaceButton].forEach { $0.isEnabled = false }
             setRunning(false)
             stopAlarm()
             loadPage("")
             updateLabels()
             return
         }
-        startPauseButton.isEnabled = true
-        resetButton.isEnabled = true
-        nextButton.isEnabled = true
+        [startPauseButton, resetButton, nextButton, goToSpaceButton].forEach { $0.isEnabled = true }
         taskLabel.stringValue = task.name
         loadPage(task.url)
         updateLabels()
@@ -155,9 +152,17 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
         startCurrent()
     }
 
+    @objc private func goToSpaceClicked() {
+        guard let task = store.currentTask else { return }
+        switchToSpace(task.space)
+    }
+
     private func setRunning(_ shouldRun: Bool) {
         running = shouldRun && store.currentTask != nil
-        startPauseButton.title = running ? "Pause" : "Start"
+        let label = running ? "Pause" : "Start"
+        startPauseButton.image = NSImage(systemSymbolName: running ? "pause.fill" : "play.fill",
+                                         accessibilityDescription: label)
+        startPauseButton.toolTip = label
         tick?.invalidate()
         tick = nil
         if running {

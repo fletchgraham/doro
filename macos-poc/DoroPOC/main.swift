@@ -1,6 +1,20 @@
 import AppKit
 import ApplicationServices
 
+/// Compact icon button (SF Symbol) with a tooltip; falls back to a title
+/// button if the symbol is missing.
+func symbolButton(_ symbol: String, tooltip: String, target: AnyObject?, action: Selector) -> NSButton {
+    let button: NSButton
+    if let image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip) {
+        button = NSButton(image: image, target: target, action: action)
+    } else {
+        button = NSButton(title: tooltip, target: target, action: action)
+    }
+    button.bezelStyle = .rounded
+    button.toolTip = tooltip
+    return button
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let store = TaskStore()
@@ -80,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildWindow() {
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 760),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "Doro"

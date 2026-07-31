@@ -29,7 +29,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override func loadView() {
-        for (id, title, width) in [("rotation", "✓", 24.0), ("name", "Task", 140.0), ("url", "URL", 180.0), ("space", "Space", 44.0)] {
+        for (id, title, width) in [("done", "✓", 24.0), ("name", "Task", 140.0), ("url", "URL", 180.0), ("space", "Space", 44.0)] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = title
             column.width = width
@@ -47,19 +47,18 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
 
-        let addButton = NSButton(title: "+", target: self, action: #selector(addTask))
-        let removeButton = NSButton(title: "−", target: self, action: #selector(removeTask))
-        let upButton = NSButton(title: "↑", target: self, action: #selector(moveTaskUp))
-        let downButton = NSButton(title: "↓", target: self, action: #selector(moveTaskDown))
-        let startButton = NSButton(title: "Start Selected Task", target: self, action: #selector(startSelected))
-        let setSpaceButton = NSButton(title: "Set Space to Current", target: self, action: #selector(setSpaceToCurrent))
-        setSpaceButton.toolTip = "Assign the desktop you're on right now to the highlighted task"
-        [addButton, removeButton, upButton, downButton, startButton, setSpaceButton].forEach { $0.bezelStyle = .rounded }
-        let buttonRow = NSStackView(views: [addButton, removeButton, upButton, downButton, startButton, setSpaceButton])
+        let addButton = symbolButton("plus", tooltip: "Add task", target: self, action: #selector(addTask))
+        let removeButton = symbolButton("minus", tooltip: "Remove selected task", target: self, action: #selector(removeTask))
+        let upButton = symbolButton("arrow.up", tooltip: "Move task up", target: self, action: #selector(moveTaskUp))
+        let downButton = symbolButton("arrow.down", tooltip: "Move task down", target: self, action: #selector(moveTaskDown))
+        let startButton = symbolButton("play.fill", tooltip: "Start selected task", target: self, action: #selector(startSelected))
+        let setSpaceButton = symbolButton("pin.fill", tooltip: "Set selected task's space to this desktop", target: self, action: #selector(setSpaceToCurrent))
+        let goToSpaceButton = symbolButton("arrow.right.to.line", tooltip: "Go to selected task's space", target: self, action: #selector(goToSpace))
+        let buttonRow = NSStackView(views: [addButton, removeButton, upButton, downButton, startButton, setSpaceButton, goToSpaceButton])
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 6
 
-        let hint = NSTextField(labelWithString: "Edit cells directly; press Return to commit. ✓ = in rotation (Next skips unchecked).")
+        let hint = NSTextField(labelWithString: "Edit cells directly; press Return to commit. ✓ = complete (Next skips checked).")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
 
@@ -162,9 +161,9 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard let columnID = tableColumn?.identifier.rawValue else { return nil }
         let task = store.tasks[row]
-        if columnID == "rotation" {
-            let check = NSButton(checkboxWithTitle: "", target: self, action: #selector(rotationToggled(_:)))
-            check.state = task.inRotation ? .on : .off
+        if columnID == "done" {
+            let check = NSButton(checkboxWithTitle: "", target: self, action: #selector(completedToggled(_:)))
+            check.state = task.completed ? .on : .off
             return check
         }
         let field = NSTextField(string: "")
@@ -204,10 +203,10 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         onTasksChanged?()
     }
 
-    @objc private func rotationToggled(_ sender: NSButton) {
+    @objc private func completedToggled(_ sender: NSButton) {
         let row = tableView.row(for: sender)
         guard store.tasks.indices.contains(row) else { return }
-        store.tasks[row].inRotation = sender.state == .on
+        store.tasks[row].completed = sender.state == .on
         store.save()
         onTasksChanged?()
     }
@@ -279,6 +278,12 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         tableView.reloadData()
         tableView.selectRowIndexes([row], byExtendingSelection: false)
         onTasksChanged?()
+    }
+
+    @objc private func goToSpace() {
+        let row = tableView.selectedRow
+        guard store.tasks.indices.contains(row) else { NSSound.beep(); return }
+        switchToSpace(store.tasks[row].space)
     }
 
     // MARK: - Session length
@@ -384,23 +389,34 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
                 let nodes = try await Workflowy.listChildren(token: token, parentId: parentId)
                     .filter { $0.completedAt == nil }
                     .sorted { ($0.priority ?? 0) < ($1.priority ?? 0) }
-                // Re-import updates nothing destructively: only add new nodes.
-                let existingURLs = Set(store.tasks.map(\.url))
-                var added = 0
-                for node in nodes where !existingURLs.contains(Workflowy.nodeURL(for: node.id)) {
-                    var task = DoroTask()
-                    task.name = Workflowy.stripTags(node.name ?? "")
-                    task.url = Workflowy.nodeURL(for: node.id)
-                    store.tasks.append(task)
-                    added += 1
+                // Re-import adds new nodes and refreshes names of known ones
+                // (matched by node URL); it never removes tasks.
+                let indexByURL = Dictionary(store.tasks.enumerated().map { ($0.element.url, $0.offset) },
+                                            uniquingKeysWith: { first, _ in first })
+                var added = 0, renamed = 0
+                for node in nodes {
+                    let url = Workflowy.nodeURL(for: node.id)
+                    let name = Workflowy.stripTags(node.name ?? "")
+                    if let existing = indexByURL[url] {
+                        if store.tasks[existing].name != name {
+                            store.tasks[existing].name = name
+                            renamed += 1
+                        }
+                    } else {
+                        var task = DoroTask()
+                        task.name = name
+                        task.url = url
+                        store.tasks.append(task)
+                        added += 1
+                    }
                 }
                 store.clampIndex()
                 store.save()
                 tableView.reloadData()
                 onTasksChanged?()
-                setImportStatus(added == nodes.count
-                    ? "Imported \(added) tasks"
-                    : "Imported \(added) new tasks (\(nodes.count - added) already here)")
+                var summary = "Imported \(added) new task\(added == 1 ? "" : "s")"
+                if renamed > 0 { summary += ", renamed \(renamed)" }
+                setImportStatus(summary)
             } catch {
                 // A cached id can go stale (node deleted/moved); clear it so
                 // the next attempt re-resolves from scratch.

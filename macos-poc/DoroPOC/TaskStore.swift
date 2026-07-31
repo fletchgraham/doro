@@ -7,8 +7,8 @@ struct DoroTask: Codable {
     var space = 1
     /// Cumulative seconds ever spent on this task.
     var seconds = 0
-    /// Unchecked tasks are skipped when advancing to the next task.
-    var inRotation = true
+    /// Completed tasks are skipped when advancing to the next task.
+    var completed = false
 
     init() {}
 
@@ -21,7 +21,19 @@ struct DoroTask: Codable {
         url = try c.decodeIfPresent(String.self, forKey: .url) ?? ""
         space = try c.decodeIfPresent(Int.self, forKey: .space) ?? 1
         seconds = try c.decodeIfPresent(Int.self, forKey: .seconds) ?? 0
-        inRotation = try c.decodeIfPresent(Bool.self, forKey: .inRotation) ?? true
+        if let done = try c.decodeIfPresent(Bool.self, forKey: .completed) {
+            completed = done
+        } else {
+            // Briefly shipped with the opposite meaning under "inRotation".
+            struct Legacy: CodingKey {
+                var stringValue = "inRotation"; var intValue: Int? { nil }
+                init() {}
+                init?(stringValue: String) { self.stringValue = stringValue }
+                init?(intValue: Int) { nil }
+            }
+            let legacy = try decoder.container(keyedBy: Legacy.self)
+            completed = !(try legacy.decodeIfPresent(Bool.self, forKey: Legacy()) ?? true)
+        }
     }
 }
 
@@ -87,13 +99,13 @@ final class TaskStore {
         tasks[currentIndex].seconds += 1
     }
 
-    /// Move to the next task that's in rotation (stays put if none are).
+    /// Move to the next uncompleted task (stays put if all are complete).
     func advance() {
         guard !tasks.isEmpty else { return }
         var next = currentIndex
         for _ in 0..<tasks.count {
             next = (next + 1) % tasks.count
-            if tasks[next].inRotation { break }
+            if !tasks[next].completed { break }
         }
         currentIndex = next
         save()
