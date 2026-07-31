@@ -25,9 +25,14 @@ open DoroPOC.app
   July 2026, Fletcher has 1–6 enabled; desktops beyond that are unreachable
   until enabled). Verified working on macOS 26.
 - **Current-space detection uses private API** (`CGSCopyManagedDisplaySpaces`
-  via dlsym, currently only in git history / scratch tests, not the app UI).
-  It reports one entry per display — Fletcher's machine reports a phantom
-  1-desktop display first, so match by main-display UUID, never `.first`.
+  via dlsym in `Spaces.swift`, backing the "Set Space to Current" button).
+  It reports one entry per display, each with its own current space. Mission
+  Control numbers desktops globally across displays in CGS order — Fletcher
+  docked runs "Displays have separate Spaces", so the built-in display's lone
+  desktop is Desktop 1 and the external's are 2+ (an earlier note called the
+  built-in entry a "phantom display"; numbering within one display is off by
+  the other displays' desktop count). Flatten all displays' desktops for the
+  number; use the display under the app window as "where I am".
 - **Workflowy import calls the official API v1 directly** (Bearer token, no
   CORS in a native app). The web app's `src/lib/workflowy.ts` +
   `api/workflowy.ts` proxy is the reference implementation; keep parsing

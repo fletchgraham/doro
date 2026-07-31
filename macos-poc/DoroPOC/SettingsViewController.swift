@@ -52,8 +52,10 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         let upButton = NSButton(title: "↑", target: self, action: #selector(moveTaskUp))
         let downButton = NSButton(title: "↓", target: self, action: #selector(moveTaskDown))
         let startButton = NSButton(title: "Start Selected Task", target: self, action: #selector(startSelected))
-        [addButton, removeButton, upButton, downButton, startButton].forEach { $0.bezelStyle = .rounded }
-        let buttonRow = NSStackView(views: [addButton, removeButton, upButton, downButton, startButton])
+        let setSpaceButton = NSButton(title: "Set Space to Current", target: self, action: #selector(setSpaceToCurrent))
+        setSpaceButton.toolTip = "Assign the desktop you're on right now to the highlighted task"
+        [addButton, removeButton, upButton, downButton, startButton, setSpaceButton].forEach { $0.bezelStyle = .rounded }
+        let buttonRow = NSStackView(views: [addButton, removeButton, upButton, downButton, startButton, setSpaceButton])
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 6
 
@@ -258,6 +260,25 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         let row = tableView.selectedRow
         guard store.tasks.indices.contains(row) else { return }
         onStartTask?(row)
+    }
+
+    /// The window follows you to every space, so "current" is whatever
+    /// desktop you're standing on when you click — judged by the display
+    /// the window is on, so it works docked or laptop-only.
+    @objc private func setSpaceToCurrent() {
+        let row = tableView.selectedRow
+        let displayID = (view.window?.screen?
+            .deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+        guard store.tasks.indices.contains(row),
+              let info = currentSpaceInfo(displayID: displayID), (1...9).contains(info.current) else {
+            NSSound.beep() // no row selected, fullscreen space, or private API gone
+            return
+        }
+        store.tasks[row].space = info.current
+        store.save()
+        tableView.reloadData()
+        tableView.selectRowIndexes([row], byExtendingSelection: false)
+        onTasksChanged?()
     }
 
     // MARK: - Session length
