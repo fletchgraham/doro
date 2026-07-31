@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .nvmrc
+
+# macOS app build output
+macos/Doro.app
+macos/.build
+macos/.swiftpm
