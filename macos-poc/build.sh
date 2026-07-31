@@ -7,7 +7,7 @@ APP=DoroPOC.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
-swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/DoroPOC" DoroPOC/main.swift
+swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/DoroPOC" DoroPOC/*.swift
 cp Info.plist "$APP/Contents/Info.plist"
 
 # Ad-hoc signature: its hash changes EVERY build, and the Accessibility grant in
