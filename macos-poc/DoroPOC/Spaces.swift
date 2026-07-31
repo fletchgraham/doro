@@ -23,14 +23,10 @@ private let cgsCopyManagedDisplaySpaces: CGSCopyManagedDisplaySpacesFunc? = {
 }()
 
 /// Returns (currentDesktopNumber, totalDesktops), or nil if the private API
-/// is unavailable or the current space is a fullscreen app.
-///
-/// Mission Control numbers desktops globally across displays (in the order
-/// CGS reports them), so with "Displays have separate Spaces" the laptop's
-/// lone desktop is 1 and the external monitor's start at 2 — the numbering
-/// Ctrl+N shortcuts use. Each display has its own current space; `displayID`
-/// picks which one counts as "where I am" (pass the display under the app
-/// window). nil falls back to the display with the most desktops.
+/// is unavailable or the current space is a fullscreen app. `displayID`
+/// picks which display's current space counts as "where I am" (pass the
+/// display under the app window); the numbering itself lives in
+/// `desktopNumber` (SpacesLogic.swift).
 func currentSpaceInfo(displayID: CGDirectDisplayID? = nil) -> (current: Int, total: Int)? {
     guard let connFunc = cgsMainConnectionID,
           let copyFunc = cgsCopyManagedDisplaySpaces,
@@ -41,24 +37,7 @@ func currentSpaceInfo(displayID: CGDirectDisplayID? = nil) -> (current: Int, tot
         CGDisplayCreateUUIDFromDisplayID(id)
             .map { CFUUIDCreateString(nil, $0.takeRetainedValue()) as String }
     }
-    let chosen = displays.first { ($0["Display Identifier"] as? String) == targetUUID }
-        ?? displays.max { a, b in
-            ((a["Spaces"] as? [Any])?.count ?? 0) < ((b["Spaces"] as? [Any])?.count ?? 0)
-        }
-    guard let chosen,
-          let currentID = (chosen["Current Space"] as? [String: Any])?["id64"] as? Int64
-    else { return nil }
-
-    // Flatten desktops across all displays for the global numbering.
-    // type 0 = a normal desktop; other types are fullscreen-app spaces.
-    var ids: [Int64] = []
-    for display in displays {
-        let desktops = (display["Spaces"] as? [[String: Any]] ?? [])
-            .filter { ($0["type"] as? Int) == 0 }
-        ids.append(contentsOf: desktops.compactMap { $0["id64"] as? Int64 })
-    }
-    guard let index = ids.firstIndex(of: currentID) else { return nil }
-    return (index + 1, ids.count)
+    return desktopNumber(displays: displays, targetDisplayUUID: targetUUID)
 }
 
 /// Virtual key codes for the number row keys 1...9 (not sequential!).

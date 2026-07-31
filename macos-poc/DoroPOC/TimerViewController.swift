@@ -4,17 +4,30 @@ import WebKit
 final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDelegate {
     private let store: TaskStore
 
+    /// Fired when the timer page edits tasks (complete, set space) so the
+    /// settings table can refresh.
+    var onTasksEdited: (() -> Void)?
+    /// Asks the app delegate to open the recorded-time editor bar.
+    var onEditTime: (() -> Void)?
+
     private var sessionLength: Int { store.sessionMinutes * 60 }
     private var remaining: Int
     private var running = false
     private var tick: Timer?
     private var alarmTimer: Timer?
+    private var pausedAt: Date?
+    private var pauseTimer: Timer?
+    private var flashOn = false
 
     private let taskLabel = NSTextField(labelWithString: "")
     private let countdownLabel = NSTextField(labelWithString: "")
     private let totalLabel = NSTextField(labelWithString: "")
+    private let pausedLabel = NSTextField(labelWithString: "")
     private var startPauseButton: NSButton!
+    private var setSpaceButton: NSButton!
+    private var editTimeButton: NSButton!
     private var resetButton: NSButton!
+    private var completeButton: NSButton!
     private var nextButton: NSButton!
     private var goToSpaceButton: NSButton!
     private var webView: WKWebView!
@@ -34,16 +47,24 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
 
         countdownLabel.font = .monospacedDigitSystemFont(ofSize: 52, weight: .light)
         countdownLabel.alignment = .center
+        countdownLabel.textColor = .systemYellow
 
         totalLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         totalLabel.textColor = .secondaryLabelColor
 
+        pausedLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        pausedLabel.textColor = .systemYellow
+
         startPauseButton = symbolButton("play.fill", tooltip: "Start", target: self, action: #selector(startPauseClicked))
         resetButton = symbolButton("arrow.counterclockwise", tooltip: "Reset timer", target: self, action: #selector(resetClicked))
+        completeButton = symbolButton("checkmark", tooltip: "Complete this task and move on", target: self, action: #selector(completeClicked))
         nextButton = symbolButton("forward.fill", tooltip: "Next task", target: self, action: #selector(nextClicked))
         goToSpaceButton = symbolButton("arrow.right.to.line", tooltip: "Go to this task's space", target: self, action: #selector(goToSpaceClicked))
+        setSpaceButton = symbolButton("pin.fill", tooltip: "Set this task's space to this desktop", target: self, action: #selector(setSpaceClicked))
+        editTimeButton = symbolButton("clock", tooltip: "Edit recorded time for this task", target: self, action: #selector(editTimeClicked))
 
-        let buttonRow = NSStackView(views: [startPauseButton, resetButton, nextButton, goToSpaceButton])
+        let buttonRow = NSStackView(views: [startPauseButton, resetButton, completeButton,
+                                            nextButton, goToSpaceButton, setSpaceButton, editTimeButton])
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 8
 
@@ -56,7 +77,7 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
         webView.navigationDelegate = self
         webView.translatesAutoresizingMaskIntoConstraints = false
 
-        let header = NSStackView(views: [taskLabel, countdownLabel, totalLabel, buttonRow])
+        let header = NSStackView(views: [taskLabel, countdownLabel, totalLabel, pausedLabel, buttonRow])
         header.orientation = .vertical
         header.alignment = .centerX
         header.spacing = 6
@@ -87,14 +108,16 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
     func refreshFromStore(switchSpace: Bool) {
         guard let task = store.currentTask else {
             taskLabel.stringValue = "No tasks — add some in Settings"
-            [startPauseButton, resetButton, nextButton, goToSpaceButton].forEach { $0.isEnabled = false }
+            [startPauseButton, resetButton, completeButton, nextButton,
+             goToSpaceButton, setSpaceButton, editTimeButton].forEach { $0.isEnabled = false }
             setRunning(false)
             stopAlarm()
             loadPage("")
             updateLabels()
             return
         }
-        [startPauseButton, resetButton, nextButton, goToSpaceButton].forEach { $0.isEnabled = true }
+        [startPauseButton, resetButton, completeButton, nextButton,
+         goToSpaceButton, setSpaceButton, editTimeButton].forEach { $0.isEnabled = true }
         taskLabel.stringValue = task.name
         loadPage(task.url)
         updateLabels()
@@ -157,8 +180,52 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
         switchToSpace(task.space)
     }
 
+    /// Mark the current task complete and roll on to the next one.
+    @objc private func completeClicked() {
+        guard store.tasks.indices.contains(store.currentIndex) else { return }
+        store.tasks[store.currentIndex].completed = true
+        store.save()
+        onTasksEdited?()
+        syncCompletionToWorkflowy(store: store, index: store.currentIndex, completed: true)
+        stopAlarm()
+        if store.tasks.allSatisfy({ $0.completed }) {
+            setRunning(false)
+            taskLabel.stringValue = "All tasks complete 🎉"
+            updateLabels()
+        } else {
+            store.advance()
+            startCurrent()
+        }
+    }
+
+    @objc private func editTimeClicked() {
+        guard store.currentTask != nil else { return }
+        onEditTime?()
+    }
+
+    /// Pin this task to the desktop you're standing on (same behavior as
+    /// the settings-page pin button, for the current task).
+    @objc private func setSpaceClicked() {
+        let displayID = (view.window?.screen?
+            .deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+        guard store.tasks.indices.contains(store.currentIndex),
+              let info = currentSpaceInfo(displayID: displayID), (1...9).contains(info.current) else {
+            NSSound.beep()
+            return
+        }
+        store.tasks[store.currentIndex].space = info.current
+        store.save()
+        onTasksEdited?()
+    }
+
     private func setRunning(_ shouldRun: Bool) {
+        let wasRunning = running
         running = shouldRun && store.currentTask != nil
+        if running {
+            pausedAt = nil
+        } else if wasRunning {
+            pausedAt = Date()
+        }
         let label = running ? "Pause" : "Start"
         startPauseButton.image = NSImage(systemSymbolName: running ? "pause.fill" : "play.fill",
                                          accessibilityDescription: label)
@@ -171,6 +238,38 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
             }
         } else {
             store.save()
+        }
+        updateAppearance()
+        pauseTimer?.invalidate()
+        pauseTimer = nil
+        if !running && pausedAt != nil {
+            pauseTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                self?.updateAppearance()
+            }
+        }
+    }
+
+    /// Countdown color tells the state at a glance: green running, yellow
+    /// paused, flashing after a minute of sitting paused. The paused label
+    /// keeps count of how long the session has been interrupted.
+    private func updateAppearance() {
+        if running {
+            countdownLabel.textColor = .systemGreen
+            pausedLabel.stringValue = ""
+            return
+        }
+        guard let pausedAt else {
+            countdownLabel.textColor = .systemYellow
+            pausedLabel.stringValue = ""
+            return
+        }
+        let pausedSeconds = Int(-pausedAt.timeIntervalSinceNow)
+        pausedLabel.stringValue = "Paused for \(formatDuration(pausedSeconds))"
+        if pausedSeconds >= 60 {
+            flashOn.toggle()
+            countdownLabel.textColor = flashOn ? .systemRed : .systemYellow
+        } else {
+            countdownLabel.textColor = .systemYellow
         }
     }
 
@@ -204,7 +303,7 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
 
     private func startAlarm() {
         stopAlarm()
-        alarmTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
+        alarmTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { _ in
             if let sound = NSSound(named: "Glass") {
                 sound.play()
             } else {

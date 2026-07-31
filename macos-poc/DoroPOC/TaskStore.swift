@@ -9,6 +9,9 @@ struct DoroTask: Codable {
     var seconds = 0
     /// Completed tasks are skipped when advancing to the next task.
     var completed = false
+    /// Full workflowy node UUID for imported tasks (needed for API calls;
+    /// the url only carries the short id).
+    var workflowyId: String?
 
     init() {}
 
@@ -21,6 +24,7 @@ struct DoroTask: Codable {
         url = try c.decodeIfPresent(String.self, forKey: .url) ?? ""
         space = try c.decodeIfPresent(Int.self, forKey: .space) ?? 1
         seconds = try c.decodeIfPresent(Int.self, forKey: .seconds) ?? 0
+        workflowyId = try c.decodeIfPresent(String.self, forKey: .workflowyId)
         if let done = try c.decodeIfPresent(Bool.self, forKey: .completed) {
             completed = done
         } else {
@@ -57,19 +61,25 @@ final class TaskStore {
         var workflowyParentId: String?
     }
 
-    static let fileURL: URL = {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    static let defaultFileURL: URL = {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("DoroPOC", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("state.json")
+            .appendingPathComponent("state.json")
     }()
+
+    /// Injectable so tests never touch the real state file.
+    let fileURL: URL
+
+    init(fileURL: URL = TaskStore.defaultFileURL) {
+        self.fileURL = fileURL
+    }
 
     var currentTask: DoroTask? {
         tasks.indices.contains(currentIndex) ? tasks[currentIndex] : nil
     }
 
     func load() {
-        guard let data = try? Data(contentsOf: Self.fileURL),
+        guard let data = try? Data(contentsOf: fileURL),
               let state = try? JSONDecoder().decode(State.self, from: data) else { return }
         tasks = state.tasks
         sessionMinutes = state.sessionMinutes ?? 20
@@ -86,7 +96,9 @@ final class TaskStore {
                           workflowyParentInput: workflowyParentInput,
                           workflowyParentId: workflowyParentId)
         if let data = try? JSONEncoder().encode(state) {
-            try? data.write(to: Self.fileURL, options: .atomic)
+            try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
+                                                     withIntermediateDirectories: true)
+            try? data.write(to: fileURL, options: .atomic)
         }
     }
 

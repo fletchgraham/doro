@@ -63,6 +63,18 @@ enum Workflowy {
         throw WorkflowyError.badResponse
     }
 
+    /// Mark a node complete / uncomplete.
+    static func setCompleted(token: String, nodeId: String, completed: Bool) async throws {
+        let op = completed ? "complete" : "uncomplete"
+        var request = URLRequest(url: URL(string: "https://workflowy.com/api/v1/nodes/\(nodeId)/\(op)")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw WorkflowyError.http(http.statusCode)
+        }
+    }
+
     /// Accepts a full node UUID, a workflowy.com/#/xxxxxxxxxxxx link, or a
     /// bare 12-char short id (same inputs the web app accepts).
     static func parseParentInput(_ raw: String) -> WorkflowyParentTarget? {

@@ -11,6 +11,18 @@ to a task's space when the task starts.
 open DoroPOC.app
 ```
 
+## Tests
+
+```sh
+swift test          # from macos-poc/
+```
+
+Package.swift exists only for testing — build.sh does not use it. The
+`DoroCore` target covers the AppKit-free logic files (TaskStore, Workflowy
+parsing, SpacesLogic desktop numbering); keep new pure logic in those files
+(or new ones added to Package.swift) so it stays testable. TaskStore takes an
+injectable fileURL so tests never touch the real state.json.
+
 ## Gotchas (the reason this file exists)
 
 - **Every rebuild invalidates the Accessibility grant.** The app is ad-hoc

@@ -8,6 +8,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     var onStartTask: ((Int) -> Void)?
     var onToggleAllSpaces: ((Bool) -> Void)?
     var onToggleFloat: ((Bool) -> Void)?
+    var onEditTime: ((Int) -> Void)?
 
     private let tableView = NSTableView()
     private var minutesField: NSTextField!
@@ -29,7 +30,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override func loadView() {
-        for (id, title, width) in [("done", "✓", 24.0), ("name", "Task", 140.0), ("url", "URL", 180.0), ("space", "Space", 44.0)] {
+        for (id, title, width) in [("done", "✓", 24.0), ("name", "Task", 130.0), ("time", "Time", 56.0), ("space", "Space", 52.0), ("url", "URL", 140.0)] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = title
             column.width = width
@@ -54,7 +55,8 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         let startButton = symbolButton("play.fill", tooltip: "Start selected task", target: self, action: #selector(startSelected))
         let setSpaceButton = symbolButton("pin.fill", tooltip: "Set selected task's space to this desktop", target: self, action: #selector(setSpaceToCurrent))
         let goToSpaceButton = symbolButton("arrow.right.to.line", tooltip: "Go to selected task's space", target: self, action: #selector(goToSpace))
-        let buttonRow = NSStackView(views: [addButton, removeButton, upButton, downButton, startButton, setSpaceButton, goToSpaceButton])
+        let editTimeButton = symbolButton("clock", tooltip: "Edit recorded time for selected task", target: self, action: #selector(editRecordedTime))
+        let buttonRow = NSStackView(views: [addButton, removeButton, upButton, downButton, startButton, setSpaceButton, goToSpaceButton, editTimeButton])
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 6
 
@@ -166,6 +168,17 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
             check.state = task.completed ? .on : .off
             return check
         }
+        if columnID == "space" {
+            let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+            popup.addItems(withTitles: (1...8).map(String.init))
+            popup.selectItem(at: min(max(task.space, 1), 8) - 1)
+            popup.controlSize = .small
+            popup.font = .systemFont(ofSize: 11)
+            popup.isBordered = false
+            popup.target = self
+            popup.action = #selector(spacePicked(_:))
+            return popup
+        }
         let field = NSTextField(string: "")
         field.isBordered = false
         field.drawsBackground = false
@@ -178,10 +191,18 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         switch columnID {
         case "name": field.stringValue = task.name
         case "url": field.stringValue = task.url
-        case "space": field.stringValue = String(task.space)
+        case "time":
+            field.stringValue = formatRecordedTime(seconds: task.seconds)
+            field.isEditable = false
+            field.textColor = .secondaryLabelColor
         default: break
         }
         return field
+    }
+
+    /// Refresh the table from outside (e.g. the timer page completed a task).
+    func reloadTable() {
+        tableView.reloadData()
     }
 
     @objc private func cellEdited(_ sender: NSTextField) {
@@ -191,14 +212,16 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         switch tableView.tableColumns[column].identifier.rawValue {
         case "name": store.tasks[row].name = sender.stringValue
         case "url": store.tasks[row].url = sender.stringValue
-        case "space":
-            if let space = Int(sender.stringValue), (1...9).contains(space) {
-                store.tasks[row].space = space
-            } else {
-                sender.stringValue = String(store.tasks[row].space)
-            }
         default: break
         }
+        store.save()
+        onTasksChanged?()
+    }
+
+    @objc private func spacePicked(_ sender: NSPopUpButton) {
+        let row = tableView.row(for: sender)
+        guard store.tasks.indices.contains(row) else { return }
+        store.tasks[row].space = sender.indexOfSelectedItem + 1
         store.save()
         onTasksChanged?()
     }
@@ -206,9 +229,11 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     @objc private func completedToggled(_ sender: NSButton) {
         let row = tableView.row(for: sender)
         guard store.tasks.indices.contains(row) else { return }
-        store.tasks[row].completed = sender.state == .on
+        let completed = sender.state == .on
+        store.tasks[row].completed = completed
         store.save()
         onTasksChanged?()
+        syncCompletionToWorkflowy(store: store, index: row, completed: completed)
     }
 
     // MARK: - Row actions
@@ -284,6 +309,12 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         let row = tableView.selectedRow
         guard store.tasks.indices.contains(row) else { NSSound.beep(); return }
         switchToSpace(store.tasks[row].space)
+    }
+
+    @objc private func editRecordedTime() {
+        let row = tableView.selectedRow
+        guard store.tasks.indices.contains(row) else { NSSound.beep(); return }
+        onEditTime?(row)
     }
 
     // MARK: - Session length
@@ -398,6 +429,9 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
                     let url = Workflowy.nodeURL(for: node.id)
                     let name = Workflowy.stripTags(node.name ?? "")
                     if let existing = indexByURL[url] {
+                        if store.tasks[existing].workflowyId == nil {
+                            store.tasks[existing].workflowyId = node.id
+                        }
                         if store.tasks[existing].name != name {
                             store.tasks[existing].name = name
                             renamed += 1
@@ -406,6 +440,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
                         var task = DoroTask()
                         task.name = name
                         task.url = url
+                        task.workflowyId = node.id
                         store.tasks.append(task)
                         added += 1
                     }
