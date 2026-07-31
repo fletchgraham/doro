@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     let store = TaskStore()
     var timerVC: TimerViewController!
     var settingsVC: SettingsViewController!
+    var statsVC: StatsViewController!
     let container = NSView()
     var pageControl: NSSegmentedControl!
 
@@ -64,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         store.load()
         timerVC = TimerViewController(store: store)
         settingsVC = SettingsViewController(store: store)
+        statsVC = StatsViewController(store: store)
         settingsVC.onTasksChanged = { [weak self] in
             self?.timerVC.refreshFromStore(switchSpace: false)
         }
@@ -148,7 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.collectionBehavior = [.canJoinAllSpaces]
         window.minSize = NSSize(width: 380, height: 500)
 
-        pageControl = NSSegmentedControl(labels: ["Timer", "Settings"], trackingMode: .selectOne,
+        pageControl = NSSegmentedControl(labels: ["Timer", "Settings", "Stats"], trackingMode: .selectOne,
                                          target: self, action: #selector(pageChanged(_:)))
 
         // Recorded-time editor bar, hidden until a clock button opens it.
@@ -253,8 +255,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             timerVC.pause()
             settingsVC.reloadTable()
         }
+        if index == 2 { statsVC.refresh() }
         container.subviews.forEach { $0.removeFromSuperview() }
-        let pageView = (index == 0 ? timerVC : settingsVC as NSViewController).view
+        let pages: [NSViewController] = [timerVC, settingsVC, statsVC]
+        let pageView = pages[index].view
         pageView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(pageView)
         NSLayoutConstraint.activate([

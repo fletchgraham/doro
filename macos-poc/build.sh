@@ -1,14 +1,15 @@
 #!/bin/bash
-# Build DoroPOC.app — a minimal macOS app bundle testing Spaces integration for Doro.
+# Build Doro.app — native macOS doro with Spaces integration.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP=DoroPOC.app
+APP=Doro.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/DoroPOC" DoroPOC/*.swift
+swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/Doro" DoroPOC/*.swift
 cp Info.plist "$APP/Contents/Info.plist"
+cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature: its hash changes EVERY build, and the Accessibility grant in
 # System Settings is tied to it. After any rebuild you must re-grant:

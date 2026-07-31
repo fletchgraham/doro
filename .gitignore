@@ -26,3 +26,6 @@ dist-ssr
 
 # macOS POC build output
 macos-poc/DoroPOC.app
+macos-poc/Doro.app
+macos-poc/.build
+macos-poc/.swiftpm

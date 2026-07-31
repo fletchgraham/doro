@@ -1,5 +1,16 @@
 import Foundation
 
+/// Same default palette as the doro webapp (TASK_COLORS in TasksView.tsx).
+let taskColors: [(name: String, hex: String)] = [
+    ("gray", "#9ca3af"),
+    ("red", "#f87171"),
+    ("orange", "#fb923c"),
+    ("yellow", "#facc15"),
+    ("green", "#4ade80"),
+    ("blue", "#60a5fa"),
+    ("purple", "#c084fc"),
+]
+
 struct DoroTask: Codable {
     var id = UUID()
     var name = "New Task"
@@ -12,6 +23,8 @@ struct DoroTask: Codable {
     /// Full workflowy node UUID for imported tasks (needed for API calls;
     /// the url only carries the short id).
     var workflowyId: String?
+    /// Hex color from the taskColors palette; nil renders as gray.
+    var color: String?
 
     init() {}
 
@@ -25,6 +38,7 @@ struct DoroTask: Codable {
         space = try c.decodeIfPresent(Int.self, forKey: .space) ?? 1
         seconds = try c.decodeIfPresent(Int.self, forKey: .seconds) ?? 0
         workflowyId = try c.decodeIfPresent(String.self, forKey: .workflowyId)
+        color = try c.decodeIfPresent(String.self, forKey: .color)
         if let done = try c.decodeIfPresent(Bool.self, forKey: .completed) {
             completed = done
         } else {
@@ -104,6 +118,20 @@ final class TaskStore {
 
     func clampIndex(to index: Int? = nil) {
         currentIndex = max(0, min(index ?? currentIndex, tasks.count - 1))
+    }
+
+    /// Accumulated time grouped by task color, largest first. Fractions of
+    /// the total recorded time; colorless tasks count as gray.
+    func colorBreakdown() -> [(hex: String, seconds: Int, fraction: Double)] {
+        var secondsByHex: [String: Int] = [:]
+        for task in tasks where task.seconds > 0 {
+            secondsByHex[task.color ?? taskColors[0].hex, default: 0] += task.seconds
+        }
+        let total = secondsByHex.values.reduce(0, +)
+        guard total > 0 else { return [] }
+        return secondsByHex
+            .map { (hex: $0.key, seconds: $0.value, fraction: Double($0.value) / Double(total)) }
+            .sorted { $0.seconds > $1.seconds }
     }
 
     func addSecondToCurrent() {

@@ -1,14 +1,16 @@
 # Doro macOS POC
 
-Native AppKit prototype of doro (`DoroPOC.app`). Motivation: the web app can't
-switch macOS Spaces; Fletcher keeps one space per task and wants doro to jump
-to a task's space when the task starts.
+Native AppKit prototype of doro (`Doro.app`; sources still live in `DoroPOC/`
+and the bundle id stays `com.fletchgraham.doro-poc` — changing it would log
+the workflowy pane out and orphan the TCC grant). Motivation: the web app
+can't switch macOS Spaces; Fletcher keeps one space per task and wants doro
+to jump to a task's space when the task starts.
 
 ## Build & run
 
 ```sh
-./build.sh          # compiles DoroPOC/*.swift into DoroPOC.app (plain swiftc, no Xcode project)
-open DoroPOC.app
+./build.sh          # compiles DoroPOC/*.swift into Doro.app (plain swiftc, no Xcode project)
+open Doro.app
 ```
 
 ## Tests

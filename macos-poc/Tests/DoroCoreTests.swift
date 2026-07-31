@@ -38,6 +38,7 @@ final class TaskCodingTests: XCTestCase {
         task.seconds = 3661
         task.completed = true
         task.workflowyId = "ed17a094-f327-45fc-a460-cef238cb12d8"
+        task.color = "#facc15"
         let back = try JSONDecoder().decode(DoroTask.self, from: JSONEncoder().encode(task))
         XCTAssertEqual(back.id, task.id)
         XCTAssertEqual(back.name, task.name)
@@ -46,6 +47,7 @@ final class TaskCodingTests: XCTestCase {
         XCTAssertEqual(back.seconds, task.seconds)
         XCTAssertEqual(back.completed, task.completed)
         XCTAssertEqual(back.workflowyId, task.workflowyId)
+        XCTAssertEqual(back.color, task.color)
     }
 
     func testRoundTripPreservesNilWorkflowyId() throws {
@@ -173,6 +175,32 @@ final class TaskStoreTests: XCTestCase {
 
     func testCurrentTaskNilWhenEmpty() {
         XCTAssertNil(makeStore().currentTask)
+    }
+
+    func testColorBreakdownGroupsAndSorts() {
+        let store = makeStore(names: ["a", "b", "c", "d"])
+        store.tasks[0].color = "#facc15"; store.tasks[0].seconds = 3600
+        store.tasks[1].color = "#60a5fa"; store.tasks[1].seconds = 900
+        store.tasks[2].color = "#facc15"; store.tasks[2].seconds = 1800
+        store.tasks[3].seconds = 0 // never worked on: excluded
+        let breakdown = store.colorBreakdown()
+        XCTAssertEqual(breakdown.map(\.hex), ["#facc15", "#60a5fa"])
+        XCTAssertEqual(breakdown.map(\.seconds), [5400, 900])
+        XCTAssertEqual(breakdown[0].fraction, 5400.0 / 6300.0, accuracy: 0.0001)
+        XCTAssertEqual(breakdown.map(\.fraction).reduce(0, +), 1.0, accuracy: 0.0001)
+    }
+
+    func testColorBreakdownCountsColorlessAsGray() {
+        let store = makeStore(names: ["a"])
+        store.tasks[0].seconds = 60
+        let breakdown = store.colorBreakdown()
+        XCTAssertEqual(breakdown.map(\.hex), ["#9ca3af"])
+        XCTAssertEqual(breakdown[0].fraction, 1.0, accuracy: 0.0001)
+    }
+
+    func testColorBreakdownEmptyWhenNoTimeRecorded() {
+        let store = makeStore(names: ["a", "b"])
+        XCTAssertTrue(store.colorBreakdown().isEmpty)
     }
 }
 

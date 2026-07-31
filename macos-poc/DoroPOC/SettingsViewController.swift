@@ -30,7 +30,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override func loadView() {
-        for (id, title, width) in [("done", "✓", 24.0), ("name", "Task", 130.0), ("time", "Time", 56.0), ("space", "Space", 52.0), ("url", "URL", 140.0)] {
+        for (id, title, width) in [("done", "✓", 24.0), ("name", "Task", 120.0), ("time", "Time", 52.0), ("space", "Space", 48.0), ("color", "Color", 64.0), ("url", "URL", 120.0)] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = title
             column.width = width
@@ -46,7 +46,11 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
+        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        // The one stretchy row: absorbs all window resizing (see the equal
+        // bottom pin below — a <= pin lets the list get stuck small after
+        // shrinking the window).
+        scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         let addButton = symbolButton("plus", tooltip: "Add task", target: self, action: #selector(addTask))
         let removeButton = symbolButton("minus", tooltip: "Remove selected task", target: self, action: #selector(removeTask))
@@ -151,7 +155,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
             stack.topAnchor.constraint(equalTo: root.topAnchor),
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor),
+            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         view = root
     }
@@ -177,6 +181,21 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
             popup.isBordered = false
             popup.target = self
             popup.action = #selector(spacePicked(_:))
+            return popup
+        }
+        if columnID == "color" {
+            let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+            for color in taskColors {
+                popup.addItem(withTitle: color.name)
+                popup.lastItem?.image = colorDot(color.hex)
+            }
+            let currentHex = task.color ?? taskColors[0].hex
+            popup.selectItem(at: taskColors.firstIndex { $0.hex == currentHex } ?? 0)
+            popup.controlSize = .small
+            popup.font = .systemFont(ofSize: 11)
+            popup.isBordered = false
+            popup.target = self
+            popup.action = #selector(colorPicked(_:))
             return popup
         }
         let field = NSTextField(string: "")
@@ -222,6 +241,15 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         let row = tableView.row(for: sender)
         guard store.tasks.indices.contains(row) else { return }
         store.tasks[row].space = sender.indexOfSelectedItem + 1
+        store.save()
+        onTasksChanged?()
+    }
+
+    @objc private func colorPicked(_ sender: NSPopUpButton) {
+        let row = tableView.row(for: sender)
+        guard store.tasks.indices.contains(row),
+              taskColors.indices.contains(sender.indexOfSelectedItem) else { return }
+        store.tasks[row].color = taskColors[sender.indexOfSelectedItem].hex
         store.save()
         onTasksChanged?()
     }
