@@ -30,8 +30,15 @@ open DoroPOC.app
   1-desktop display first, so match by main-display UUID, never `.first`.
 - **Workflowy import calls the official API v1 directly** (Bearer token, no
   CORS in a native app). The web app's `src/lib/workflowy.ts` +
-  `api/workflowy.ts` proxy is the reference implementation; keep parsing/
-  short-id-resolution behavior in sync with it.
+  `api/workflowy.ts` proxy is the reference implementation; keep parsing
+  behavior in sync with it.
+- **Short-id resolution goes through a hidden WKWebView first**
+  (`WebResolver.swift`): it loads the short link with the Timer pane's
+  logged-in session and reads the full UUID from the page (`WF.currentItem()
+  .getId()`, then the `projectid` DOM attribute) — both are undocumented
+  frontend surfaces, verified working July 2026. If neither yields a UUID in
+  12s, it falls back to the API tree walk (BFS from root, ~1 request/node,
+  capped at 200), which is also what the web app does every time.
 - **Web pane login persists** because WKWebView uses the default website data
   store (`~/Library/WebKit/com.fletchgraham.doro-poc/`). Deleting that folder
   logs the pane out.
@@ -40,6 +47,9 @@ open DoroPOC.app
 
 App state (tasks, cumulative seconds, settings, Workflowy key) is one JSON
 file: `~/Library/Application Support/DoroPOC/state.json`. Delete it to reset.
+The resolved Workflowy parent UUID is cached there too (short-id resolution
+walks the whole tree at ~1 API request per node, so it runs at most once);
+editing the parent input clears the cache.
 
 ## Scope
 

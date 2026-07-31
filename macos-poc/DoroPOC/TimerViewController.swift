@@ -117,6 +117,17 @@ final class TimerViewController: NSViewController, WKUIDelegate, WKNavigationDel
         if running { setRunning(false) }
     }
 
+    /// Start ticking without resetting the countdown (used when returning to
+    /// the Timer page). A finished countdown starts a fresh session.
+    func resume() {
+        guard !running, store.currentTask != nil else { return }
+        stopAlarm()
+        if remaining <= 0 { remaining = sessionLength }
+        setRunning(true)
+        if let task = store.currentTask { switchToSpace(task.space) }
+        updateLabels()
+    }
+
     /// Session length setting changed; adopt it if we're not mid-countdown.
     func sessionMinutesChanged() {
         if !running {

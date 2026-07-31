@@ -7,6 +7,7 @@ struct WorkflowyNode: Decodable {
     let id: String
     let name: String?
     let priority: Int?
+    let completedAt: Double?
 }
 
 enum WorkflowyParentTarget {
@@ -17,6 +18,7 @@ enum WorkflowyParentTarget {
 enum WorkflowyError: LocalizedError {
     case badParentInput
     case nodeNotFound
+    case badResponse
     case http(Int)
 
     var errorDescription: String? {
@@ -25,8 +27,12 @@ enum WorkflowyError: LocalizedError {
             return "Couldn't parse that node URL / id"
         case .nodeNotFound:
             return "Couldn't find that node — try pasting its full UUID"
+        case .badResponse:
+            return "Unexpected response from the Workflowy API"
         case .http(401):
             return "Invalid Workflowy API key"
+        case .http(429):
+            return "Workflowy rate limit hit — wait a minute and retry"
         case .http(let code):
             return "Workflowy API error \(code)"
         }
@@ -49,7 +55,12 @@ enum Workflowy {
             return nodes
         }
         struct Wrapper: Decodable { let nodes: [WorkflowyNode] }
-        return (try? JSONDecoder().decode(Wrapper.self, from: data))?.nodes ?? []
+        if let wrapped = try? JSONDecoder().decode(Wrapper.self, from: data) {
+            return wrapped.nodes
+        }
+        // A shape we don't recognize must surface as an error — returning []
+        // here would masquerade as "node has no children" / "node not found".
+        throw WorkflowyError.badResponse
     }
 
     /// Accepts a full node UUID, a workflowy.com/#/xxxxxxxxxxxx link, or a
@@ -71,7 +82,10 @@ enum Workflowy {
 
     /// Short ids from workflowy links are the last 12 hex chars of the node
     /// UUID; the API only lists children, so resolve by BFS from the root.
-    static func resolveParentId(token: String, target: WorkflowyParentTarget) async throws -> String {
+    /// `progress` is called with the running request count (this can take a
+    /// minute on a big tree — one API request per node visited).
+    static func resolveParentId(token: String, target: WorkflowyParentTarget,
+                                progress: (@Sendable (Int) -> Void)? = nil) async throws -> String {
         switch target {
         case .uuid(let id):
             return id
@@ -81,6 +95,7 @@ enum Workflowy {
             while !queue.isEmpty && requests < 200 {
                 let parentId = queue.removeFirst()
                 requests += 1
+                progress?(requests)
                 let children = try await listChildren(token: token, parentId: parentId)
                 for child in children {
                     if child.id.replacingOccurrences(of: "-", with: "").lowercased().hasSuffix(shortId) {

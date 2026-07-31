@@ -7,6 +7,22 @@ struct DoroTask: Codable {
     var space = 1
     /// Cumulative seconds ever spent on this task.
     var seconds = 0
+    /// Unchecked tasks are skipped when advancing to the next task.
+    var inRotation = true
+
+    init() {}
+
+    // Custom decode so fields added later fall back to defaults when
+    // loading an older state.json.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "New Task"
+        url = try c.decodeIfPresent(String.self, forKey: .url) ?? ""
+        space = try c.decodeIfPresent(Int.self, forKey: .space) ?? 1
+        seconds = try c.decodeIfPresent(Int.self, forKey: .seconds) ?? 0
+        inRotation = try c.decodeIfPresent(Bool.self, forKey: .inRotation) ?? true
+    }
 }
 
 /// Task list + current task index, persisted as JSON in Application Support.
@@ -16,6 +32,9 @@ final class TaskStore {
     var sessionMinutes = 20
     var workflowyApiKey = ""
     var workflowyParentInput = ""
+    /// Resolved parent node UUID, cached so the slow short-id tree search
+    /// runs at most once. Cleared whenever the parent input changes.
+    var workflowyParentId = ""
 
     private struct State: Codable {
         var currentIndex: Int
@@ -23,6 +42,7 @@ final class TaskStore {
         var sessionMinutes: Int?
         var workflowyApiKey: String?
         var workflowyParentInput: String?
+        var workflowyParentId: String?
     }
 
     static let fileURL: URL = {
@@ -43,6 +63,7 @@ final class TaskStore {
         sessionMinutes = state.sessionMinutes ?? 20
         workflowyApiKey = state.workflowyApiKey ?? ""
         workflowyParentInput = state.workflowyParentInput ?? ""
+        workflowyParentId = state.workflowyParentId ?? ""
         clampIndex(to: state.currentIndex)
     }
 
@@ -50,7 +71,8 @@ final class TaskStore {
         let state = State(currentIndex: currentIndex, tasks: tasks,
                           sessionMinutes: sessionMinutes,
                           workflowyApiKey: workflowyApiKey,
-                          workflowyParentInput: workflowyParentInput)
+                          workflowyParentInput: workflowyParentInput,
+                          workflowyParentId: workflowyParentId)
         if let data = try? JSONEncoder().encode(state) {
             try? data.write(to: Self.fileURL, options: .atomic)
         }
@@ -65,9 +87,15 @@ final class TaskStore {
         tasks[currentIndex].seconds += 1
     }
 
+    /// Move to the next task that's in rotation (stays put if none are).
     func advance() {
         guard !tasks.isEmpty else { return }
-        currentIndex = (currentIndex + 1) % tasks.count
+        var next = currentIndex
+        for _ in 0..<tasks.count {
+            next = (next + 1) % tasks.count
+            if tasks[next].inRotation { break }
+        }
+        currentIndex = next
         save()
     }
 }

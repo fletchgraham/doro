@@ -37,10 +37,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.window.level = on ? .floating : .normal
         }
 
+        buildMenu()
         buildWindow()
         // First run with no tasks? Land on Settings.
         showPage(store.tasks.isEmpty ? 1 : 0)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // Without a main menu, none of the standard editing key equivalents
+    // (Cmd+V/C/X/A, Cmd+Q...) reach the app at all.
+    private func buildMenu() {
+        let mainMenu = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Hide Doro", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Quit Doro", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowItem.submenu = windowMenu
+        mainMenu.addItem(windowItem)
+
+        NSApp.mainMenu = mainMenu
     }
 
     private func buildWindow() {
@@ -76,6 +111,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func pageChanged(_ sender: NSSegmentedControl) {
         showPage(sender.selectedSegment)
+        // Landing on the Timer page means "get to work": start ticking.
+        if sender.selectedSegment == 0 { timerVC.resume() }
     }
 
     private func showPage(_ index: Int) {

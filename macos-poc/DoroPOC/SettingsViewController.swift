@@ -12,9 +12,14 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     private let tableView = NSTableView()
     private var minutesField: NSTextField!
     private var apiKeyField: NSTextField!
+    private let keySavedLabel = NSTextField(labelWithString: "API key saved ✓")
+    private var changeKeyButton: NSButton!
+    private var isEditingApiKey = false
     private var parentField: NSTextField!
     private var importButton: NSButton!
     private let importStatus = NSTextField(labelWithString: "")
+    private let tsvStatus = NSTextField(labelWithString: "")
+    private let webResolver = WorkflowyWebResolver()
 
     init(store: TaskStore) {
         self.store = store
@@ -24,7 +29,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override func loadView() {
-        for (id, title, width) in [("name", "Task", 140.0), ("url", "URL", 200.0), ("space", "Space", 44.0)] {
+        for (id, title, width) in [("rotation", "✓", 24.0), ("name", "Task", 140.0), ("url", "URL", 180.0), ("space", "Space", 44.0)] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = title
             column.width = width
@@ -52,7 +57,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 6
 
-        let hint = NSTextField(labelWithString: "Edit cells directly; press Return to commit. Row order = task order.")
+        let hint = NSTextField(labelWithString: "Edit cells directly; press Return to commit. ✓ = in rotation (Next skips unchecked).")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
 
@@ -69,6 +74,11 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         // Copy TSV
         let tsvButton = NSButton(title: "Copy TSV to Clipboard", target: self, action: #selector(copyTSV))
         tsvButton.bezelStyle = .rounded
+        tsvStatus.font = .systemFont(ofSize: 11)
+        tsvStatus.textColor = .secondaryLabelColor
+        let tsvRow = NSStackView(views: [tsvButton, tsvStatus])
+        tsvRow.orientation = .horizontal
+        tsvRow.spacing = 8
 
         // Workflowy import
         apiKeyField = NSSecureTextField(string: store.workflowyApiKey)
@@ -81,13 +91,23 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
             $0.action = #selector(workflowyFieldsEdited)
             $0.cell?.sendsActionOnEndEditing = true
         }
+        keySavedLabel.font = .systemFont(ofSize: 11)
+        keySavedLabel.textColor = .secondaryLabelColor
+        changeKeyButton = NSButton(title: "Change…", target: self, action: #selector(changeApiKey))
+        changeKeyButton.bezelStyle = .rounded
+        changeKeyButton.controlSize = .small
+        let apiKeyRow = NSStackView(views: [apiKeyField, keySavedLabel, changeKeyButton])
+        apiKeyRow.orientation = .horizontal
+        apiKeyRow.spacing = 8
+        updateApiKeyRow()
+
         importButton = NSButton(title: "Import from Workflowy", target: self, action: #selector(importFromWorkflowy))
         importButton.bezelStyle = .rounded
         importStatus.font = .systemFont(ofSize: 11)
         importStatus.textColor = .secondaryLabelColor
-        importStatus.lineBreakMode = .byWordWrapping
-        importStatus.maximumNumberOfLines = 2
-        importStatus.preferredMaxLayoutWidth = 380
+        importStatus.lineBreakMode = .byTruncatingTail
+        importStatus.maximumNumberOfLines = 1
+        importStatus.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let workflowyTitle = NSTextField(labelWithString: "Workflowy")
         workflowyTitle.font = .boldSystemFont(ofSize: 12)
@@ -111,13 +131,13 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         axLabel.maximumNumberOfLines = 3
         axLabel.preferredMaxLayoutWidth = 380
 
-        let stack = NSStackView(views: [scroll, buttonRow, hint, minutesRow, tsvButton,
-                                        workflowyTitle, apiKeyField, parentField, importRow,
+        let stack = NSStackView(views: [scroll, buttonRow, hint, minutesRow, tsvRow,
+                                        workflowyTitle, apiKeyRow, parentField, importRow,
                                         allSpacesCheck, floatCheck, axLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
-        stack.setCustomSpacing(18, after: tsvButton)
+        stack.setCustomSpacing(18, after: tsvRow)
         stack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
         stack.translatesAutoresizingMaskIntoConstraints = false
         scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
@@ -140,6 +160,11 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard let columnID = tableColumn?.identifier.rawValue else { return nil }
         let task = store.tasks[row]
+        if columnID == "rotation" {
+            let check = NSButton(checkboxWithTitle: "", target: self, action: #selector(rotationToggled(_:)))
+            check.state = task.inRotation ? .on : .off
+            return check
+        }
         let field = NSTextField(string: "")
         field.isBordered = false
         field.drawsBackground = false
@@ -177,6 +202,14 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         onTasksChanged?()
     }
 
+    @objc private func rotationToggled(_ sender: NSButton) {
+        let row = tableView.row(for: sender)
+        guard store.tasks.indices.contains(row) else { return }
+        store.tasks[row].inRotation = sender.state == .on
+        store.save()
+        onTasksChanged?()
+    }
+
     // MARK: - Row actions
 
     @objc private func addTask() {
@@ -187,7 +220,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         onTasksChanged?()
         let newRow = store.tasks.count - 1
         tableView.selectRowIndexes([newRow], byExtendingSelection: false)
-        tableView.editColumn(0, row: newRow, with: nil, select: true)
+        tableView.editColumn(1, row: newRow, with: nil, select: true) // column 1 = name (0 is the checkbox)
     }
 
     @objc private func removeTask() {
@@ -248,49 +281,113 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(rows.joined(separator: "\n"), forType: .string)
-        importStatus.stringValue = "Copied \(rows.count) rows"
+        tsvStatus.stringValue = "Copied \(rows.count) rows"
     }
 
     // MARK: - Workflowy import
 
+    /// The API key field collapses to "saved ✓" once a key is stored; the
+    /// key only needs entering once.
+    private func updateApiKeyRow() {
+        let showField = store.workflowyApiKey.isEmpty || isEditingApiKey
+        apiKeyField.isHidden = !showField
+        keySavedLabel.isHidden = showField
+        changeKeyButton.isHidden = showField
+    }
+
+    @objc private func changeApiKey() {
+        isEditingApiKey = true
+        updateApiKeyRow()
+        view.window?.makeFirstResponder(apiKeyField)
+    }
+
     @objc private func workflowyFieldsEdited() {
+        // Changing the parent invalidates the cached resolved node id.
+        if parentField.stringValue != store.workflowyParentInput {
+            store.workflowyParentId = ""
+        }
         store.workflowyApiKey = apiKeyField.stringValue
         store.workflowyParentInput = parentField.stringValue
         store.save()
+        if !store.workflowyApiKey.isEmpty { isEditingApiKey = false }
+        updateApiKeyRow()
+    }
+
+    private func setImportStatus(_ message: String) {
+        importStatus.stringValue = message
+        importStatus.toolTip = message // full text on hover; the label truncates
+    }
+
+    /// Short ids resolve via the hidden web view first (one page load, uses
+    /// the Timer pane's login); the API tree walk is the fallback.
+    private func resolveParent(token: String, target: WorkflowyParentTarget) async throws -> String {
+        guard case .short(let shortId) = target else {
+            return try await Workflowy.resolveParentId(token: token, target: target)
+        }
+        setImportStatus("Resolving node…")
+        if let id = await webResolver.resolve(shortId: shortId) {
+            return id
+        }
+        return try await Workflowy.resolveParentId(token: token, target: target) { searched in
+            Task { @MainActor in
+                self.setImportStatus("Finding node… (\(searched) lists searched)")
+            }
+        }
     }
 
     @objc private func importFromWorkflowy() {
         workflowyFieldsEdited()
         let token = store.workflowyApiKey.trimmingCharacters(in: .whitespaces)
         guard !token.isEmpty else {
-            importStatus.stringValue = "Enter your Workflowy API key first"
+            setImportStatus("Enter your Workflowy API key first")
             return
         }
         guard let target = Workflowy.parseParentInput(store.workflowyParentInput) else {
-            importStatus.stringValue = "Couldn't parse that node URL / id"
+            setImportStatus("Couldn't parse that node URL / id")
             return
         }
         importButton.isEnabled = false
-        importStatus.stringValue = "Importing…"
+        setImportStatus("Importing…")
         Task { @MainActor in
             defer { importButton.isEnabled = true }
+            let cachedId = store.workflowyParentId
             do {
-                let parentId = try await Workflowy.resolveParentId(token: token, target: target)
+                let parentId: String
+                if !cachedId.isEmpty {
+                    parentId = cachedId
+                } else {
+                    parentId = try await resolveParent(token: token, target: target)
+                    store.workflowyParentId = parentId
+                    store.save()
+                }
                 let nodes = try await Workflowy.listChildren(token: token, parentId: parentId)
+                    .filter { $0.completedAt == nil }
                     .sorted { ($0.priority ?? 0) < ($1.priority ?? 0) }
-                for node in nodes {
+                // Re-import updates nothing destructively: only add new nodes.
+                let existingURLs = Set(store.tasks.map(\.url))
+                var added = 0
+                for node in nodes where !existingURLs.contains(Workflowy.nodeURL(for: node.id)) {
                     var task = DoroTask()
                     task.name = Workflowy.stripTags(node.name ?? "")
                     task.url = Workflowy.nodeURL(for: node.id)
                     store.tasks.append(task)
+                    added += 1
                 }
                 store.clampIndex()
                 store.save()
                 tableView.reloadData()
                 onTasksChanged?()
-                importStatus.stringValue = "Imported \(nodes.count) tasks"
+                setImportStatus(added == nodes.count
+                    ? "Imported \(added) tasks"
+                    : "Imported \(added) new tasks (\(nodes.count - added) already here)")
             } catch {
-                importStatus.stringValue = error.localizedDescription
+                // A cached id can go stale (node deleted/moved); clear it so
+                // the next attempt re-resolves from scratch.
+                if !cachedId.isEmpty {
+                    store.workflowyParentId = ""
+                    store.save()
+                }
+                setImportStatus(error.localizedDescription)
             }
         }
     }
