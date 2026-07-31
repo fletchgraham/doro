@@ -4,12 +4,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "DoroPOC",
+    name: "Doro",
     platforms: [.macOS(.v13)],
     targets: [
         .target(
             name: "DoroCore",
-            path: "DoroPOC",
+            path: "Doro",
             sources: ["TaskStore.swift", "Workflowy.swift", "SpacesLogic.swift", "TimeText.swift"]
         ),
         .testTarget(

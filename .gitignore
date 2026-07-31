@@ -24,8 +24,7 @@ dist-ssr
 *.sw?
 .nvmrc
 
-# macOS POC build output
-macos-poc/DoroPOC.app
-macos-poc/Doro.app
-macos-poc/.build
-macos-poc/.swiftpm
+# macOS app build output
+macos/Doro.app
+macos/.build
+macos/.swiftpm

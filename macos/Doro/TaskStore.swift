@@ -76,9 +76,18 @@ final class TaskStore {
     }
 
     static let defaultFileURL: URL = {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("DoroPOC", isDirectory: true)
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let file = appSupport.appendingPathComponent("Doro", isDirectory: true)
             .appendingPathComponent("state.json")
+        // One-time migration from the POC-era location (left in place as a backup).
+        let legacy = appSupport.appendingPathComponent("DoroPOC/state.json")
+        if !FileManager.default.fileExists(atPath: file.path),
+           FileManager.default.fileExists(atPath: legacy.path) {
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(),
+                                                     withIntermediateDirectories: true)
+            try? FileManager.default.copyItem(at: legacy, to: file)
+        }
+        return file
     }()
 
     /// Injectable so tests never touch the real state file.

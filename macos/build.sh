@@ -7,7 +7,7 @@ APP=Doro.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/Doro" DoroPOC/*.swift
+swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/Doro" Doro/*.swift
 cp Info.plist "$APP/Contents/Info.plist"
 cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
