@@ -6,6 +6,7 @@ import TasksView from "./components/TasksView";
 import AddTaskModal from "./components/AddTaskModal";
 import SwitchTaskModal from "./components/SwitchTaskModal";
 import WorkflowyMode from "./components/WorkflowyMode";
+import ColorGoals from "./components/ColorGoals";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 import type Task from "./types/Task";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
 import { getLiveDuration } from "./lib/getDuration";
 import { Shuffle } from "lucide-react";
+import { DEFAULT_COLOR, colorLabel } from "./lib/taskColors";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
@@ -28,16 +30,6 @@ const requestNotificationPermission = () => {
   if ("Notification" in window && Notification.permission === "default") {
     Notification.requestPermission();
   }
-};
-
-const TASK_COLORS: Record<string, string> = {
-  "#9ca3af": "Gray",
-  "#f87171": "Red",
-  "#fb923c": "Orange",
-  "#facc15": "Yellow",
-  "#4ade80": "Green",
-  "#60a5fa": "Blue",
-  "#c084fc": "Purple",
 };
 
 const DONUT_RADIUS = 40;
@@ -91,7 +83,7 @@ function ColorDonut({
               transform="rotate(-90 70 70)"
             >
               <title>
-                {`${TASK_COLORS[color] || color}: ${formatDuration(
+                {`${colorLabel(color)}: ${formatDuration(
                   duration
                 )} (${Math.round(frac * 100)}%)`}
               </title>
@@ -197,13 +189,18 @@ function App() {
     for (const task of taskManager.tasks) {
       const dur = getTaskDuration(task);
       if (dur <= 0) continue;
-      const color = task.color || "#9ca3af";
+      const color = task.color || DEFAULT_COLOR;
       map.set(color, (map.get(color) || 0) + dur);
     }
     // Sort by duration descending
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskManager.tasks, isPaused, tick]);
+
+  const progressByColor = useMemo(
+    () => Object.fromEntries(colorBreakdown),
+    [colorBreakdown]
+  );
 
   // Start pulsing the paused indicator after 2 minutes
   useEffect(() => {
@@ -393,6 +390,11 @@ function App() {
       className="w-full max-w-2xl mx-auto px-4 py-8"
       onClick={() => setSelectedTaskId(null)}
     >
+      <ColorGoals
+        progress={progressByColor}
+        isPaused={isPaused}
+        activeColor={activeTask ? activeTask.color || DEFAULT_COLOR : undefined}
+      />
       <div className="flex items-center gap-2 mb-4">
         <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
         <Input
@@ -553,7 +555,7 @@ function App() {
                       style={{ backgroundColor: color }}
                     />
                     <span className="text-sm flex-1">
-                      {TASK_COLORS[color] || color}
+                      {colorLabel(color)}
                     </span>
                     <span className="text-sm font-medium">
                       {formatDuration(duration)}
