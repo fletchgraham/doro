@@ -39,16 +39,7 @@ import {
 import type { DraggableSyntheticListeners, DraggableAttributes } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 
-// Task colors (Tailwind 400-level)
-const TASK_COLORS = [
-  { name: "gray", hex: "#9ca3af" },
-  { name: "red", hex: "#f87171" },
-  { name: "orange", hex: "#fb923c" },
-  { name: "yellow", hex: "#facc15" },
-  { name: "green", hex: "#4ade80" },
-  { name: "blue", hex: "#60a5fa" },
-  { name: "purple", hex: "#c084fc" },
-];
+import { TASK_COLORS } from "@/lib/taskColors";
 
 interface TaskManager {
   tasks: Task[];
