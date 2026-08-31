@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/formatDuration";
 import { parseTime } from "@/lib/parseTime";
-import { TASK_COLORS, colorLabel } from "@/lib/taskColors";
+import { TASK_COLORS, colorLabel, darkenColor } from "@/lib/taskColors";
 import {
   goalBarFractions,
   loadGoals,
@@ -32,8 +32,11 @@ function GoalBar({
         />
         {over > 0 && (
           <div
-            className="absolute inset-y-0 right-0 bg-red-500"
-            style={{ width: `${over * 100}%` }}
+            className="absolute inset-y-0 right-0"
+            style={{
+              width: `${over * 100}%`,
+              backgroundColor: darkenColor(goal.color),
+            }}
             title={`${formatDuration(overMs)} over goal`}
           />
         )}

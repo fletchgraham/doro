@@ -16,12 +16,19 @@ describe("goalBarFractions", () => {
     expect(goalBarFractions(HOUR, HOUR)).toEqual({ fill: 1, over: 0 });
   });
 
-  it("caps fill at 1 and shows overage scaled to the goal", () => {
-    expect(goalBarFractions(1.5 * HOUR, HOUR)).toEqual({ fill: 1, over: 0.5 });
+  it("splits the bar as shares of accumulated time once over the goal", () => {
+    expect(goalBarFractions(1.5 * HOUR, HOUR)).toEqual({
+      fill: 1 / 1.5,
+      over: 0.5 / 1.5,
+    });
+    expect(goalBarFractions(2 * HOUR, HOUR)).toEqual({ fill: 0.5, over: 0.5 });
   });
 
-  it("caps overage at the full bar once a whole goal over", () => {
-    expect(goalBarFractions(3 * HOUR, HOUR)).toEqual({ fill: 1, over: 1 });
+  it("never lets overage take the whole bar", () => {
+    const { fill, over } = goalBarFractions(10 * HOUR, HOUR);
+    expect(fill).toBeCloseTo(0.1);
+    expect(over).toBeCloseTo(0.9);
+    expect(fill + over).toBeCloseTo(1);
   });
 
   it("handles a zero or negative target without dividing by zero", () => {
