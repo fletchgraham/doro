@@ -18,3 +18,15 @@ export const colorLabel = (hex: string): string => {
   const found = TASK_COLORS.find((c) => c.hex === hex);
   return found ? found.name.charAt(0).toUpperCase() + found.name.slice(1) : hex;
 };
+
+// Darker shade of a #rrggbb color, used for the overflow segment of goal
+// bars. Falls back to the input for anything that isn't a 6-digit hex.
+export const darkenColor = (hex: string, factor = 0.6): string => {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) return hex;
+  const channels = [0, 2, 4].map((i) => {
+    const value = Math.round(parseInt(match[1].slice(i, i + 2), 16) * factor);
+    return Math.min(Math.max(value, 0), 255).toString(16).padStart(2, "0");
+  });
+  return `#${channels.join("")}`;
+};
