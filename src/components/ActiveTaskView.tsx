@@ -195,7 +195,7 @@ function ActiveTaskView({
           if (moved !== null) onNotesChange(task, moved);
         }}
         placeholder="Notes..."
-        className="min-h-[80px] resize-y bg-white"
+        className="min-h-[80px] resize-y bg-white dark:bg-card"
       />
       {(onDone || onDeactivate) && (
         <div className="mt-2 flex gap-2">

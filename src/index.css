@@ -49,7 +49,14 @@ body {
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
+  /* Timer banner pulse when paused too long */
+  --pulse-yellow: #fde047;
+  --pulse-red: #f87171;
+  /* Goal bar fills are drawn at full strength in light mode; dark mode
+     dims them (see .dark) so light text stays readable on top */
+  --goal-fill-strength: 100%;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -84,6 +91,10 @@ body {
 }
 
 .dark {
+  color-scheme: dark;
+  --pulse-yellow: color-mix(in srgb, #facc15 20%, transparent);
+  --pulse-red: color-mix(in srgb, #f87171 30%, transparent);
+  --goal-fill-strength: 45%;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -118,8 +129,8 @@ body {
 }
 
 @keyframes pause-pulse {
-  0%, 100% { background-color: #fde047; }
-  50% { background-color: #f87171; }
+  0%, 100% { background-color: var(--pulse-yellow); }
+  50% { background-color: var(--pulse-red); }
 }
 
 .animate-pause-pulse {

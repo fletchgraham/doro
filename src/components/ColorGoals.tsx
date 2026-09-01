@@ -28,24 +28,27 @@ function GoalBar({
       <div className="relative flex-1 h-6 rounded-md bg-muted overflow-hidden">
         <div
           className="absolute inset-y-0 left-0"
-          style={{ width: `${fill * 100}%`, backgroundColor: goal.color }}
+          style={{
+            width: `${fill * 100}%`,
+            backgroundColor: `color-mix(in srgb, ${goal.color} var(--goal-fill-strength, 100%), transparent)`,
+          }}
         />
         {over > 0 && (
           <div
             className="absolute inset-y-0 right-0"
             style={{
               width: `${over * 100}%`,
-              backgroundColor: darkenColor(goal.color),
+              backgroundColor: `color-mix(in srgb, ${darkenColor(goal.color)} var(--goal-fill-strength, 100%), transparent)`,
             }}
             title={`${formatDuration(overMs)} over goal`}
           />
         )}
-        <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium text-gray-900">
+        <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium text-gray-900 dark:text-zinc-100">
           <span>{colorLabel(goal.color)}</span>
           <span>
             {formatDuration(worked)} / {formatDuration(goal.target)}
             {overMs > 0 && (
-              <span className="font-bold text-red-950">
+              <span className="font-bold text-red-950 dark:text-red-300">
                 {" "}
                 +{formatDuration(overMs)}
               </span>
