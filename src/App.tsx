@@ -9,13 +9,14 @@ import WorkflowyMode from "./components/WorkflowyMode";
 import ColorGoals from "./components/ColorGoals";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
+import useTheme from "./hooks/useTheme";
 import type Task from "./types/Task";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
 import { getLiveDuration } from "./lib/getDuration";
-import { Shuffle } from "lucide-react";
+import { Monitor, Moon, Shuffle, Sun } from "lucide-react";
 import { DEFAULT_COLOR, colorLabel } from "./lib/taskColors";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
@@ -119,6 +120,7 @@ function App() {
   }, [shuffleMode]);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
+  const { theme, cycleTheme } = useTheme();
 
   // Give the countdown a fresh full duration, optionally starting it once
   // the new date prop has reached the Countdown (its componentDidUpdate
@@ -419,8 +421,27 @@ function App() {
         >
           <Shuffle />
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto text-muted-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            cycleTheme();
+          }}
+          title={`Theme: ${theme} — click to change`}
+          aria-label={`Theme: ${theme}. Click to change`}
+        >
+          {theme === "light" ? (
+            <Sun />
+          ) : theme === "dark" ? (
+            <Moon />
+          ) : (
+            <Monitor />
+          )}
+        </Button>
         <span
-          className="ml-auto text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             if (totalDuration > 0) setIsColorBreakdownOpen(true);
@@ -433,7 +454,9 @@ function App() {
       <h1
         className={cn(
           "text-5xl font-bold py-4 px-6 rounded-lg text-center",
-          isPaused ? "bg-yellow-300 text-yellow-900" : "bg-green-300 text-green-900",
+          isPaused
+            ? "bg-yellow-300 text-yellow-900 dark:bg-yellow-400/20 dark:text-yellow-200"
+            : "bg-green-300 text-green-900 dark:bg-green-400/20 dark:text-green-200",
           pausedLong && "animate-pause-pulse"
         )}
       >
