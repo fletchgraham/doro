@@ -2,18 +2,25 @@ import type Task from "../types/Task";
 import { getLiveDuration } from "./getDuration";
 import { DEFAULT_COLOR, TASK_COLORS } from "./taskColors";
 
-// Rates are expressed as gold per this much time worked
-export const GOLD_INTERVAL_MS = 10 * 60 * 1000;
+// Rates are expressed as gold per minute worked
+export const MINUTE_MS = 60 * 1000;
 
 // Below this, gold counts as gone. Covers floating point noise when the
 // out-of-gold timeout fires right on the boundary.
 export const GOLD_EPSILON = 1e-6;
 
+export const GOLD_SETTINGS_KEY = "doroGoldSettings";
+
+// Bumped when the stored shape or the meaning of `rate` changes. Version 1
+// was a bare color→rule map with rates per ten minutes.
+export const GOLD_SETTINGS_VERSION = 2;
+const LEGACY_INTERVAL_MINUTES = 10;
+
 export interface GoldRule {
-  // Earning colors pay out in whole GOLD_INTERVAL_MS blocks; spending
-  // colors drain gold continuously as time accrues.
+  // Earning colors add gold, spending colors drain it. Both accrue
+  // continuously: every millisecond worked counts.
   mode: "earn" | "spend";
-  // Gold per GOLD_INTERVAL_MS. Zero makes the color neutral.
+  // Gold per minute. Zero makes the color neutral.
   rate: number;
 }
 
@@ -22,11 +29,12 @@ export type GoldSettings = Record<string, GoldRule>;
 
 export const DEFAULT_GOLD_SETTINGS: GoldSettings = Object.fromEntries(
   TASK_COLORS.map((c) => {
-    if (c.name === "red") return [c.hex, { mode: "earn", rate: 10 }];
-    if (c.name === "blue") return [c.hex, { mode: "earn", rate: 2 }];
-    return [c.hex, { mode: "spend", rate: 10 }];
+    if (c.name === "red") return [c.hex, { mode: "earn", rate: 1 }];
+    if (c.name === "blue") return [c.hex, { mode: "earn", rate: 0.2 }];
+    return [c.hex, { mode: "spend", rate: 1 }];
   })
 );
+
 const isRule = (value: unknown): value is GoldRule =>
   value != null &&
   typeof value === "object" &&
@@ -35,9 +43,13 @@ const isRule = (value: unknown): value is GoldRule =>
   Number.isFinite((value as GoldRule).rate) &&
   (value as GoldRule).rate >= 0;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value != null && typeof value === "object" && !Array.isArray(value);
+
 /**
  * Parse stored settings, falling back to defaults for anything missing or
- * malformed so every known color always has a rule.
+ * malformed so every known color always has a rule. Version 1 storage
+ * (no version marker) carried rates per ten minutes and is converted.
  */
 export const parseGoldSettings = (raw: string | null): GoldSettings => {
   let parsed: unknown = null;
@@ -47,29 +59,36 @@ export const parseGoldSettings = (raw: string | null): GoldSettings => {
     parsed = null;
   }
   const result: GoldSettings = { ...DEFAULT_GOLD_SETTINGS };
-  if (parsed == null || typeof parsed !== "object") return result;
-  for (const [color, rule] of Object.entries(parsed as Record<string, unknown>)) {
-    if (isRule(rule)) result[color] = { mode: rule.mode, rate: rule.rate };
+  if (!isRecord(parsed)) return result;
+
+  const versioned = parsed.version === GOLD_SETTINGS_VERSION;
+  const rules = versioned ? parsed.rules : parsed;
+  if (!isRecord(rules)) return result;
+  const scale = versioned ? 1 : 1 / LEGACY_INTERVAL_MINUTES;
+
+  for (const [color, rule] of Object.entries(rules)) {
+    if (isRule(rule)) result[color] = { mode: rule.mode, rate: rule.rate * scale };
   }
   return result;
 };
 
-export const loadGoldSettings = (): GoldSettings =>
-  parseGoldSettings(localStorage.getItem("doroGoldSettings"));
+export const serializeGoldSettings = (settings: GoldSettings): string =>
+  JSON.stringify({ version: GOLD_SETTINGS_VERSION, rules: settings });
 
-/** Gold earned by an amount of time on a color, may be negative for spending */
+export const loadGoldSettings = (): GoldSettings =>
+  parseGoldSettings(localStorage.getItem(GOLD_SETTINGS_KEY));
+
+export const saveGoldSettings = (settings: GoldSettings): void =>
+  localStorage.setItem(GOLD_SETTINGS_KEY, serializeGoldSettings(settings));
+
+/** Gold earned by an amount of time on a color, negative for spending */
 export const goldForColor = (ms: number, rule: GoldRule | undefined): number => {
   if (!rule || rule.rate <= 0 || ms <= 0) return 0;
-  if (rule.mode === "earn") {
-    return Math.floor(ms / GOLD_INTERVAL_MS) * rule.rate;
-  }
-  return -(ms / GOLD_INTERVAL_MS) * rule.rate;
+  const gold = (ms / MINUTE_MS) * rule.rate;
+  return rule.mode === "earn" ? gold : -gold;
 };
 
-/**
- * Live gold balance from time worked per color. Earning colors only pay in
- * whole blocks; spending colors charge for every millisecond.
- */
+/** Gold balance from time worked per color */
 export const computeGold = (
   progress: Record<string, number>,
   settings: GoldSettings
@@ -100,6 +119,16 @@ export const liveProgressByColor = (
   return progress;
 };
 
+/**
+ * The whole gold balance, straight from the tasks. Nothing about gold is
+ * stored, so this is the same number before and after a reload.
+ */
+export const liveGold = (
+  tasks: Task[],
+  settings: GoldSettings,
+  now: number = Date.now()
+): number => computeGold(liveProgressByColor(tasks, now), settings);
+
 export const isSpendingRule = (rule: GoldRule | undefined): rule is GoldRule =>
   !!rule && rule.mode === "spend" && rule.rate > 0;
 
@@ -114,7 +143,7 @@ export const msUntilBroke = (
   rule: GoldRule | undefined
 ): number | null => {
   if (!isSpendingRule(rule)) return null;
-  return (Math.max(gold, 0) / rule.rate) * GOLD_INTERVAL_MS;
+  return (Math.max(gold, 0) / rule.rate) * MINUTE_MS;
 };
 
 /** Up to two decimals, no trailing zeros, and never "-0" */

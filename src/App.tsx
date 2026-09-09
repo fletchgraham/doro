@@ -24,9 +24,10 @@ import {
   formatGold,
   isOutOfGold,
   isSpendingRule,
-  liveProgressByColor,
+  liveGold,
   loadGoldSettings,
   msUntilBroke,
+  saveGoldSettings,
 } from "./lib/gold";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
@@ -131,7 +132,7 @@ function App() {
     localStorage.setItem("doroShuffleMode", String(shuffleMode));
   }, [shuffleMode]);
   useEffect(() => {
-    localStorage.setItem("doroGoldSettings", JSON.stringify(goldSettings));
+    saveGoldSettings(goldSettings);
   }, [goldSettings]);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
@@ -304,7 +305,7 @@ function App() {
   useEffect(() => {
     if (isPaused || !activeTask || !hasOpenSession(activeTask.events)) return;
     const msLeft = msUntilBroke(
-      computeGold(liveProgressByColor(taskManager.tasks), goldSettings),
+      liveGold(taskManager.tasks, goldSettings),
       activeGoldRule
     );
     if (msLeft === null) return;

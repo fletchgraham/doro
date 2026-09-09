@@ -27,20 +27,19 @@ npm run dev
 ## Gold
 
 A light gamification layer over the color-coded time tracking. Each task
-color either earns or spends gold, at a rate you set per 10 minutes worked:
+color either earns or spends gold, at a rate you set per minute worked:
 
-- Earning colors pay out in whole 10-minute blocks (15 minutes of red at
-  10 gold / 10m earns 10).
-- Spending colors drain gold continuously (4.25 minutes of green at
-  10 gold / 10m costs 4.25).
-- Gold is always computed live from actual task durations; nothing is
-  stored except the rates.
+- Gold accrues continuously: 30 seconds of red at 1 gold / min earns 0.5,
+  and 4.25 minutes of green at 1 gold / min costs 4.25.
+- Gold is always computed live from the task durations; nothing is stored
+  except the rates. Editing a task's time, changing its color, or changing
+  a rate re-prices the whole day, and a page refresh changes nothing.
 - When gold runs out on a spending task the timer drops to zero, Reset is
   disabled and the readout turns red. Only Next Task moves things along.
 
-Defaults: red earns 10 and blue earns 2 per 10 minutes; every other color
-spends 10 per 10 minutes. Click the gold readout next to the shuffle button
-to change modes and rates. A rate of 0 makes a color neutral.
+Defaults: red earns 1 and blue earns 0.2 per minute; every other color
+spends 1 per minute. Click the gold readout next to the shuffle button to
+change modes and rates. A rate of 0 makes a color neutral.
 
 ## Keyboard Shortcuts
 
