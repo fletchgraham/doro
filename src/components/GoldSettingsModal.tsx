@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { TASK_COLORS, colorLabel } from "@/lib/taskColors";
 import {
   DEFAULT_GOLD_SETTINGS,
-  GOLD_INTERVAL_MS,
   type GoldRule,
   type GoldSettings,
 } from "@/lib/gold";
@@ -30,8 +29,6 @@ interface GoldSettingsModalProps {
   settings: GoldSettings;
   onChange: (settings: GoldSettings) => void;
 }
-
-const INTERVAL_MINUTES = GOLD_INTERVAL_MS / 60000;
 
 const ruleFor = (settings: GoldSettings, color: string): GoldRule =>
   settings[color] ?? DEFAULT_GOLD_SETTINGS[color] ?? { mode: "spend", rate: 0 };
@@ -84,10 +81,9 @@ function GoldSettingsModal({
         <DialogHeader>
           <DialogTitle>Gold</DialogTitle>
           <DialogDescription>
-            Earning colors pay out in whole {INTERVAL_MINUTES}-minute blocks.
-            Spending colors drain gold continuously while the timer runs, and
-            when it hits zero the timer stops. A rate of 0 makes a color
-            neutral.
+            Gold accrues continuously for every second worked: earning colors
+            add it, spending colors drain it. When it hits zero on a spending
+            color the timer stops. A rate of 0 makes a color neutral.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -127,10 +123,10 @@ function GoldSettingsModal({
                     setDrafts((d) => ({ ...d, [c.hex]: String(rule.rate) }))
                   }
                   className="w-20"
-                  aria-label={`${colorLabel(c.hex)} gold per ${INTERVAL_MINUTES} minutes`}
+                  aria-label={`${colorLabel(c.hex)} gold per minute`}
                 />
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  gold / {INTERVAL_MINUTES}m
+                  gold / min
                 </span>
               </div>
             );
