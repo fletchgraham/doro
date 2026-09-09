@@ -13,6 +13,7 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 - Task status workflow: Ready → Working → Active → Done
 - Time tracking per task
 - Estimate vs. actual duration tracking
+- Gold: earn it on some task colors, spend it on others (see below)
 - Quick task entry with keyboard shortcuts
 - Export tasks to clipboard
 
@@ -22,6 +23,24 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 npm install
 npm run dev
 ```
+
+## Gold
+
+A light gamification layer over the color-coded time tracking. Each task
+color either earns or spends gold, at a rate you set per 10 minutes worked:
+
+- Earning colors pay out in whole 10-minute blocks (15 minutes of red at
+  10 gold / 10m earns 10).
+- Spending colors drain gold continuously (4.25 minutes of green at
+  10 gold / 10m costs 4.25).
+- Gold is always computed live from actual task durations; nothing is
+  stored except the rates.
+- When gold runs out on a spending task the timer drops to zero, Reset is
+  disabled and the readout turns red. Only Next Task moves things along.
+
+Defaults: red earns 10 and blue earns 2 per 10 minutes; every other color
+spends 10 per 10 minutes. Click the gold readout next to the shuffle button
+to change modes and rates. A rate of 0 makes a color neutral.
 
 ## Keyboard Shortcuts
 

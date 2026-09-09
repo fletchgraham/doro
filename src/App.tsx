@@ -7,6 +7,7 @@ import AddTaskModal from "./components/AddTaskModal";
 import SwitchTaskModal from "./components/SwitchTaskModal";
 import WorkflowyMode from "./components/WorkflowyMode";
 import ColorGoals from "./components/ColorGoals";
+import GoldSettingsModal from "./components/GoldSettingsModal";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 import useTheme from "./hooks/useTheme";
@@ -15,9 +16,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
-import { getLiveDuration } from "./lib/getDuration";
-import { Monitor, Moon, Shuffle, Sun } from "lucide-react";
+import { getLiveDuration, hasOpenSession } from "./lib/getDuration";
+import { Coins, Monitor, Moon, Shuffle, Sun } from "lucide-react";
 import { DEFAULT_COLOR, colorLabel } from "./lib/taskColors";
+import {
+  computeGold,
+  formatGold,
+  isOutOfGold,
+  isSpendingRule,
+  liveProgressByColor,
+  loadGoldSettings,
+  msUntilBroke,
+} from "./lib/gold";
 
 const makeDate = (mins: number) => Date.now() + mins * 60 * 1000;
 
@@ -109,6 +119,8 @@ function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isColorBreakdownOpen, setIsColorBreakdownOpen] = useState(false);
+  const [isGoldSettingsOpen, setIsGoldSettingsOpen] = useState(false);
+  const [goldSettings, setGoldSettings] = useState(loadGoldSettings);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pausedLong, setPausedLong] = useState(false);
   const [shuffleMode, setShuffleMode] = useState(
@@ -118,6 +130,9 @@ function App() {
   useEffect(() => {
     localStorage.setItem("doroShuffleMode", String(shuffleMode));
   }, [shuffleMode]);
+  useEffect(() => {
+    localStorage.setItem("doroGoldSettings", JSON.stringify(goldSettings));
+  }, [goldSettings]);
   const taskManager = useTasks();
   const { isPaused, countdownRef, ...timer } = useTimer();
   const { theme, cycleTheme } = useTheme();
@@ -204,6 +219,11 @@ function App() {
     [colorBreakdown]
   );
 
+  const gold = useMemo(
+    () => computeGold(progressByColor, goldSettings),
+    [progressByColor, goldSettings]
+  );
+
   // Start pulsing the paused indicator after 2 minutes
   useEffect(() => {
     if (!isPaused) {
@@ -225,10 +245,12 @@ function App() {
       ) {
         return;
       }
-      if (e.key === "a" && !isAddModalOpen && !isSwitchModalOpen) {
+      const modalOpen =
+        isAddModalOpen || isSwitchModalOpen || isGoldSettingsOpen;
+      if (e.key === "a" && !modalOpen) {
         e.preventDefault();
         setIsAddModalOpen(true);
-      } else if (e.key === "s" && !isAddModalOpen && !isSwitchModalOpen) {
+      } else if (e.key === "s" && !modalOpen) {
         e.preventDefault();
         setIsSwitchModalOpen(true);
       } else if (e.key === "Escape" && isColorBreakdownOpen) {
@@ -237,7 +259,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isAddModalOpen, isSwitchModalOpen, isColorBreakdownOpen]);
+  }, [isAddModalOpen, isSwitchModalOpen, isColorBreakdownOpen, isGoldSettingsOpen]);
 
   // Paste handler to bulk add tasks when paused
   useEffect(() => {
@@ -266,6 +288,33 @@ function App() {
   }, [isPaused, taskManager]);
 
   const activeTask = taskManager.getActiveTask();
+  const activeColor = activeTask ? activeTask.color || DEFAULT_COLOR : undefined;
+  const activeGoldRule = activeColor ? goldSettings[activeColor] : undefined;
+  // On a spending task with nothing left to spend: the timer can't run,
+  // only moving on to another task (or earning) gets things going again
+  const isBroke = isSpendingRule(activeGoldRule) && isOutOfGold(gold);
+
+  // Set right before forcing the countdown to zero so handleComplete can
+  // tell an out-of-gold stop from a normal time's-up
+  const outOfGoldRef = useRef(false);
+
+  // While a spending task is clocking, stop it the instant gold hits zero.
+  // Moving the countdown's date into the past completes it, which rings
+  // the bell and logs the pause through the normal onComplete path.
+  useEffect(() => {
+    if (isPaused || !activeTask || !hasOpenSession(activeTask.events)) return;
+    const msLeft = msUntilBroke(
+      computeGold(liveProgressByColor(taskManager.tasks), goldSettings),
+      activeGoldRule
+    );
+    if (msLeft === null) return;
+    const timeout = setTimeout(() => {
+      outOfGoldRef.current = true;
+      setDate(Date.now() - 1);
+    }, msLeft);
+    return () => clearTimeout(timeout);
+  }, [isPaused, activeTask, activeGoldRule, goldSettings, taskManager.tasks]);
+
   const workingCount = taskManager.getTasksByStatus("working").length;
   const readyCount = taskManager.getTasksByStatus("ready").length;
   // A task can be pulled in from working, or from ready when it's unlocked
@@ -303,17 +352,21 @@ function App() {
   };
 
   const handleComplete = () => {
+    const outOfGold = outOfGoldRef.current;
+    outOfGoldRef.current = false;
     timer.playAudio();
     taskManager.logPause();
     lastTimeRef.current = "0:00";
-    document.title = "⏰ Time's up! - Doro";
+    document.title = outOfGold
+      ? "💰 Out of gold - Doro"
+      : "⏰ Time's up! - Doro";
     if (
       "Notification" in window &&
       Notification.permission === "granted" &&
       !document.hasFocus()
     ) {
       const active = taskManager.getActiveTask();
-      new Notification("Doro — time's up", {
+      new Notification(outOfGold ? "Doro — out of gold" : "Doro — time's up", {
         body: active ? active.text : "Timer finished",
       });
     }
@@ -395,7 +448,7 @@ function App() {
       <ColorGoals
         progress={progressByColor}
         isPaused={isPaused}
-        activeColor={activeTask ? activeTask.color || DEFAULT_COLOR : undefined}
+        activeColor={activeColor}
       />
       <div className="flex items-center gap-2 mb-4">
         <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
@@ -421,6 +474,30 @@ function App() {
         >
           <Shuffle />
         </Button>
+        <button
+          type="button"
+          className="flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsGoldSettingsOpen(true);
+          }}
+          title={
+            isBroke
+              ? "Out of gold — click to change gold rates"
+              : "Gold — click to change earning and spending rates"
+          }
+          aria-label={`${formatGold(gold)} gold${isBroke ? ", out of gold" : ""}. Click to change gold rates`}
+        >
+          <Coins className="size-4 text-yellow-500" />
+          <span
+            data-testid="gold-readout"
+            className={cn(
+              isBroke && "text-red-600 dark:text-red-400 font-bold"
+            )}
+          >
+            {formatGold(gold)}
+          </span>
+        </button>
         <Button
           variant="ghost"
           size="icon"
@@ -485,9 +562,14 @@ function App() {
         {!isPaused ? (
           <Button onClick={handlePause}>Pause</Button>
         ) : (
-          activeTask && <Button onClick={handleStart}>Start</Button>
+          activeTask && !isBroke && <Button onClick={handleStart}>Start</Button>
         )}
-        <Button variant="secondary" onClick={handleReset}>
+        <Button
+          variant="secondary"
+          onClick={handleReset}
+          disabled={isBroke}
+          title={isBroke ? "Out of gold — move on to the next task" : undefined}
+        >
           Reset
         </Button>
         <Button
@@ -551,6 +633,12 @@ function App() {
         tasks={taskManager.tasks}
         onSwitch={handleSwitchTask}
         onCreate={handleCreateAndStart}
+      />
+      <GoldSettingsModal
+        isOpen={isGoldSettingsOpen}
+        onClose={() => setIsGoldSettingsOpen(false)}
+        settings={goldSettings}
+        onChange={setGoldSettings}
       />
 
       {/* Color breakdown modal */}
