@@ -62,3 +62,18 @@ export const getLiveDuration = (
 };
 
 export default getDuration;
+
+/**
+ * True while the events end in a session that hasn't been stopped yet,
+ * i.e. the task is currently clocking time.
+ */
+export const hasOpenSession = (
+  events: { eventType: string; timestamp: number; duration?: number }[],
+): boolean => {
+  let open = false;
+  for (const event of events) {
+    if (event.eventType === "start") open = true;
+    else if (event.eventType === "stop") open = false;
+  }
+  return open;
+};

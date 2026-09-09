@@ -21,7 +21,12 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
 - **Seed state** instead of clicking through modals:
   `page.addInitScript(seed => localStorage.setItem("doroTasks", JSON.stringify(seed)), SEED)`.
   Task shape: `{ id, text, notes: "", events: [], status, duration, order, estimate }`
-  with status one of ready | working | active | done.
+  with status one of ready | working | active | done. Every pause
+  recomputes `duration` from `events`, so a seeded duration only survives
+  if backed by a matching `start`/`stop` pair.
+- **Gold**: rates live in `doroGoldSettings` (`{ [hex]: { mode, rate } }`,
+  rate per 10 min). Seed a huge spend rate to hit the out-of-gold stop in
+  seconds. The readout is `[data-testid="gold-readout"]`.
 - **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Ready/Done
   lists fall below the default 720px fold and mouse events silently miss.
 - **Drag & drop** (dnd-kit, 8px pointer activation): mouse.down on the row
