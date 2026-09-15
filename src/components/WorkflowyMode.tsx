@@ -7,7 +7,6 @@ import {
   completeNode,
   createNode,
   fetchWorkflowyTasks,
-  formatNoteWithDuration,
   getWorkflowyApiKey,
   getWorkflowyEnabled,
   getWorkflowyNodeUrl,
@@ -129,9 +128,7 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
     schedulePush(taskId, async () => {
       const task = tasksRef.current.find((t) => t.id === taskId);
       if (!task?.workflowyId) return;
-      await updateNode(key, task.workflowyId, {
-        note: formatNoteWithDuration(task.notes, task.duration),
-      });
+      await updateNode(key, task.workflowyId, { note: task.notes });
     });
   };
 
@@ -146,12 +143,7 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
   const createInWorkflowy = (task: Task, key: string, pid: string) => {
     if (pendingCreatesRef.current.has(task.id)) return;
     pendingCreatesRef.current.add(task.id);
-    createNode(
-      key,
-      pid,
-      task.text,
-      formatNoteWithDuration(task.notes, task.duration) || undefined
-    )
+    createNode(key, pid, task.text, task.notes.trim() || undefined)
       .then((id) => {
         managerRef.current.setWorkflowyId(task.id, id, getWorkflowyNodeUrl(id));
       })
@@ -184,12 +176,12 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
       if (!task.workflowyId) continue;
 
       // A doro-created task just got linked; if it was already finished
-      // (or timed) before the create round-tripped, catch workflowy up
+      // (or annotated) before the create round-tripped, catch workflowy up
       if (!before.workflowyId) {
         if (task.status === "done") {
           completeNode(apiKey, task.workflowyId).catch(reportError);
         }
-        if (task.duration !== 0 || task.notes.trim()) {
+        if (task.notes.trim()) {
           pushNote(task.id, apiKey);
         }
         continue;
@@ -205,7 +197,7 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
         pushName(task.id, apiKey);
       }
 
-      if (before.duration !== task.duration || before.notes !== task.notes) {
+      if (before.notes !== task.notes) {
         pushNote(task.id, apiKey);
       }
     }

@@ -2,6 +2,17 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const API_BASE = "https://workflowy.com/api/v1";
 
+// Node display modes accepted by the Workflowy API
+const LAYOUT_MODES = new Set([
+  "bullets",
+  "todo",
+  "h1",
+  "h2",
+  "h3",
+  "code-block",
+  "quote-block",
+]);
+
 // Whitelisted operations mapped onto the official Workflowy API, so this
 // endpoint can't be used as an open proxy.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -9,7 +20,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { token, op, parentId, nodeId, name, note, position } = req.body ?? {};
+  const { token, op, parentId, nodeId, name, note, position, layoutMode } =
+    req.body ?? {};
 
   if (!token || typeof token !== "string") {
     return res.status(401).json({ error: "Missing token" });
@@ -48,6 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         parent_id: parentId,
         name,
         ...(typeof note === "string" && note ? { note } : {}),
+        ...(typeof layoutMode === "string" && LAYOUT_MODES.has(layoutMode)
+          ? { layoutMode }
+          : {}),
         position: position === "top" ? "top" : "bottom",
       };
       break;

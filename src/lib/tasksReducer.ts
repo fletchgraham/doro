@@ -43,7 +43,6 @@ export type TasksAction =
         notes: string;
         url: string;
         completed: boolean;
-        durationMs: number;
       }>;
     }
   | { type: "SET_WORKFLOWY_ID"; taskId: string; workflowyId: string; url: string };
@@ -326,10 +325,11 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       ];
     }
     case "WORKFLOWY_MERGE": {
-      // Workflowy is the source of truth: its children define which tasks
-      // exist and whether they're completed. Local-only fields (status
-      // among ready/working/active, color, estimate, order, events) are
-      // doro's own state and survive the merge.
+      // Workflowy is the source of truth for which tasks exist, their text
+      // and notes, and whether they're completed. Everything else (status
+      // among ready/working/active, color, estimate, order, and all tracked
+      // time in events/duration) is doro's own local state and survives
+      // the merge untouched.
       const remoteById = new Map(action.nodes.map((n) => [n.workflowyId, n]));
 
       let merged: Task[] = [];
@@ -359,18 +359,6 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         } else if (!remote.completed && task.status === "done") {
           updated = { ...updated, status: "ready" };
         }
-        // Adopt a larger remote duration (e.g. tracked on another device)
-        if (remote.durationMs > task.duration) {
-          const events = [
-            ...updated.events,
-            {
-              eventType: "duration_override" as const,
-              timestamp: Date.now(),
-              duration: remote.durationMs,
-            },
-          ];
-          updated = { ...updated, events, duration: getDuration(events) };
-        }
         merged.push(updated);
       }
 
@@ -378,15 +366,6 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       const maxOrder = Math.max(...merged.map((t) => t.order), Date.now());
       let i = 0;
       for (const remote of remoteById.values()) {
-        const events = remote.durationMs
-          ? [
-              {
-                eventType: "duration_override" as const,
-                timestamp: Date.now(),
-                duration: remote.durationMs,
-              },
-            ]
-          : [];
         merged = [
           ...merged,
           {
@@ -396,8 +375,6 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
             workflowyId: remote.workflowyId,
             status: remote.completed ? ("done" as const) : ("ready" as const),
             order: maxOrder + ++i * 1000,
-            events,
-            duration: getDuration(events),
           },
         ];
       }

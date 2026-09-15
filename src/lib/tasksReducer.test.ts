@@ -747,7 +747,6 @@ const wfNode = (
     notes: string;
     url: string;
     completed: boolean;
-    durationMs: number;
   }> = {}
 ) => ({
   workflowyId,
@@ -755,7 +754,6 @@ const wfNode = (
   notes: "",
   url: `https://workflowy.com/#/${workflowyId.slice(-12)}`,
   completed: false,
-  durationMs: 0,
   ...overrides,
 });
 
@@ -764,7 +762,7 @@ test("WORKFLOWY_MERGE imports new remote nodes as ready tasks", () => {
     type: "WORKFLOWY_MERGE",
     nodes: [
       wfNode("wf-aaaaaaaaaaaa", "first"),
-      wfNode("wf-bbbbbbbbbbbb", "second", { durationMs: 60000 }),
+      wfNode("wf-bbbbbbbbbbbb", "second", { notes: "some detail" }),
       wfNode("wf-cccccccccccc", "finished", { completed: true }),
     ],
   });
@@ -775,8 +773,11 @@ test("WORKFLOWY_MERGE imports new remote nodes as ready tasks", () => {
   expect(first?.workflowyId).toBe("wf-aaaaaaaaaaaa");
   expect(first?.url).toContain("workflowy.com");
 
-  // Remote duration marker seeds the local duration
-  expect(updated.find((t) => t.text === "second")?.duration).toBe(60000);
+  // Imported tasks start with no tracked time; notes come from workflowy
+  const second = updated.find((t) => t.text === "second");
+  expect(second?.notes).toBe("some detail");
+  expect(second?.duration).toBe(0);
+  expect(second?.events).toEqual([]);
   expect(updated.find((t) => t.text === "finished")?.status).toBe("done");
 
   // Sibling order preserved
@@ -834,21 +835,30 @@ test("WORKFLOWY_MERGE removes linked tasks deleted upstream but keeps done and l
   expect(updated.find((t) => t.text === "local only")).toBeDefined();
 });
 
-test("WORKFLOWY_MERGE adopts a larger remote duration", () => {
+test("WORKFLOWY_MERGE leaves local tracked time untouched", () => {
+  const base = createTask("tracked locally");
+  const events = [
+    { eventType: "start" as const, timestamp: 1000 },
+    { eventType: "stop" as const, timestamp: 121000 },
+  ];
   const tasks: Task[] = [
     {
-      ...createTask("tracked elsewhere"),
-      status: "ready",
+      ...base,
+      status: "working",
       workflowyId: "wf-aaaaaaaaaaaa",
+      events,
+      duration: 120000,
     },
   ];
 
   const updated = tasksReducer(tasks, {
     type: "WORKFLOWY_MERGE",
-    nodes: [wfNode("wf-aaaaaaaaaaaa", "tracked elsewhere", { durationMs: 120000 })],
+    nodes: [wfNode("wf-aaaaaaaaaaaa", "tracked locally (renamed)")],
   });
 
+  expect(updated[0].text).toBe("tracked locally (renamed)");
   expect(updated[0].duration).toBe(120000);
+  expect(updated[0].events).toEqual(events);
 });
 
 test("SET_WORKFLOWY_ID links a task and fills an empty url", () => {
