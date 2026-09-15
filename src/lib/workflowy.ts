@@ -367,6 +367,14 @@ export async function fetchWorkflowyTasks(
   const tasks: WorkflowyTaskData[] = [];
   nodes.forEach((listed, i) => {
     const original = resolved[i];
+    if (hasBlankName(original)) {
+      // Either an empty bullet or a mirror the API didn't describe in a
+      // shape we recognise; log the raw node so it can be reported.
+      console.warn(
+        "Workflowy node has no text and couldn't be resolved as a mirror:",
+        JSON.stringify({ listed, resolved: original })
+      );
+    }
     if (seen.has(original.id)) return;
     seen.add(original.id);
     tasks.push({

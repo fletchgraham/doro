@@ -2,6 +2,10 @@ import Foundation
 
 // Direct client for the official Workflowy API v1 (the web app proxies the
 // same calls through vercel only for CORS; a native app can go straight there).
+// The API lives on the beta host (https://beta.workflowy.com/api-reference):
+// same account data as workflowy.com, but new features such as mirror
+// details in node responses land there first.
+private let apiBase = "https://beta.workflowy.com/api/v1"
 
 struct WorkflowyNode: Decodable {
     let id: String
@@ -97,7 +101,7 @@ enum WorkflowyError: LocalizedError {
 
 enum Workflowy {
     static func listChildren(token: String, parentId: String?) async throws -> [WorkflowyNode] {
-        var components = URLComponents(string: "https://workflowy.com/api/v1/nodes")!
+        var components = URLComponents(string: "\(apiBase)/nodes")!
         if let parentId {
             components.queryItems = [URLQueryItem(name: "parent_id", value: parentId)]
         }
@@ -121,7 +125,7 @@ enum Workflowy {
 
     /// Fetch a single node (GET /nodes/:id); the API wraps it as `{ node }`.
     static func getNode(token: String, id: String) async throws -> WorkflowyNode {
-        var request = URLRequest(url: URL(string: "https://workflowy.com/api/v1/nodes/\(id)")!)
+        var request = URLRequest(url: URL(string: "\(apiBase)/nodes/\(id)")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
@@ -170,7 +174,7 @@ enum Workflowy {
     /// Mark a node complete / uncomplete.
     static func setCompleted(token: String, nodeId: String, completed: Bool) async throws {
         let op = completed ? "complete" : "uncomplete"
-        var request = URLRequest(url: URL(string: "https://workflowy.com/api/v1/nodes/\(nodeId)/\(op)")!)
+        var request = URLRequest(url: URL(string: "\(apiBase)/nodes/\(nodeId)/\(op)")!)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let (_, response) = try await URLSession.shared.data(for: request)

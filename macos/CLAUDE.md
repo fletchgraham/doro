@@ -71,7 +71,8 @@ real state.json.
   number; use the display under the app window as "where I am". Covered by
   regression tests in `Tests/DoroCoreTests.swift`.
 - **Workflowy calls the official API v1 directly** (Bearer token, no CORS in
-  a native app). The web app's `src/lib/workflowy.ts` + `api/workflowy.ts`
+  a native app), on the beta host `beta.workflowy.com` where the API is
+  documented and where new features land first. The web app's `src/lib/workflowy.ts` + `api/workflowy.ts`
   proxy is the reference implementation; keep parsing behavior in sync with
   it. Completing/uncompleting a task in doro mirrors to the workflowy node
   (best-effort, silent on failure — doro's state is the source of truth).

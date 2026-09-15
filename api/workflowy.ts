@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const API_BASE = "https://workflowy.com/api/v1";
+// Workflowy's public API is documented and developed on the beta host
+// (https://beta.workflowy.com/api-reference); it serves the same account
+// data as workflowy.com, and new features such as mirror details in node
+// responses land there first.
+const API_BASE = "https://beta.workflowy.com/api/v1";
 
 // Node display modes accepted by the Workflowy API
 const LAYOUT_MODES = new Set([
