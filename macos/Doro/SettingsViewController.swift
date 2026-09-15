@@ -445,20 +445,33 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
                     store.workflowyParentId = parentId
                     store.save()
                 }
-                let nodes = try await Workflowy.listChildren(token: token, parentId: parentId)
+                let listed = try await Workflowy.listChildren(token: token, parentId: parentId)
                     .filter { $0.completedAt == nil }
                     .sorted { ($0.priority ?? 0) < ($1.priority ?? 0) }
+                // A child that is a mirror is imported as the node it mirrors:
+                // name and completion come from the original and its id is
+                // the task's workflowyId (so completing the task lands on the
+                // real node, which Workflowy shows in every mirror), while the
+                // task's link still opens the mirror under the synced parent.
+                // Two children mirroring the same node collapse into one task.
+                var nodes: [(listed: WorkflowyNode, original: WorkflowyNode)] = []
+                var seenOriginals = Set<String>()
+                for node in listed {
+                    let original = await Workflowy.resolveMirror(token: token, node: node)
+                    guard original.completedAt == nil, seenOriginals.insert(original.id).inserted else { continue }
+                    nodes.append((node, original))
+                }
                 // Re-import adds new nodes and refreshes names of known ones
                 // (matched by node URL); it never removes tasks.
                 let indexByURL = Dictionary(store.tasks.enumerated().map { ($0.element.url, $0.offset) },
                                             uniquingKeysWith: { first, _ in first })
                 var added = 0, renamed = 0
-                for node in nodes {
+                for (node, original) in nodes {
                     let url = Workflowy.nodeURL(for: node.id)
-                    let name = Workflowy.stripTags(node.name ?? "")
+                    let name = Workflowy.stripTags(original.name ?? "")
                     if let existing = indexByURL[url] {
-                        if store.tasks[existing].workflowyId == nil {
-                            store.tasks[existing].workflowyId = node.id
+                        if store.tasks[existing].workflowyId != original.id {
+                            store.tasks[existing].workflowyId = original.id
                         }
                         if store.tasks[existing].name != name {
                             store.tasks[existing].name = name
@@ -468,7 +481,7 @@ final class SettingsViewController: NSViewController, NSTableViewDataSource, NST
                         var task = DoroTask()
                         task.name = name
                         task.url = url
-                        task.workflowyId = node.id
+                        task.workflowyId = original.id
                         store.tasks.append(task)
                         added += 1
                     }

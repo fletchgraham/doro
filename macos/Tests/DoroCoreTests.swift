@@ -408,4 +408,34 @@ final class WorkflowyParsingTests: XCTestCase {
         XCTAssertEqual(Workflowy.stripTags("  spaced  "), "spaced")
         XCTAssertEqual(Workflowy.stripTags("a <span class=\"x\">b</span> c"), "a b c")
     }
+
+    private func decodeNode(_ json: String) throws -> WorkflowyNode {
+        try JSONDecoder().decode(WorkflowyNode.self, from: Data(json.utf8))
+    }
+
+    func testDecodesMirrorOriginalIdFromDataMirror() throws {
+        let node = try decodeNode(#"{"id":"m","name":"","data":{"layoutMode":"todo","mirror":{"originalId":"o","isMirrorRoot":true}}}"#)
+        XCTAssertEqual(node.mirrorOriginalId, "o")
+        XCTAssertTrue(node.hasBlankName)
+    }
+
+    func testDecodesMirrorOriginalIdFromOtherShapes() throws {
+        XCTAssertEqual(try decodeNode(#"{"id":"m","name":"","mirror":{"originalId":"o"}}"#).mirrorOriginalId, "o")
+        XCTAssertEqual(try decodeNode(#"{"id":"m","name":"","data":{"original_id":"o"}}"#).mirrorOriginalId, "o")
+        XCTAssertEqual(try decodeNode(#"{"id":"m","name":"","mirrorOf":"o"}"#).mirrorOriginalId, "o")
+    }
+
+    func testRegularNodesAndMirrorOriginalsAreNotMirrors() throws {
+        XCTAssertNil(try decodeNode(#"{"id":"a","name":"plain","priority":2,"completedAt":1700000000}"#).mirrorOriginalId)
+        XCTAssertNil(try decodeNode(#"{"id":"a","name":"","data":null}"#).mirrorOriginalId)
+        XCTAssertNil(try decodeNode(#"{"id":"a","name":"","data":{"layoutMode":"todo"}}"#).mirrorOriginalId)
+        // An original that has mirrors elsewhere lists them, but isn't a mirror
+        XCTAssertNil(try decodeNode(#"{"id":"a","name":"x","data":{"mirror":{"mirrorRootIds":{"m":true}}}}"#).mirrorOriginalId)
+        // A self-reference is not a mirror either
+        XCTAssertNil(try decodeNode(#"{"id":"a","name":"","data":{"mirror":{"originalId":"a"}}}"#).mirrorOriginalId)
+        // Unexpected types in the mirror fields don't break decoding
+        let odd = try decodeNode(#"{"id":"a","name":"<b>x</b>","mirror":true,"data":"nope"}"#)
+        XCTAssertNil(odd.mirrorOriginalId)
+        XCTAssertFalse(odd.hasBlankName)
+    }
 }
