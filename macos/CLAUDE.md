@@ -75,6 +75,12 @@ real state.json.
   proxy is the reference implementation; keep parsing behavior in sync with
   it. Completing/uncompleting a task in doro mirrors to the workflowy node
   (best-effort, silent on failure — doro's state is the source of truth).
+- **Workflowy mirrors are followed on import.** The API lists a mirror as its
+  own node with an empty name; `Workflowy.resolveMirror` fetches the node it
+  points at (`GET /nodes/:id`, reading the original's id from whichever field
+  the response carries — see `WorkflowyNode.mirrorOriginalId`) and the task
+  takes the original's name and id, so completion lands on the real node. The
+  task's URL stays the mirror's, i.e. the bullet under the synced parent.
 - **Short-id resolution goes through a hidden WKWebView first**
   (`WebResolver.swift`): it loads the short link with the Timer pane's
   logged-in session and reads the full UUID from the page (`WF.currentItem()
