@@ -1,11 +1,10 @@
 import { expect, test } from "vitest";
 import {
-  formatNoteWithDuration,
   getWorkflowyNodeUrl,
   matchesShortId,
   nodeToTaskData,
-  parseNoteDuration,
   parseParentInput,
+  stripLegacyNoteMarker,
 } from "./workflowy";
 
 test("parseParentInput accepts a full node UUID", () => {
@@ -49,36 +48,23 @@ test("matchesShortId compares against the dashless UUID suffix", () => {
   expect(matchesShortId(id, "000000000000")).toBe(false);
 });
 
-test("note duration marker round-trips", () => {
-  const note = formatNoteWithDuration("my notes\nsecond line", 83 * 60 * 1000);
-  expect(note).toBe("⏱ 1h 23m — doro\nmy notes\nsecond line");
-  expect(parseNoteDuration(note)).toEqual({
-    durationMs: 83 * 60 * 1000,
-    notes: "my notes\nsecond line",
-  });
-});
-
-test("note marker handles minutes-only and hours-only durations", () => {
-  expect(parseNoteDuration(formatNoteWithDuration("", 25 * 60 * 1000))).toEqual(
-    { durationMs: 25 * 60 * 1000, notes: "" }
+test("stripLegacyNoteMarker drops the old doro time marker line", () => {
+  expect(stripLegacyNoteMarker("⏱ 1h 23m — doro\nmy notes\nsecond line")).toBe(
+    "my notes\nsecond line"
   );
-  expect(parseNoteDuration(formatNoteWithDuration("", 2 * 3600 * 1000))).toEqual(
-    { durationMs: 2 * 3600 * 1000, notes: "" }
+  expect(stripLegacyNoteMarker("⏱ 25m — doro")).toBe("");
+  expect(stripLegacyNoteMarker("⏱ 2h — doro\n")).toBe("");
+});
+
+test("stripLegacyNoteMarker passes notes without a marker through unchanged", () => {
+  expect(stripLegacyNoteMarker("plain workflowy note")).toBe(
+    "plain workflowy note"
   );
-});
-
-test("sub-minute durations write no marker", () => {
-  expect(formatNoteWithDuration("just notes", 0)).toBe("just notes");
-  expect(formatNoteWithDuration("", 0)).toBe("");
-  expect(formatNoteWithDuration("just notes", 45 * 1000)).toBe("just notes");
-});
-
-test("notes without a marker are passed through unchanged", () => {
-  expect(parseNoteDuration("plain workflowy note")).toEqual({
-    durationMs: 0,
-    notes: "plain workflowy note",
-  });
-  expect(parseNoteDuration(null)).toEqual({ durationMs: 0, notes: "" });
+  expect(stripLegacyNoteMarker("notes first\n⏱ 5m — doro")).toBe(
+    "notes first\n⏱ 5m — doro"
+  );
+  expect(stripLegacyNoteMarker(null)).toBe("");
+  expect(stripLegacyNoteMarker(undefined)).toBe("");
 });
 
 test("nodeToTaskData maps workflowy fields and strips inline tags", () => {
@@ -94,6 +80,16 @@ test("nodeToTaskData maps workflowy fields and strips inline tags", () => {
     notes: "details here",
     url: "https://workflowy.com/#/b4c5d6e7f809",
     completed: true,
-    durationMs: 45 * 60 * 1000,
   });
+});
+
+test("nodeToTaskData keeps plain notes and marks open nodes incomplete", () => {
+  const data = nodeToTaskData({
+    id: "1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f809",
+    name: "Call the bank",
+    note: "ask about the fee",
+    completedAt: null,
+  });
+  expect(data.notes).toBe("ask about the fee");
+  expect(data.completed).toBe(false);
 });

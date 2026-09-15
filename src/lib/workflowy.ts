@@ -1,5 +1,3 @@
-import { formatDuration } from "./formatDuration";
-
 export interface WorkflowyNode {
   id: string;
   name: string;
@@ -15,7 +13,6 @@ export interface WorkflowyTaskData {
   notes: string;
   url: string;
   completed: boolean;
-  durationMs: number;
 }
 
 const API_PROXY = "/api/workflowy";
@@ -105,47 +102,19 @@ export function matchesShortId(id: string, shortId: string): boolean {
   return id.replace(/-/g, "").toLowerCase().endsWith(shortId.toLowerCase());
 }
 
-// --- time-tracking note marker ---
+// --- legacy time-tracking note marker ---
 
-// The accumulated doro time is persisted in the workflowy note as a
-// marker line, e.g. "⏱ 1h 23m — doro", above any user note content.
-const NOTE_MARKER_RE =
-  /^⏱ (?:(\d+)h)?\s*(?:(\d+)m)?(?:< 1m|0m)? — doro$/;
+// Older doro versions persisted tracked time in the workflowy note as a
+// marker line ("⏱ 1h 23m — doro") above the user's own note content. Time
+// now lives only in doro's local storage, so the marker is no longer
+// written; it's still stripped on read so old notes don't show it in doro.
+const LEGACY_NOTE_MARKER_RE = /^⏱ [^\n]* — doro$/;
 
-export function formatNoteWithDuration(
-  notes: string,
-  durationMs: number
-): string {
-  const parts: string[] = [];
-  // Sub-minute durations aren't worth a marker (and would render as "0m")
-  if (durationMs >= 60 * 1000) {
-    parts.push(`⏱ ${formatDuration(durationMs)} — doro`);
-  }
-  if (notes.trim()) {
-    parts.push(notes);
-  }
-  return parts.join("\n");
-}
-
-/**
- * Split a workflowy note into the doro time marker (if present) and the
- * remaining note content. Inverse of formatNoteWithDuration, up to
- * minute rounding.
- */
-export function parseNoteDuration(note: string | null | undefined): {
-  durationMs: number;
-  notes: string;
-} {
-  if (!note) return { durationMs: 0, notes: "" };
+export function stripLegacyNoteMarker(note: string | null | undefined): string {
+  if (!note) return "";
   const lines = note.split("\n");
-  const match = lines[0].match(NOTE_MARKER_RE);
-  if (!match) return { durationMs: 0, notes: note };
-  const hours = Number(match[1] ?? 0);
-  const minutes = Number(match[2] ?? 0);
-  return {
-    durationMs: (hours * 60 + minutes) * 60 * 1000,
-    notes: lines.slice(1).join("\n"),
-  };
+  if (!LEGACY_NOTE_MARKER_RE.test(lines[0])) return note;
+  return lines.slice(1).join("\n");
 }
 
 // --- API calls (through the vercel proxy to avoid CORS) ---
@@ -181,13 +150,24 @@ export async function listChildren(
   return [];
 }
 
+/**
+ * Create a child under the parent node. Tasks are created as workflowy
+ * todo items (checkbox layout) so completion shows up natively.
+ */
 export async function createNode(
   token: string,
   parentId: string,
   name: string,
   note?: string
 ): Promise<string> {
-  const data = await callApi({ token, op: "create", parentId, name, note });
+  const data = await callApi({
+    token,
+    op: "create",
+    parentId,
+    name,
+    note,
+    layoutMode: "todo",
+  });
   const id = data?.item_id ?? data?.id;
   if (!id) throw new Error("Workflowy create returned no id");
   return id;
@@ -251,14 +231,12 @@ export async function resolveParentId(
 const stripTags = (value: string): string => value.replace(/<[^>]*>/g, "");
 
 export function nodeToTaskData(node: WorkflowyNode): WorkflowyTaskData {
-  const { durationMs, notes } = parseNoteDuration(node.note);
   return {
     workflowyId: node.id,
     text: stripTags(node.name ?? "").trim(),
-    notes,
+    notes: stripLegacyNoteMarker(node.note),
     url: getWorkflowyNodeUrl(node.id),
     completed: node.completedAt != null,
-    durationMs,
   };
 }
 

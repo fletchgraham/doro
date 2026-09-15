@@ -139,7 +139,6 @@ const useTasks = () => {
       notes: string;
       url: string;
       completed: boolean;
-      durationMs: number;
     }>
   ) => dispatch({ type: "WORKFLOWY_MERGE", nodes });
 
