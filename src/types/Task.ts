@@ -11,6 +11,9 @@ export default interface Task {
   url?: string;
   todoistId?: string;
   workflowyId?: string;
+  // Set when this task was pulled in from the projects page; it shares
+  // notes and completion with that project task
+  projectTaskId?: string;
 }
 
 export interface TaskEvent {

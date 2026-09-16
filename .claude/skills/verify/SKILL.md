@@ -29,6 +29,19 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   unversioned bare map is read as the old per-10-minute format and divided
   by 10). Seed a huge spend rate to hit the out-of-gold stop in seconds.
   The readout is `[data-testid="gold-readout"]`.
+- **Projects**: the projects page is `#/projects`; the timer page stays
+  mounted (hidden) underneath so the countdown keeps running. Seed
+  `doroProjects` as `{ projects: [{ id, name, order, collapsed }],
+  tasks: [{ id, projectId, text, notes, done, order, points? }] }`. A day
+  task pulled from a project carries `projectTaskId`; notes/done sync both
+  ways through effects in `App`, so wait ~700ms before reading either store.
+  Rows are `[data-testid="project-task"]`; projects are
+  `section[data-testid="project"]` and reorder by dragging their header
+  (their sortable id is `project:<id>`, the task list droppable is the
+  bare id). The sun button is labelled
+  "Add to today" / "Remove from today", progress is
+  `[data-testid="project-progress"]`. Uncolored tasks spend gold by
+  default, so seed an earning rule for `#9ca3af` before running the timer.
 - **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Ready/Done
   lists fall below the default 720px fold and mouse events silently miss.
 - **Drag & drop** (dnd-kit, 8px pointer activation): mouse.down on the row
