@@ -8,10 +8,15 @@ import SwitchTaskModal from "./components/SwitchTaskModal";
 import WorkflowyMode from "./components/WorkflowyMode";
 import ColorGoals from "./components/ColorGoals";
 import GoldSettingsModal from "./components/GoldSettingsModal";
+import ProjectsPage from "./components/ProjectsPage";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 import useTheme from "./hooks/useTheme";
+import useProjects from "./hooks/useProjects";
+import useHashRoute, { routeHash, type Route } from "./hooks/useHashRoute";
 import type Task from "./types/Task";
+import type { Project, ProjectTask } from "./types/Project";
+import { dayTaskText, syncDayToProjects, syncProjectsToDay } from "./lib/projectSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -135,8 +140,77 @@ function App() {
     saveGoldSettings(goldSettings);
   }, [goldSettings]);
   const taskManager = useTasks();
+  const projectManager = useProjects();
   const { isPaused, countdownRef, ...timer } = useTimer();
   const { theme, cycleTheme } = useTheme();
+  const route = useHashRoute();
+  const onProjectsPage = route === "projects";
+
+  // Latest managers for the sync effects below, which must not re-run
+  // just because App re-rendered and handed out fresh closures
+  const taskManagerRef = useRef(taskManager);
+  taskManagerRef.current = taskManager;
+  const projectManagerRef = useRef(projectManager);
+  projectManagerRef.current = projectManager;
+  const timerRef = useRef(timer);
+  timerRef.current = timer;
+
+  // Day tasks pulled from a project share notes and completion with it.
+  // Edits on the timer page are diffed against the previous render and
+  // carried to the project task; only genuine changes dispatch, so the
+  // mirror effect below finds nothing left to do.
+  const prevTasksRef = useRef<Task[] | null>(null);
+  useEffect(() => {
+    const prev = prevTasksRef.current;
+    prevTasksRef.current = taskManager.tasks;
+    if (prev === null) return;
+    const actions = syncDayToProjects(
+      prev,
+      taskManager.tasks,
+      projectManagerRef.current.state
+    );
+    for (const action of actions) projectManagerRef.current.dispatch(action);
+  }, [taskManager.tasks]);
+
+  // The projects store is the source of truth: whenever it changes, the
+  // linked day tasks follow (text incl. the project name, notes, done)
+  useEffect(() => {
+    const manager = taskManagerRef.current;
+    const updates = syncProjectsToDay(projectManager.state, manager.tasks);
+    for (const { task, text, notes, done } of updates) {
+      if (text !== undefined) manager.setText(task, text);
+      if (notes !== undefined) manager.setNotes(task, notes);
+      if (done === true) {
+        // Ticking off the task that's clocking time: stop the clock first
+        if (task.status === "active") {
+          timerRef.current.pauseAudio();
+          timerRef.current.pause();
+          manager.logPause();
+        }
+        manager.setStatus(task, "done");
+      } else if (done === false) {
+        manager.setStatus(task, "ready");
+      }
+    }
+  }, [projectManager.state]);
+
+  const handleAssignToday = (project: Project, projectTask: ProjectTask) => {
+    taskManager.addProjectTask(
+      dayTaskText(project.name, projectTask.text),
+      projectTask.notes,
+      projectTask.id
+    );
+  };
+
+  // Taking a task off today only drops the day copy; the project keeps it
+  const handleRemoveFromToday = (dayTask: Task) => {
+    if (dayTask.status === "active") {
+      timer.pauseAudio();
+      timer.pause();
+      taskManager.logPause();
+    }
+    taskManager.removeTask(dayTask);
+  };
 
   // Give the countdown a fresh full duration, optionally starting it once
   // the new date prop has reached the Countdown (its componentDidUpdate
@@ -248,6 +322,7 @@ function App() {
       }
       const modalOpen =
         isAddModalOpen || isSwitchModalOpen || isGoldSettingsOpen;
+      if (onProjectsPage) return;
       if (e.key === "a" && !modalOpen) {
         e.preventDefault();
         setIsAddModalOpen(true);
@@ -260,13 +335,19 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isAddModalOpen, isSwitchModalOpen, isColorBreakdownOpen, isGoldSettingsOpen]);
+  }, [
+    isAddModalOpen,
+    isSwitchModalOpen,
+    isColorBreakdownOpen,
+    isGoldSettingsOpen,
+    onProjectsPage,
+  ]);
 
   // Paste handler to bulk add tasks when paused
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      // Only when paused and not in an input
-      if (!isPaused) return;
+      // Only when paused, on the timer page, and not in an input
+      if (!isPaused || onProjectsPage) return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -286,7 +367,7 @@ function App() {
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [isPaused, taskManager]);
+  }, [isPaused, taskManager, onProjectsPage]);
 
   const activeTask = taskManager.getActiveTask();
   const activeColor = activeTask ? activeTask.color || DEFAULT_COLOR : undefined;
@@ -441,11 +522,46 @@ function App() {
     }
   };
 
+  const navLink = (target: Route, label: string) => (
+    <a
+      href={routeHash[target]}
+      className={cn(
+        "px-3 py-1 rounded-md text-sm font-medium transition-colors",
+        route === target
+          ? "bg-muted text-foreground"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+      aria-current={route === target ? "page" : undefined}
+    >
+      {label}
+    </a>
+  );
+
   return (
     <main
       className="w-full max-w-2xl mx-auto px-4 py-8"
       onClick={() => setSelectedTaskId(null)}
     >
+      <nav className="flex items-center gap-1 mb-4" aria-label="Pages">
+        {navLink("timer", "Timer")}
+        {navLink("projects", "Projects")}
+        {onProjectsPage && (
+          <span className="ml-auto text-sm text-muted-foreground">
+            {isPaused ? "⏸" : "▶"} {lastTimeRef.current}
+          </span>
+        )}
+      </nav>
+      {onProjectsPage && (
+        <ProjectsPage
+          manager={projectManager}
+          dayTasks={taskManager.tasks}
+          onAssignToday={handleAssignToday}
+          onRemoveFromToday={handleRemoveFromToday}
+        />
+      )}
+      {/* The timer page stays mounted while on projects so the countdown
+          and its effects keep running; it's just hidden */}
+      <div hidden={onProjectsPage}>
       <ColorGoals
         progress={progressByColor}
         isPaused={isPaused}
@@ -623,6 +739,7 @@ function App() {
         />
       )}
       <WorkflowyMode taskManager={taskManager} />
+      </div>
       <AddTaskModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

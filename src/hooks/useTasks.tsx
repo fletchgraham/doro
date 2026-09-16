@@ -82,6 +82,18 @@ const useTasks = () => {
     estimate?: number
   ) => dispatch({ type: "ADD_TASK_WITH_OPTIONS", text, status, position, estimate });
 
+  // Pull a project task into today's ready list, linked so notes and
+  // completion stay shared with the projects page
+  const addProjectTask = (text: string, notes: string, projectTaskId: string) =>
+    dispatch({
+      type: "ADD_TASK_WITH_OPTIONS",
+      text,
+      status: "ready",
+      position: "bottom",
+      notes,
+      projectTaskId,
+    });
+
   const removeTask = (task: Task) =>
     dispatch({ type: "REMOVE_TASK", taskId: task.id });
 
@@ -154,6 +166,7 @@ const useTasks = () => {
     getTasksByStatus,
     addTask,
     addTaskWithOptions,
+    addProjectTask,
     removeTask,
     nextTask,
     setNotes,

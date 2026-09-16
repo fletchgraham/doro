@@ -1,7 +1,6 @@
-import type Task from "../types/Task";
-
 /**
  * Calculate the order value for a task being dropped at a specific index.
+ * Works for anything ordered by an `order` field (day tasks, project tasks).
  *
  * @param tasks - The list of tasks in the target container (sorted by order)
  * @param dropIndex - The index where the task will be dropped
@@ -9,7 +8,7 @@ import type Task from "../types/Task";
  * @returns The new order value
  */
 export function calculateDropOrder(
-  tasks: Task[],
+  tasks: Array<{ id: string; order: number }>,
   dropIndex: number,
   movingTaskId: string
 ): number {

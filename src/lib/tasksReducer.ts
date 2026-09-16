@@ -9,6 +9,8 @@ export type TasksAction =
       status: Task["status"];
       position: "top" | "bottom";
       estimate?: number;
+      notes?: string;
+      projectTaskId?: string;
     }
   | { type: "REMOVE_TASK"; taskId: string }
   | { type: "NEXT_TASK"; shuffle?: boolean; pullFromReady?: boolean }
@@ -113,6 +115,10 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         status: action.status,
         order,
         ...(action.estimate !== undefined && { estimate: action.estimate }),
+        ...(action.notes !== undefined && { notes: action.notes }),
+        ...(action.projectTaskId !== undefined && {
+          projectTaskId: action.projectTaskId,
+        }),
       };
 
       // If adding as active, move current active task to working

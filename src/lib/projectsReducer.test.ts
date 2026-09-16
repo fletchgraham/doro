@@ -1,0 +1,151 @@
+import { expect, test } from "vitest";
+import projectsReducer, {
+  EMPTY_PROJECTS,
+  loadProjectsState,
+  projectProgress,
+  tasksForProject,
+} from "./projectsReducer";
+import type { ProjectsState } from "../types/Project";
+
+const withProject = (name = "Project X"): ProjectsState =>
+  projectsReducer(EMPTY_PROJECTS, { type: "ADD_PROJECT", name });
+
+test("adds projects in order", () => {
+  let state = withProject("A");
+  state = projectsReducer(state, { type: "ADD_PROJECT", name: "B" });
+  expect(state.projects.map((p) => p.name)).toEqual(["A", "B"]);
+  expect(state.projects[0].order).toBeLessThan(state.projects[1].order);
+  expect(state.projects[0].collapsed).toBe(false);
+});
+
+test("adds tasks to a project at the bottom", () => {
+  let state = withProject();
+  const projectId = state.projects[0].id;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "one" });
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "two" });
+  expect(tasksForProject(state, projectId).map((t) => t.text)).toEqual([
+    "one",
+    "two",
+  ]);
+  const task = state.tasks[0];
+  expect(task.done).toBe(false);
+  expect(task.notes).toBe("");
+  expect(task.points).toBeUndefined();
+});
+
+test("ignores tasks added to an unknown project", () => {
+  const state = withProject();
+  const next = projectsReducer(state, {
+    type: "ADD_TASK",
+    projectId: "nope",
+    text: "x",
+  });
+  expect(next).toBe(state);
+});
+
+test("edits text, notes, points and done", () => {
+  let state = withProject();
+  const projectId = state.projects[0].id;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "one" });
+  const taskId = state.tasks[0].id;
+  state = projectsReducer(state, { type: "SET_TASK_TEXT", taskId, text: "uno" });
+  state = projectsReducer(state, { type: "SET_TASK_NOTES", taskId, notes: "n" });
+  state = projectsReducer(state, { type: "SET_TASK_POINTS", taskId, points: 5 });
+  state = projectsReducer(state, { type: "SET_TASK_DONE", taskId, done: true });
+  expect(state.tasks[0]).toMatchObject({
+    text: "uno",
+    notes: "n",
+    points: 5,
+    done: true,
+  });
+  state = projectsReducer(state, {
+    type: "SET_TASK_POINTS",
+    taskId,
+    points: undefined,
+  });
+  expect(state.tasks[0].points).toBeUndefined();
+});
+
+test("moves a task to another project with a new order", () => {
+  let state = withProject("A");
+  state = projectsReducer(state, { type: "ADD_PROJECT", name: "B" });
+  const [a, b] = state.projects;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId: a.id, text: "t" });
+  const taskId = state.tasks[0].id;
+  state = projectsReducer(state, {
+    type: "MOVE_TASK",
+    taskId,
+    projectId: b.id,
+    order: 42,
+  });
+  expect(tasksForProject(state, a.id)).toHaveLength(0);
+  expect(tasksForProject(state, b.id)[0]).toMatchObject({ id: taskId, order: 42 });
+});
+
+test("removing a project removes its tasks", () => {
+  let state = withProject("A");
+  state = projectsReducer(state, { type: "ADD_PROJECT", name: "B" });
+  const [a, b] = state.projects;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId: a.id, text: "ta" });
+  state = projectsReducer(state, { type: "ADD_TASK", projectId: b.id, text: "tb" });
+  state = projectsReducer(state, { type: "REMOVE_PROJECT", projectId: a.id });
+  expect(state.projects.map((p) => p.name)).toEqual(["B"]);
+  expect(state.tasks.map((t) => t.text)).toEqual(["tb"]);
+});
+
+test("rename and collapse a project", () => {
+  let state = withProject("A");
+  const projectId = state.projects[0].id;
+  state = projectsReducer(state, { type: "RENAME_PROJECT", projectId, name: "Z" });
+  state = projectsReducer(state, {
+    type: "SET_PROJECT_COLLAPSED",
+    projectId,
+    collapsed: true,
+  });
+  expect(state.projects[0]).toMatchObject({ name: "Z", collapsed: true });
+});
+
+test("progress sums points of done tasks over all pointed tasks", () => {
+  let state = withProject();
+  const projectId = state.projects[0].id;
+  for (const text of ["a", "b", "c"]) {
+    state = projectsReducer(state, { type: "ADD_TASK", projectId, text });
+  }
+  const [a, b] = state.tasks;
+  state = projectsReducer(state, { type: "SET_TASK_POINTS", taskId: a.id, points: 5 });
+  state = projectsReducer(state, { type: "SET_TASK_POINTS", taskId: b.id, points: 8 });
+  state = projectsReducer(state, { type: "SET_TASK_DONE", taskId: a.id, done: true });
+  // c is unpointed and counts for nothing
+  expect(projectProgress(state.tasks)).toEqual({ done: 5, total: 13 });
+});
+
+test("loads persisted state and drops malformed entries", () => {
+  expect(loadProjectsState(null)).toEqual(EMPTY_PROJECTS);
+  expect(loadProjectsState("not json")).toEqual(EMPTY_PROJECTS);
+  expect(loadProjectsState("[]")).toEqual(EMPTY_PROJECTS);
+
+  const loaded = loadProjectsState(
+    JSON.stringify({
+      projects: [{ id: "p1", name: "P" }, { nope: true }],
+      tasks: [
+        { id: "t1", projectId: "p1", text: "keep", points: 3 },
+        { id: "t2", projectId: "gone", text: "orphan" },
+        { id: "t3" },
+      ],
+    })
+  );
+  expect(loaded.projects).toEqual([
+    { id: "p1", name: "P", order: 0, collapsed: false },
+  ]);
+  expect(loaded.tasks).toEqual([
+    {
+      id: "t1",
+      projectId: "p1",
+      text: "keep",
+      notes: "",
+      done: false,
+      order: 0,
+      points: 3,
+    },
+  ]);
+});
