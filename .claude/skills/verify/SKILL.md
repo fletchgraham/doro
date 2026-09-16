@@ -35,7 +35,10 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   tasks: [{ id, projectId, text, notes, done, order, points? }] }`. A day
   task pulled from a project carries `projectTaskId`; notes/done sync both
   ways through effects in `App`, so wait ~700ms before reading either store.
-  Rows are `[data-testid="project-task"]`, the sun button is labelled
+  Rows are `[data-testid="project-task"]`; projects are
+  `section[data-testid="project"]` and reorder by dragging their header
+  (their sortable id is `project:<id>`, the task list droppable is the
+  bare id). The sun button is labelled
   "Add to today" / "Remove from today", progress is
   `[data-testid="project-progress"]`. Uncolored tasks spend gold by
   default, so seed an earning rule for `#9ca3af` before running the timer.

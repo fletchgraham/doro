@@ -8,6 +8,7 @@ export type ProjectsAction =
   | { type: "RENAME_PROJECT"; projectId: string; name: string }
   | { type: "REMOVE_PROJECT"; projectId: string }
   | { type: "SET_PROJECT_COLLAPSED"; projectId: string; collapsed: boolean }
+  | { type: "MOVE_PROJECT"; projectId: string; order: number }
   | { type: "ADD_TASK"; projectId: string; text: string }
   | { type: "SET_TASK_TEXT"; taskId: string; text: string }
   | { type: "SET_TASK_NOTES"; taskId: string; notes: string }
@@ -147,6 +148,13 @@ const projectsReducer = (
         ...state,
         projects: state.projects.map((p) =>
           p.id === action.projectId ? { ...p, collapsed: action.collapsed } : p
+        ),
+      };
+    case "MOVE_PROJECT":
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId ? { ...p, order: action.order } : p
         ),
       };
     case "ADD_TASK": {

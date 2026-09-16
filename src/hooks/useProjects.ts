@@ -41,6 +41,8 @@ const useProjects = () => {
       apply({ type: "REMOVE_PROJECT", projectId: project.id }),
     setCollapsed: (project: Project, collapsed: boolean) =>
       apply({ type: "SET_PROJECT_COLLAPSED", projectId: project.id, collapsed }),
+    moveProject: (project: Project, order: number) =>
+      apply({ type: "MOVE_PROJECT", projectId: project.id, order }),
     addTask: (project: Project, text: string) =>
       apply({ type: "ADD_TASK", projectId: project.id, text }),
     setTaskText: (task: ProjectTask, text: string) =>

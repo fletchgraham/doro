@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import projectsReducer, {
   EMPTY_PROJECTS,
+  byOrder,
   loadProjectsState,
   projectProgress,
   tasksForProject,
@@ -91,6 +92,18 @@ test("removing a project removes its tasks", () => {
   state = projectsReducer(state, { type: "REMOVE_PROJECT", projectId: a.id });
   expect(state.projects.map((p) => p.name)).toEqual(["B"]);
   expect(state.tasks.map((t) => t.text)).toEqual(["tb"]);
+});
+
+test("moves a project to a new order", () => {
+  let state = withProject("A");
+  state = projectsReducer(state, { type: "ADD_PROJECT", name: "B" });
+  const [a, b] = state.projects;
+  state = projectsReducer(state, {
+    type: "MOVE_PROJECT",
+    projectId: b.id,
+    order: a.order - 1000,
+  });
+  expect(byOrder(state.projects).map((p) => p.name)).toEqual(["B", "A"]);
 });
 
 test("rename and collapse a project", () => {

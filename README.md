@@ -47,8 +47,9 @@ change modes and rates. A rate of 0 makes a color neutral.
 The Projects page (`#/projects`, via the nav at the top) is where work that
 outlives a single day is kept. Each project is a collapsible list of tasks
 that can be renamed, drag-reordered (within or across projects), pointed
-like agile tickets (1, 3, 5 or 8) and ticked off. A project's bar shows
-story points finished over total, e.g. `5/62`.
+like agile tickets (1, 3, 5 or 8) and ticked off. Projects themselves are
+reordered by dragging their header, and each shows story points finished
+over total, e.g. `5/62`, with a progress bar underneath.
 
 The sun button on a task adds it to today's Ready list on the timer page,
 titled `Project X - do thing` so it reads on its own there. The two copies
