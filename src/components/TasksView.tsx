@@ -15,7 +15,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Lock, LockOpen } from "lucide-react";
+import { ExternalLink, FolderKanban, Lock, LockOpen } from "lucide-react";
+import { routeHash } from "../hooks/useHashRoute";
 import TodoistImport from "./TodoistImport";
 import {
   DndContext,
@@ -544,7 +545,15 @@ const TaskItemOverlay = ({ task }: { task: Task }) => {
         className="w-3 h-3 rounded-full shrink-0"
         style={{ backgroundColor: task.color || "#9ca3af" }}
       />
-      <span className="flex-1">{task.text}</span>
+      <span className="flex-1 flex items-center gap-1">
+        {task.text}
+        {task.projectTaskId && (
+          <FolderKanban
+            className="size-3.5 text-muted-foreground"
+            aria-hidden="true"
+          />
+        )}
+      </span>
       <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded min-w-[3rem] text-center">
         {formatEstimate(task.estimate) || "—"}
       </span>
@@ -812,6 +821,19 @@ const TaskItem = ({
             )}
           >
             {task.text}
+            {task.projectTaskId && (
+              <a
+                href={routeHash.projects}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="inline-flex text-muted-foreground hover:text-foreground"
+                title="Part of a project — open Projects"
+                aria-label="Part of a project — open Projects"
+                data-testid="task-project-indicator"
+              >
+                <FolderKanban className="size-3.5" />
+              </a>
+            )}
             {task.url && (
               <a
                 href={task.url}
