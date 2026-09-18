@@ -269,12 +269,15 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 function ProjectHeader({
   project,
   progress,
+  todayCount = 0,
   name,
   actions,
   collapseButton,
 }: {
   project: Project;
   progress: { done: number; total: number };
+  // How many of the project's tasks are on today's list (timer view)
+  todayCount?: number;
   name?: React.ReactNode;
   actions?: React.ReactNode;
   collapseButton?: React.ReactNode;
@@ -284,6 +287,17 @@ function ProjectHeader({
       <div className="flex items-center gap-2 min-w-0">
         {collapseButton ?? <div className="size-6 shrink-0" />}
         {name ?? <h3 className="font-semibold truncate flex-1">{project.name}</h3>}
+        {todayCount > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5 text-xs text-amber-500 tabular-nums whitespace-nowrap"
+            data-testid="project-today-count"
+            title={`${todayCount} task${todayCount === 1 ? "" : "s"} on today's list`}
+            aria-label={`${todayCount} task${todayCount === 1 ? "" : "s"} on today's list`}
+          >
+            <Sun className="size-3.5" aria-hidden="true" />
+            {todayCount}
+          </span>
+        )}
         <span
           className="text-xs text-muted-foreground tabular-nums whitespace-nowrap"
           data-testid="project-progress"
@@ -339,6 +353,10 @@ function ProjectSection({
   } = useSortable({ id: projectSortableId(project.id) });
   const progress = projectProgress(tasks);
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+  const todayCount = useMemo(
+    () => tasks.filter((t) => findDayTask(dayTasks, t.id)).length,
+    [tasks, dayTasks]
+  );
 
   const saveName = () => {
     const name = editName.trim();
@@ -435,6 +453,7 @@ function ProjectSection({
         <ProjectHeader
           project={project}
           progress={progress}
+          todayCount={todayCount}
           name={name}
           actions={actions}
           collapseButton={collapseButton}

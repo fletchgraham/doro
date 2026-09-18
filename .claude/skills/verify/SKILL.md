@@ -40,7 +40,11 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   (their sortable id is `project:<id>`, the task list droppable is the
   bare id). The sun button is labelled
   "Add to today" / "Remove from today", progress is
-  `[data-testid="project-progress"]`. Uncolored tasks spend gold by
+  `[data-testid="project-progress"]`. A project header shows
+  `[data-testid="project-today-count"]` (sun + count) only while one of its
+  tasks is on today's list; in the timer view a linked day task carries
+  `[data-testid="task-project-indicator"]`, a folder icon linking to
+  `#/projects`. Uncolored tasks spend gold by
   default, so seed an earning rule for `#9ca3af` before running the timer.
 - **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Ready/Done
   lists fall below the default 720px fold and mouse events silently miss.

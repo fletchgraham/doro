@@ -9,7 +9,8 @@ import { formatDuration } from "@/lib/formatDuration";
 import { handleLineMoveKeyDown } from "@/lib/moveLine";
 import { fireConfetti } from "@/lib/confetti";
 import { cn } from "@/lib/utils";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, FolderKanban } from "lucide-react";
+import { routeHash } from "@/hooks/useHashRoute";
 
 interface ActiveTaskViewProps {
   task: Task | undefined;
@@ -138,6 +139,18 @@ function ActiveTaskView({
             onClick={handleStartEdit}
           >
             {task.text}
+            {task.projectTaskId && (
+              <a
+                href={routeHash.projects}
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-foreground"
+                title="Part of a project — open Projects"
+                aria-label="Part of a project — open Projects"
+                data-testid="task-project-indicator"
+              >
+                <FolderKanban className="size-4" />
+              </a>
+            )}
             {task.url && (
               <a
                 href={task.url}
