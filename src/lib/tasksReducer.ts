@@ -1,5 +1,13 @@
 import type Task from "../types/Task";
+import type Subtask from "../types/Subtask";
 import getDuration from "./getDuration";
+import {
+  addSubtask,
+  moveSubtask,
+  removeSubtask,
+  setSubtaskDone,
+  setSubtaskText,
+} from "./subtasks";
 
 export type TasksAction =
   | { type: "ADD_TASK"; text: string }
@@ -10,6 +18,7 @@ export type TasksAction =
       position: "top" | "bottom";
       estimate?: number;
       notes?: string;
+      subtasks?: Subtask[];
       projectTaskId?: string;
     }
   | { type: "REMOVE_TASK"; taskId: string }
@@ -20,6 +29,13 @@ export type TasksAction =
   | { type: "SET_COLOR"; taskId: string; color: string | undefined }
   | { type: "SET_ESTIMATE"; taskId: string; estimate: number | undefined }
   | { type: "SET_URL"; taskId: string; url: string | undefined }
+  | { type: "ADD_SUBTASK"; taskId: string; text: string }
+  | { type: "SET_SUBTASK_TEXT"; taskId: string; subtaskId: string; text: string }
+  | { type: "SET_SUBTASK_DONE"; taskId: string; subtaskId: string; done: boolean }
+  | { type: "MOVE_SUBTASK"; taskId: string; subtaskId: string; index: number }
+  | { type: "REMOVE_SUBTASK"; taskId: string; subtaskId: string }
+  // Replace the whole list, used to mirror a linked project task
+  | { type: "SET_SUBTASKS"; taskId: string; subtasks: Subtask[] }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
   | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
   | { type: "COMPLETE_TASK"; pullFromReady?: boolean }
@@ -55,6 +71,7 @@ export const createTask = (text: string): Task => {
   return {
     text: text,
     notes: "",
+    subtasks: [],
     events: [],
     duration: 0,
     status: "ready",
@@ -97,6 +114,13 @@ const calculateNewOrder = (
   }
 };
 
+const updateSubtasks = (
+  state: Task[],
+  taskId: string,
+  update: (subtasks: Subtask[]) => Subtask[]
+): Task[] =>
+  state.map((t) => (t.id === taskId ? { ...t, subtasks: update(t.subtasks) } : t));
+
 const tasksReducer = (state: Task[], action: TasksAction) => {
   switch (action.type) {
     case "ADD_TASK":
@@ -116,6 +140,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         order,
         ...(action.estimate !== undefined && { estimate: action.estimate }),
         ...(action.notes !== undefined && { notes: action.notes }),
+        ...(action.subtasks !== undefined && { subtasks: action.subtasks }),
         ...(action.projectTaskId !== undefined && {
           projectTaskId: action.projectTaskId,
         }),
@@ -259,6 +284,29 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       return state.map((t) =>
         t.id === action.taskId ? { ...t, url: action.url } : t
       );
+    case "ADD_SUBTASK": {
+      const text = action.text.trim();
+      if (!text) return state;
+      return updateSubtasks(state, action.taskId, (s) => addSubtask(s, text));
+    }
+    case "SET_SUBTASK_TEXT":
+      return updateSubtasks(state, action.taskId, (s) =>
+        setSubtaskText(s, action.subtaskId, action.text)
+      );
+    case "SET_SUBTASK_DONE":
+      return updateSubtasks(state, action.taskId, (s) =>
+        setSubtaskDone(s, action.subtaskId, action.done)
+      );
+    case "MOVE_SUBTASK":
+      return updateSubtasks(state, action.taskId, (s) =>
+        moveSubtask(s, action.subtaskId, action.index)
+      );
+    case "REMOVE_SUBTASK":
+      return updateSubtasks(state, action.taskId, (s) =>
+        removeSubtask(s, action.subtaskId)
+      );
+    case "SET_SUBTASKS":
+      return updateSubtasks(state, action.taskId, () => action.subtasks);
     case "REORDER_TASK": {
       const newOrder = calculateNewOrder(state, action.taskId, action.direction);
       return state.map((t) =>

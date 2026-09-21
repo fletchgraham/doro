@@ -31,7 +31,57 @@ test("adds tasks to a project at the bottom", () => {
   const task = state.tasks[0];
   expect(task.done).toBe(false);
   expect(task.notes).toBe("");
+  expect(task.subtasks).toEqual([]);
   expect(task.points).toBeUndefined();
+});
+
+test("subtasks are added, ticked, renamed, reordered and removed on a task", () => {
+  let state = withProject();
+  const projectId = state.projects[0].id;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "one" });
+  const taskId = state.tasks[0].id;
+  state = projectsReducer(state, { type: "ADD_SUBTASK", taskId, text: "a" });
+  state = projectsReducer(state, { type: "ADD_SUBTASK", taskId, text: "  " });
+  state = projectsReducer(state, { type: "ADD_SUBTASK", taskId, text: " b " });
+  const subtasks = () => state.tasks[0].subtasks;
+  expect(subtasks().map((s) => s.text)).toEqual(["a", "b"]);
+  expect(subtasks().every((s) => !s.done)).toBe(true);
+
+  const [a, b] = subtasks();
+  state = projectsReducer(state, {
+    type: "SET_SUBTASK_DONE",
+    taskId,
+    subtaskId: a.id,
+    done: true,
+  });
+  state = projectsReducer(state, {
+    type: "SET_SUBTASK_TEXT",
+    taskId,
+    subtaskId: b.id,
+    text: "bee",
+  });
+  expect(subtasks()).toEqual([
+    { id: a.id, text: "a", done: true },
+    { id: b.id, text: "bee", done: false },
+  ]);
+
+  state = projectsReducer(state, {
+    type: "MOVE_SUBTASK",
+    taskId,
+    subtaskId: b.id,
+    index: 0,
+  });
+  expect(subtasks().map((s) => s.id)).toEqual([b.id, a.id]);
+
+  state = projectsReducer(state, { type: "REMOVE_SUBTASK", taskId, subtaskId: a.id });
+  expect(subtasks().map((s) => s.id)).toEqual([b.id]);
+
+  state = projectsReducer(state, { type: "SET_SUBTASKS", taskId, subtasks: [] });
+  expect(subtasks()).toEqual([]);
+  // Unknown task: no change
+  expect(
+    projectsReducer(state, { type: "ADD_SUBTASK", taskId: "nope", text: "x" })
+  ).toEqual(state);
 });
 
 test("ignores tasks added to an unknown project", () => {
@@ -141,7 +191,13 @@ test("loads persisted state and drops malformed entries", () => {
     JSON.stringify({
       projects: [{ id: "p1", name: "P" }, { nope: true }],
       tasks: [
-        { id: "t1", projectId: "p1", text: "keep", points: 3 },
+        {
+          id: "t1",
+          projectId: "p1",
+          text: "keep",
+          points: 3,
+          subtasks: [{ id: "s1", text: "step", done: true }, { bad: 1 }],
+        },
         { id: "t2", projectId: "gone", text: "orphan" },
         { id: "t3" },
       ],
@@ -156,9 +212,18 @@ test("loads persisted state and drops malformed entries", () => {
       projectId: "p1",
       text: "keep",
       notes: "",
+      subtasks: [{ id: "s1", text: "step", done: true }],
       done: false,
       order: 0,
       points: 3,
     },
   ]);
+  // Tasks saved before subtasks existed load with an empty list
+  const legacy = loadProjectsState(
+    JSON.stringify({
+      projects: [{ id: "p1", name: "P" }],
+      tasks: [{ id: "t1", projectId: "p1", text: "old" }],
+    })
+  );
+  expect(legacy.tasks[0].subtasks).toEqual([]);
 });

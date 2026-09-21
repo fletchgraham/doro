@@ -1,11 +1,14 @@
 import type Task from "../types/Task";
+import type Subtask from "../types/Subtask";
 import type { ProjectsState } from "../types/Project";
 import type { ProjectsAction } from "./projectsReducer";
+import { sameSubtasks } from "./subtasks";
 
 // A project task pulled into the day is a separate day task that points
-// back at it via projectTaskId. The two share notes and done-ness, and the
-// day copy is titled with its project so it reads on its own in the
-// timer's lists. These helpers compute what each side owes the other.
+// back at it via projectTaskId. The two share notes, subtasks and
+// done-ness, and the day copy is titled with its project so it reads on
+// its own in the timer's lists. These helpers compute what each side owes
+// the other.
 
 const SEPARATOR = " - ";
 
@@ -24,9 +27,10 @@ const isDone = (task: Task) => task.status === "done";
 
 /**
  * Actions for the projects store after the day's tasks changed from `prev`
- * to `next`: notes edits, completions (and un-completions) and renames on
- * a linked day task are carried over to its project task. Only real
- * changes are returned, so applying them never bounces back.
+ * to `next`: notes edits, subtask changes, completions (and
+ * un-completions) and renames on a linked day task are carried over to
+ * its project task. Only real changes are returned, so applying them
+ * never bounces back.
  */
 export function syncDayToProjects(
   prev: Task[],
@@ -53,6 +57,16 @@ export function syncDayToProjects(
         notes: task.notes,
       });
     }
+    if (
+      before.subtasks !== task.subtasks &&
+      !sameSubtasks(projectTask.subtasks, task.subtasks)
+    ) {
+      actions.push({
+        type: "SET_SUBTASKS",
+        taskId: projectTask.id,
+        subtasks: task.subtasks,
+      });
+    }
     if (isDone(before) !== isDone(task) && projectTask.done !== isDone(task)) {
       actions.push({
         type: "SET_TASK_DONE",
@@ -75,14 +89,16 @@ export interface DayTaskUpdate {
   task: Task;
   text?: string;
   notes?: string;
+  subtasks?: Subtask[];
   done?: boolean;
 }
 
 /**
  * What each linked day task needs to match its project task: the projects
  * store is the source of truth, so after any change there (a rename, a
- * project rename, notes, ticking a task off) the day copies follow. Day
- * tasks whose project task is gone are left alone as plain tasks.
+ * project rename, notes, subtasks, ticking a task off) the day copies
+ * follow. Day tasks whose project task is gone are left alone as plain
+ * tasks.
  */
 export function syncProjectsToDay(
   state: ProjectsState,
@@ -103,10 +119,14 @@ export function syncProjectsToDay(
     const text = dayTaskText(project.name, projectTask.text);
     if (task.text !== text) update.text = text;
     if (task.notes !== projectTask.notes) update.notes = projectTask.notes;
+    if (!sameSubtasks(task.subtasks, projectTask.subtasks)) {
+      update.subtasks = projectTask.subtasks;
+    }
     if (isDone(task) !== projectTask.done) update.done = projectTask.done;
     if (
       update.text !== undefined ||
       update.notes !== undefined ||
+      update.subtasks !== undefined ||
       update.done !== undefined
     ) {
       updates.push(update);

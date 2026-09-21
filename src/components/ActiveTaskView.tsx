@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type Task from "../types/Task";
+import type Subtask from "../types/Subtask";
+import SubtaskList from "./SubtaskList";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,11 @@ interface ActiveTaskViewProps {
   onNotesChange: (task: Task, notes: string) => void;
   onTextChange: (task: Task, text: string) => void;
   onUrlChange: (task: Task, url: string | undefined) => void;
+  onAddSubtask: (task: Task, text: string) => void;
+  onSubtaskTextChange: (task: Task, subtask: Subtask, text: string) => void;
+  onSubtaskDoneChange: (task: Task, subtask: Subtask, done: boolean) => void;
+  onMoveSubtask: (task: Task, subtask: Subtask, index: number) => void;
+  onRemoveSubtask: (task: Task, subtask: Subtask) => void;
   onDurationOverride: (task: Task, duration: number) => void;
   onDone?: () => void;
   onDeactivate?: () => void;
@@ -29,6 +36,11 @@ function ActiveTaskView({
   onNotesChange,
   onTextChange,
   onUrlChange,
+  onAddSubtask,
+  onSubtaskTextChange,
+  onSubtaskDoneChange,
+  onMoveSubtask,
+  onRemoveSubtask,
   onDurationOverride,
   onDone,
   onDeactivate,
@@ -199,6 +211,15 @@ function ActiveTaskView({
         onChange={(e) => onUrlChange(task, e.target.value || undefined)}
         placeholder="URL..."
         className="mb-2 text-sm"
+      />
+      <SubtaskList
+        subtasks={task.subtasks}
+        onAdd={(text) => onAddSubtask(task, text)}
+        onTextChange={(subtask, text) => onSubtaskTextChange(task, subtask, text)}
+        onDoneChange={(subtask, done) => onSubtaskDoneChange(task, subtask, done)}
+        onMove={(subtask, index) => onMoveSubtask(task, subtask, index)}
+        onRemove={(subtask) => onRemoveSubtask(task, subtask)}
+        className="mb-2"
       />
       <Textarea
         value={task.notes}

@@ -18,6 +18,7 @@ const state: ProjectsState = {
       projectId: "p1",
       text: "do thing",
       notes: "shared",
+      subtasks: [{ id: "s1", text: "step", done: false }],
       done: false,
       order: 0,
       points: 3,
@@ -28,6 +29,8 @@ const state: ProjectsState = {
 const linkedDayTask = (): Task => ({
   ...createTask(dayTaskText("Project X", "do thing")),
   notes: "shared",
+  // The day copy gets its own copy of the list, so equality is structural
+  subtasks: [{ id: "s1", text: "step", done: false }],
   projectTaskId: "pt1",
 });
 
@@ -122,4 +125,44 @@ test("finds the day task standing in for a project task", () => {
   const day = linkedDayTask();
   expect(findDayTask([createTask("x"), day], "pt1")).toBe(day);
   expect(findDayTask([createTask("x")], "pt1")).toBeUndefined();
+});
+
+test("subtask changes on the day task flow to the project task", () => {
+  const day = linkedDayTask();
+  const ticked = {
+    ...day,
+    subtasks: [{ id: "s1", text: "step", done: true }],
+  };
+  expect(syncDayToProjects([day], [ticked], state)).toEqual([
+    { type: "SET_SUBTASKS", taskId: "pt1", subtasks: ticked.subtasks },
+  ]);
+  // A fresh but identical array is not a change
+  const copied = { ...day, subtasks: day.subtasks.map((s) => ({ ...s })) };
+  expect(syncDayToProjects([day], [copied], state)).toEqual([]);
+  // Already mirrored in the project: nothing to echo back
+  const tickedState: ProjectsState = {
+    ...state,
+    tasks: [{ ...state.tasks[0], subtasks: ticked.subtasks }],
+  };
+  expect(syncDayToProjects([day], [ticked], tickedState)).toEqual([]);
+});
+
+test("project subtask changes are pushed to the linked day task", () => {
+  const day = linkedDayTask();
+  const reordered: ProjectsState = {
+    ...state,
+    tasks: [
+      {
+        ...state.tasks[0],
+        subtasks: [
+          { id: "s2", text: "new first", done: false },
+          { id: "s1", text: "step", done: true },
+        ],
+      },
+    ],
+  };
+  expect(syncProjectsToDay(reordered, [day])).toEqual([
+    { task: day, subtasks: reordered.tasks[0].subtasks },
+  ]);
+  expect(syncProjectsToDay(state, [day])).toEqual([]);
 });

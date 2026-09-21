@@ -1,6 +1,8 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import type Task from "../types/Task";
+import type Subtask from "../types/Subtask";
 import tasksReducer from "../lib/tasksReducer";
+import { normalizeSubtasks } from "../lib/subtasks";
 
 const STORAGE_DEBOUNCE_MS = 500;
 
@@ -22,6 +24,8 @@ const migrateTask = (task: Task, index: number): Task => {
     ...task,
     order: task.order ?? index * 1000,
     status,
+    // Tasks saved before subtasks existed have none
+    subtasks: normalizeSubtasks(task.subtasks),
   };
 
   // Remove legacy active field
@@ -82,15 +86,21 @@ const useTasks = () => {
     estimate?: number
   ) => dispatch({ type: "ADD_TASK_WITH_OPTIONS", text, status, position, estimate });
 
-  // Pull a project task into today's ready list, linked so notes and
-  // completion stay shared with the projects page
-  const addProjectTask = (text: string, notes: string, projectTaskId: string) =>
+  // Pull a project task into today's ready list, linked so notes,
+  // subtasks and completion stay shared with the projects page
+  const addProjectTask = (
+    text: string,
+    notes: string,
+    subtasks: Subtask[],
+    projectTaskId: string
+  ) =>
     dispatch({
       type: "ADD_TASK_WITH_OPTIONS",
       text,
       status: "ready",
       position: "bottom",
       notes,
+      subtasks,
       projectTaskId,
     });
 
@@ -117,6 +127,39 @@ const useTasks = () => {
 
   const setUrl = (task: Task, url: string | undefined) =>
     dispatch({ type: "SET_URL", taskId: task.id, url });
+
+  const addSubtask = (task: Task, text: string) =>
+    dispatch({ type: "ADD_SUBTASK", taskId: task.id, text });
+
+  const setSubtaskText = (task: Task, subtask: Subtask, text: string) =>
+    dispatch({
+      type: "SET_SUBTASK_TEXT",
+      taskId: task.id,
+      subtaskId: subtask.id,
+      text,
+    });
+
+  const setSubtaskDone = (task: Task, subtask: Subtask, done: boolean) =>
+    dispatch({
+      type: "SET_SUBTASK_DONE",
+      taskId: task.id,
+      subtaskId: subtask.id,
+      done,
+    });
+
+  const moveSubtask = (task: Task, subtask: Subtask, index: number) =>
+    dispatch({
+      type: "MOVE_SUBTASK",
+      taskId: task.id,
+      subtaskId: subtask.id,
+      index,
+    });
+
+  const removeSubtask = (task: Task, subtask: Subtask) =>
+    dispatch({ type: "REMOVE_SUBTASK", taskId: task.id, subtaskId: subtask.id });
+
+  const setSubtasks = (task: Task, subtasks: Subtask[]) =>
+    dispatch({ type: "SET_SUBTASKS", taskId: task.id, subtasks });
 
   const reorderTask = (task: Task, direction: "up" | "down") =>
     dispatch({ type: "REORDER_TASK", taskId: task.id, direction });
@@ -175,6 +218,12 @@ const useTasks = () => {
     setColor,
     setEstimate,
     setUrl,
+    addSubtask,
+    setSubtaskText,
+    setSubtaskDone,
+    moveSubtask,
+    removeSubtask,
+    setSubtasks,
     reorderTask,
     moveTask,
     completeTask,

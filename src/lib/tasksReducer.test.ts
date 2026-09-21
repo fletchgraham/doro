@@ -874,3 +874,61 @@ test("SET_WORKFLOWY_ID links a task and fills an empty url", () => {
   expect(updated[0].workflowyId).toBe("wf-aaaaaaaaaaaa");
   expect(updated[0].url).toBe("https://workflowy.com/#/wf-aaaaaaaaaaaa");
 });
+
+test("new tasks start with no subtasks and can take a list on creation", () => {
+  expect(createTask("x").subtasks).toEqual([]);
+  const subtasks = [{ id: "s1", text: "step", done: true }];
+  const tasks = tasksReducer([], {
+    type: "ADD_TASK_WITH_OPTIONS",
+    text: "linked",
+    status: "ready",
+    position: "bottom",
+    subtasks,
+    projectTaskId: "pt1",
+  });
+  expect(tasks[0].subtasks).toEqual(subtasks);
+});
+
+test("subtasks are added, ticked, renamed, reordered, removed and replaced", () => {
+  let tasks: Task[] = [createTask("parent"), createTask("other")];
+  const taskId = tasks[0].id;
+  tasks = tasksReducer(tasks, { type: "ADD_SUBTASK", taskId, text: "a" });
+  tasks = tasksReducer(tasks, { type: "ADD_SUBTASK", taskId, text: "" });
+  tasks = tasksReducer(tasks, { type: "ADD_SUBTASK", taskId, text: "b" });
+  const subtasks = () => tasks[0].subtasks;
+  expect(subtasks().map((s) => s.text)).toEqual(["a", "b"]);
+  expect(tasks[1].subtasks).toEqual([]);
+
+  const [a, b] = subtasks();
+  tasks = tasksReducer(tasks, {
+    type: "SET_SUBTASK_DONE",
+    taskId,
+    subtaskId: a.id,
+    done: true,
+  });
+  tasks = tasksReducer(tasks, {
+    type: "SET_SUBTASK_TEXT",
+    taskId,
+    subtaskId: b.id,
+    text: "bee",
+  });
+  expect(subtasks()).toEqual([
+    { id: a.id, text: "a", done: true },
+    { id: b.id, text: "bee", done: false },
+  ]);
+
+  tasks = tasksReducer(tasks, {
+    type: "MOVE_SUBTASK",
+    taskId,
+    subtaskId: b.id,
+    index: 0,
+  });
+  expect(subtasks().map((s) => s.id)).toEqual([b.id, a.id]);
+
+  tasks = tasksReducer(tasks, { type: "REMOVE_SUBTASK", taskId, subtaskId: b.id });
+  expect(subtasks().map((s) => s.id)).toEqual([a.id]);
+
+  const replacement = [{ id: "s9", text: "mirrored", done: false }];
+  tasks = tasksReducer(tasks, { type: "SET_SUBTASKS", taskId, subtasks: replacement });
+  expect(subtasks()).toEqual(replacement);
+});

@@ -1,4 +1,13 @@
 import type { Project, ProjectTask, ProjectsState } from "../types/Project";
+import type Subtask from "../types/Subtask";
+import {
+  addSubtask,
+  moveSubtask,
+  normalizeSubtasks,
+  removeSubtask,
+  setSubtaskDone,
+  setSubtaskText,
+} from "./subtasks";
 
 // Story point sizes a task can be given
 export const POINT_OPTIONS = [1, 3, 5, 8] as const;
@@ -14,6 +23,13 @@ export type ProjectsAction =
   | { type: "SET_TASK_NOTES"; taskId: string; notes: string }
   | { type: "SET_TASK_POINTS"; taskId: string; points: number | undefined }
   | { type: "SET_TASK_DONE"; taskId: string; done: boolean }
+  | { type: "ADD_SUBTASK"; taskId: string; text: string }
+  | { type: "SET_SUBTASK_TEXT"; taskId: string; subtaskId: string; text: string }
+  | { type: "SET_SUBTASK_DONE"; taskId: string; subtaskId: string; done: boolean }
+  | { type: "MOVE_SUBTASK"; taskId: string; subtaskId: string; index: number }
+  | { type: "REMOVE_SUBTASK"; taskId: string; subtaskId: string }
+  // Replace the whole list, used to mirror a linked day task
+  | { type: "SET_SUBTASKS"; taskId: string; subtasks: Subtask[] }
   | { type: "MOVE_TASK"; taskId: string; projectId: string; order: number }
   | { type: "REMOVE_TASK"; taskId: string };
 
@@ -38,6 +54,7 @@ export const createProjectTask = (
   projectId,
   text,
   notes: "",
+  subtasks: [],
   done: false,
   order,
 });
@@ -99,6 +116,7 @@ export const loadProjectsState = (raw: string | null): ProjectsState => {
       tasks: tasks.map((t, i) => ({
         ...t,
         notes: typeof t.notes === "string" ? t.notes : "",
+        subtasks: normalizeSubtasks(t.subtasks),
         done: t.done === true,
         order: typeof t.order === "number" ? t.order : i * 1000,
         points: typeof t.points === "number" ? t.points : undefined,
@@ -116,6 +134,17 @@ const updateTask = (
 ): ProjectsState => ({
   ...state,
   tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t)),
+});
+
+const updateSubtasks = (
+  state: ProjectsState,
+  taskId: string,
+  update: (subtasks: Subtask[]) => Subtask[]
+): ProjectsState => ({
+  ...state,
+  tasks: state.tasks.map((t) =>
+    t.id === taskId ? { ...t, subtasks: update(t.subtasks) } : t
+  ),
 });
 
 const projectsReducer = (
@@ -176,6 +205,29 @@ const projectsReducer = (
       return updateTask(state, action.taskId, { points: action.points });
     case "SET_TASK_DONE":
       return updateTask(state, action.taskId, { done: action.done });
+    case "ADD_SUBTASK": {
+      const text = action.text.trim();
+      if (!text) return state;
+      return updateSubtasks(state, action.taskId, (s) => addSubtask(s, text));
+    }
+    case "SET_SUBTASK_TEXT":
+      return updateSubtasks(state, action.taskId, (s) =>
+        setSubtaskText(s, action.subtaskId, action.text)
+      );
+    case "SET_SUBTASK_DONE":
+      return updateSubtasks(state, action.taskId, (s) =>
+        setSubtaskDone(s, action.subtaskId, action.done)
+      );
+    case "MOVE_SUBTASK":
+      return updateSubtasks(state, action.taskId, (s) =>
+        moveSubtask(s, action.subtaskId, action.index)
+      );
+    case "REMOVE_SUBTASK":
+      return updateSubtasks(state, action.taskId, (s) =>
+        removeSubtask(s, action.subtaskId)
+      );
+    case "SET_SUBTASKS":
+      return updateSubtasks(state, action.taskId, () => action.subtasks);
     case "MOVE_TASK":
       if (!state.projects.some((p) => p.id === action.projectId)) return state;
       return updateTask(state, action.taskId, {

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type Task from "../types/Task";
 import type { Project, ProjectTask } from "../types/Project";
 import type { ProjectManager } from "../hooks/useProjects";
+import SubtaskList, { SubtaskCount } from "./SubtaskList";
 import { POINT_OPTIONS, projectProgress } from "../lib/projectsReducer";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
 import { findDayTask } from "../lib/projectSync";
@@ -608,7 +609,7 @@ const ProjectTaskItem = ({
             "opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100",
             isExpanded && "opacity-100"
           )}
-          aria-label={isExpanded ? "Hide notes" : "Show notes"}
+          aria-label={isExpanded ? "Hide details" : "Show details"}
           aria-expanded={isExpanded}
         >
           {isExpanded ? "▼" : "▶"}
@@ -653,6 +654,7 @@ const ProjectTaskItem = ({
             {task.text}
           </span>
         )}
+        <SubtaskCount subtasks={task.subtasks} />
         {dayTask && dayTask.duration >= 1000 && (
           <span
             className="text-xs text-muted-foreground"
@@ -737,7 +739,19 @@ const ProjectTaskItem = ({
         </Button>
       </div>
       {isExpanded && (
-        <div className="px-2 pb-2 pl-14">
+        <div className="px-2 pb-2 pl-14 space-y-2">
+          <SubtaskList
+            subtasks={task.subtasks}
+            onAdd={(text) => manager.addSubtask(task, text)}
+            onTextChange={(subtask, text) =>
+              manager.setSubtaskText(task, subtask, text)
+            }
+            onDoneChange={(subtask, done) =>
+              manager.setSubtaskDone(task, subtask, done)
+            }
+            onMove={(subtask, index) => manager.moveSubtask(task, subtask, index)}
+            onRemove={(subtask) => manager.removeSubtask(task, subtask)}
+          />
           <Textarea
             value={task.notes}
             onChange={(e) => manager.setTaskNotes(task, e.target.value)}

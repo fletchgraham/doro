@@ -15,6 +15,7 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 - Estimate vs. actual duration tracking
 - Gold: earn it on some task colors, spend it on others (see below)
 - Projects page for longer-term planning, with story points and progress (see below)
+- Subtasks: a checklist inside any task (see below)
 - Quick task entry with keyboard shortcuts
 - Export tasks to clipboard
 
@@ -64,6 +65,21 @@ share notes and completion:
 
 Projects are stored separately from the day's tasks (`doroProjects` in
 localStorage) and survive the daily clear-out.
+
+## Subtasks
+
+Any task, on either page, can hold a checklist of subtasks. Expand the
+task (or look at the active task on the timer page) to see it: type in
+the "Add subtask..." box and press Enter to add one, tick it off, drag it
+to reorder (or Alt+↑/↓ while renaming it), double-click to rename, × to
+delete. Subtasks are deliberately plain: no duration, estimate, points
+or notes of their own. A collapsed row shows how many are ticked, e.g.
+`2/5`.
+
+A project task keeps its subtasks and their ticks between sessions, and
+a day copy pulled in with the sun button shares the same checklist, so
+ticking a step on the timer page ticks it in the project and vice versa.
+Subtasks don't affect story points or progress.
 
 ## Keyboard Shortcuts
 

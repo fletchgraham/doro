@@ -20,8 +20,9 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
 
 - **Seed state** instead of clicking through modals:
   `page.addInitScript(seed => localStorage.setItem("doroTasks", JSON.stringify(seed)), SEED)`.
-  Task shape: `{ id, text, notes: "", events: [], status, duration, order, estimate }`
-  with status one of ready | working | active | done. Every pause
+  Task shape: `{ id, text, notes: "", subtasks: [], events: [], status, duration, order, estimate }`
+  with status one of ready | working | active | done (a missing `subtasks`
+  is migrated to `[]` on load). Every pause
   recomputes `duration` from `events`, so a seeded duration only survives
   if backed by a matching `start`/`stop` pair.
 - **Gold**: rates live in `doroGoldSettings`
@@ -32,9 +33,10 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
 - **Projects**: the projects page is `#/projects`; the timer page stays
   mounted (hidden) underneath so the countdown keeps running. Seed
   `doroProjects` as `{ projects: [{ id, name, order, collapsed }],
-  tasks: [{ id, projectId, text, notes, done, order, points? }] }`. A day
-  task pulled from a project carries `projectTaskId`; notes/done sync both
-  ways through effects in `App`, so wait ~700ms before reading either store.
+  tasks: [{ id, projectId, text, notes, subtasks?, done, order, points? }] }`.
+  A day task pulled from a project carries `projectTaskId`;
+  notes/subtasks/done sync both ways through effects in `App`, so wait
+  ~700ms before reading either store.
   Rows are `[data-testid="project-task"]`; projects are
   `section[data-testid="project"]` and reorder by dragging their header
   (their sortable id is `project:<id>`, the task list droppable is the
@@ -46,6 +48,18 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   `[data-testid="task-project-indicator"]`, a folder icon linking to
   `#/projects`. Uncolored tasks spend gold by
   default, so seed an earning rule for `#9ca3af` before running the timer.
+- **Subtasks**: `{ id, text, done }[]` on both task kinds, ordered by
+  array position. The checklist renders inside a task's expanded area
+  (the row's "Show details" button on projects, the ▶ toggle on the timer
+  page) and in the active task view, as `[data-testid="subtasks"]` with
+  `[data-testid="subtask"]` rows; the "New subtask" input adds on Enter
+  and keeps focus, so blur it before using the `a`/`s` shortcuts.
+  Checkboxes are labelled `Mark "<text>" done` / `not done`, rows drag
+  to reorder in their own nested DndContext (5px activation), and a
+  folded row shows `[data-testid="subtask-count"]` as `done/total`.
+  Prefer `exact: true` on role/label locators and scope them to a row:
+  the timer page stays mounted (hidden) under the projects page, so its
+  checklist is also in the DOM.
 - **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Ready/Done
   lists fall below the default 720px fold and mouse events silently miss.
 - **Drag & drop** (dnd-kit, 8px pointer activation): mouse.down on the row
