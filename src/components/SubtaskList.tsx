@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import type Subtask from "../types/Subtask";
+import type { Template } from "../types/Template";
 import { subtaskProgress } from "../lib/subtasks";
+import { findTemplateByCommand, templateSteps } from "../lib/templates";
+import { useTemplateList } from "../hooks/useTemplates";
+import LinkedText from "./LinkedText";
+import SlashInput from "./SlashInput";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -51,6 +56,7 @@ function SubtaskList({
   className,
 }: SubtaskListProps) {
   const [newText, setNewText] = useState("");
+  const templates = useTemplateList();
   const ids = useMemo(() => subtasks.map((s) => s.id), [subtasks]);
 
   const sensors = useSensors(
@@ -67,10 +73,22 @@ function SubtaskList({
     if (subtask && index !== -1) onMove(subtask, index);
   };
 
+  // A template's steps become subtasks in order; the reducer runs each
+  // add against the state the previous one left
+  const addTemplate = (template: Template) => {
+    for (const step of templateSteps(template)) onAdd(step);
+    setNewText("");
+  };
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const text = newText.trim();
     if (!text) return;
+    const template = findTemplateByCommand(templates, text);
+    if (template) {
+      addTemplate(template);
+      return;
+    }
     onAdd(text);
     setNewText("");
   };
@@ -105,10 +123,12 @@ function SubtaskList({
         </DndContext>
       )}
       <form onSubmit={handleAdd}>
-        <Input
+        <SlashInput
           value={newText}
-          onChange={(e) => setNewText(e.target.value)}
-          placeholder="Add subtask..."
+          onChange={setNewText}
+          onTemplate={addTemplate}
+          hint="adds its subtasks"
+          placeholder="Add subtask... (/ for a template)"
           enterKeyHint="done"
           className="h-7 text-sm"
           aria-label="New subtask"
@@ -205,7 +225,7 @@ function SubtaskRow({
           )}
           title="Double-click to rename, drag to reorder"
         >
-          {subtask.text}
+          <LinkedText text={subtask.text} />
         </span>
       )}
       <Button

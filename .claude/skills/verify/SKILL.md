@@ -31,7 +31,8 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   by 10). Seed a huge spend rate to hit the out-of-gold stop in seconds.
   The readout is `[data-testid="gold-readout"]`.
 - **Projects**: the projects page is `#/projects`; the timer page stays
-  mounted (hidden) underneath so the countdown keeps running. Seed
+  mounted (hidden) underneath so the countdown keeps running (same for
+  `#/templates`). Seed
   `doroProjects` as `{ projects: [{ id, name, order, collapsed }],
   tasks: [{ id, projectId, text, notes, subtasks?, done, order, points? }] }`.
   A day task pulled from a project carries `projectTaskId`;
@@ -60,6 +61,29 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   Prefer `exact: true` on role/label locators and scope them to a row:
   the timer page stays mounted (hidden) under the projects page, so its
   checklist is also in the DOM.
+- **Templates**: the templates page is `#/templates`; seed `doroTemplates`
+  as `{ templates: [{ id, name, steps: string[] }] }` (array order is the
+  display order). Cards are `[data-testid="template"]` with a
+  `[data-testid="template-steps"]` textarea (aria-label
+  `Subtasks for <name>`, one step per line) and
+  `[data-testid="template-step-count"]`; the header drags to reorder and
+  double-clicks to rename (`Template name` input, use `exact: true` — the
+  "New template name" box also matches). Every add-task / add-subtask
+  `Input` is a `SlashInput` (`role="combobox"`, placeholder ends in
+  "(/ for a template)"): typing `/` opens `[data-testid="slash-menu"]`
+  with `role="option"` rows; ArrowUp/Down move, Enter/Tab/click pick,
+  Escape closes just the menu. Picking fires no change event, so after
+  an Escape retype the slash (`fill("")` then `pressSequentially("/")`)
+  to reopen it. Picking in a subtask box adds the steps as subtasks; in a
+  task box it adds a task named after the template with them; in the
+  Add Task modal it fills the name and shows
+  `[data-testid="add-task-template"]` (subtasks ride along on Add); in
+  the switch modal "/name" lists `Start "<name>"` items. The template
+  list reaches these through `TemplatesContext`, so a component rendered
+  outside `App` sees none.
+- **Links**: task/subtask text renders through `LinkedText`: bare
+  http(s)/www URLs and `[label](url)` become `<a target="_blank">`
+  (locate with `a[href='...']`); clicks on them stop propagation.
 - **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Ready/Done
   lists fall below the default 720px fold and mouse events silently miss.
 - **Drag & drop** (dnd-kit, 8px pointer activation): mouse.down on the row

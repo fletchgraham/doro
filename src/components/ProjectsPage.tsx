@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import type Task from "../types/Task";
 import type { Project, ProjectTask } from "../types/Project";
 import type { ProjectManager } from "../hooks/useProjects";
+import type { Template } from "../types/Template";
 import SubtaskList, { SubtaskCount } from "./SubtaskList";
+import LinkedText from "./LinkedText";
+import SlashInput from "./SlashInput";
+import { findTemplateByCommand, subtasksFromTemplate } from "../lib/templates";
+import { useTemplateList } from "../hooks/useTemplates";
 import { POINT_OPTIONS, projectProgress } from "../lib/projectsReducer";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
 import { findDayTask } from "../lib/projectSync";
@@ -343,6 +348,7 @@ function ProjectSection({
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [newTask, setNewTask] = useState("");
+  const templates = useTemplateList();
   const { setNodeRef, isOver } = useDroppable({ id: project.id });
   const {
     attributes: sortableAttributes,
@@ -365,10 +371,21 @@ function ProjectSection({
     setIsEditing(false);
   };
 
+  // A template makes a task named after it, with its steps as subtasks
+  const addFromTemplate = (template: Template) => {
+    manager.addTask(project, template.name, subtasksFromTemplate(template));
+    setNewTask("");
+  };
+
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
     const text = newTask.trim();
     if (!text) return;
+    const template = findTemplateByCommand(templates, text);
+    if (template) {
+      addFromTemplate(template);
+      return;
+    }
     manager.addTask(project, text);
     setNewTask("");
   };
@@ -488,11 +505,14 @@ function ProjectSection({
             </ul>
           </SortableContext>
           <form onSubmit={handleAddTask} className="flex gap-2 mt-2 pl-8">
-            <Input
+            <SlashInput
               value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
-              placeholder="New task..."
-              className="flex-1 h-8"
+              onChange={setNewTask}
+              onTemplate={addFromTemplate}
+              hint="adds a task with its subtasks"
+              placeholder="New task... (/ for a template)"
+              wrapperClassName="flex-1"
+              className="h-8"
               aria-label={`New task in ${project.name}`}
             />
             <Button type="submit" size="sm" disabled={!newTask.trim()}>
@@ -509,7 +529,7 @@ const ProjectTaskOverlay = ({ task }: { task: ProjectTask }) => (
   <div className="list-none rounded-md bg-background border border-border shadow-lg p-2 px-3 flex items-center gap-2">
     <div className="size-6 shrink-0" />
     <span className={cn("flex-1", task.done && "line-through text-muted-foreground")}>
-      {task.text}
+      <LinkedText text={task.text} />
     </span>
     <PointsBadge points={task.points} />
   </div>
@@ -651,7 +671,7 @@ const ProjectTaskItem = ({
             )}
             title="Double-click to rename"
           >
-            {task.text}
+            <LinkedText text={task.text} />
           </span>
         )}
         <SubtaskCount subtasks={task.subtasks} />

@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import type Task from "../types/Task";
+import type Subtask from "../types/Subtask";
+import type { Template } from "../types/Template";
 import { parseTime, formatEstimate } from "../lib/parseTime";
+import {
+  findTemplateByCommand,
+  parseSlashQuery,
+  subtasksFromTemplate,
+  templateSteps,
+} from "../lib/templates";
+import { useTemplateList } from "../hooks/useTemplates";
+import SlashInput from "./SlashInput";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ListChecks } from "lucide-react";
 
 const DEFAULT_ESTIMATE = 20 * 60 * 1000; // 20 minutes
 
@@ -26,7 +37,8 @@ interface AddTaskModalProps {
     text: string,
     status: Task["status"],
     position: "top" | "bottom",
-    estimate?: number
+    estimate?: number,
+    subtasks?: Subtask[]
   ) => void;
 }
 
@@ -35,6 +47,10 @@ function AddTaskModal({ isOpen, onClose, onAdd }: AddTaskModalProps) {
   const [status, setStatus] = useState<Task["status"]>("ready");
   const [position, setPosition] = useState<"top" | "bottom">("bottom");
   const [estimateInput, setEstimateInput] = useState(formatEstimate(DEFAULT_ESTIMATE) || "");
+  // Picked from the slash menu: its steps ride along as subtasks, while
+  // the name stays editable so the task can be called something else
+  const [template, setTemplate] = useState<Template | null>(null);
+  const templates = useTemplateList();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,16 +64,32 @@ function AddTaskModal({ isOpen, onClose, onAdd }: AddTaskModalProps) {
     setStatus("ready");
     setPosition("bottom");
     setEstimateInput(formatEstimate(DEFAULT_ESTIMATE) || "");
+    setTemplate(null);
     onClose();
+  };
+
+  const pickTemplate = (picked: Template) => {
+    setTemplate(picked);
+    setText(picked.name);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (text.trim()) {
-      const estimate = parseTime(estimateInput) ?? undefined;
-      onAdd(text.trim(), status, position, estimate);
-      handleClose();
-    }
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    // "/name" typed straight in, without picking from the menu
+    const chosen = template ?? findTemplateByCommand(templates, trimmed);
+    const name =
+      chosen && parseSlashQuery(trimmed) !== null ? chosen.name : trimmed;
+    const estimate = parseTime(estimateInput) ?? undefined;
+    onAdd(
+      name,
+      status,
+      position,
+      estimate,
+      chosen ? subtasksFromTemplate(chosen) : undefined
+    );
+    handleClose();
   };
 
   const statuses: Task["status"][] = ["active", "working", "ready"];
@@ -69,13 +101,37 @@ function AddTaskModal({ isOpen, onClose, onAdd }: AddTaskModalProps) {
           <DialogTitle>Add Task</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
+          <SlashInput
             ref={inputRef}
             type="text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Task description..."
+            onChange={setText}
+            onTemplate={pickTemplate}
+            hint="names the task and attaches its subtasks"
+            placeholder="Task description... (/ for a template)"
           />
+          {template && (
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+              data-testid="add-task-template"
+            >
+              <ListChecks className="size-4 shrink-0" aria-hidden="true" />
+              <span className="flex-1 truncate">
+                {templateSteps(template).length} subtask
+                {templateSteps(template).length === 1 ? "" : "s"} from "
+                {template.name}"
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setTemplate(null)}
+                aria-label="Remove template"
+              >
+                ×
+              </Button>
+            </div>
+          )}
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">

@@ -9,12 +9,15 @@ import WorkflowyMode from "./components/WorkflowyMode";
 import ColorGoals from "./components/ColorGoals";
 import GoldSettingsModal from "./components/GoldSettingsModal";
 import ProjectsPage from "./components/ProjectsPage";
+import TemplatesPage from "./components/TemplatesPage";
 import useTasks from "./hooks/useTasks";
 import useTimer from "./hooks/useTimer";
 import useTheme from "./hooks/useTheme";
 import useProjects from "./hooks/useProjects";
+import useTemplates, { TemplatesContext } from "./hooks/useTemplates";
 import useHashRoute, { routeHash, type Route } from "./hooks/useHashRoute";
 import type Task from "./types/Task";
+import type Subtask from "./types/Subtask";
 import type { Project, ProjectTask } from "./types/Project";
 import { dayTaskText, syncDayToProjects, syncProjectsToDay } from "./lib/projectSync";
 import { Button } from "@/components/ui/button";
@@ -141,10 +144,13 @@ function App() {
   }, [goldSettings]);
   const taskManager = useTasks();
   const projectManager = useProjects();
+  const templateManager = useTemplates();
   const { isPaused, countdownRef, ...timer } = useTimer();
   const { theme, cycleTheme } = useTheme();
   const route = useHashRoute();
   const onProjectsPage = route === "projects";
+  const onTemplatesPage = route === "templates";
+  const onTimerPage = route === "timer";
 
   // Latest managers for the sync effects below, which must not re-run
   // just because App re-rendered and handed out fresh closures
@@ -326,7 +332,7 @@ function App() {
       }
       const modalOpen =
         isAddModalOpen || isSwitchModalOpen || isGoldSettingsOpen;
-      if (onProjectsPage) return;
+      if (!onTimerPage) return;
       if (e.key === "a" && !modalOpen) {
         e.preventDefault();
         setIsAddModalOpen(true);
@@ -344,14 +350,14 @@ function App() {
     isSwitchModalOpen,
     isColorBreakdownOpen,
     isGoldSettingsOpen,
-    onProjectsPage,
+    onTimerPage,
   ]);
 
   // Paste handler to bulk add tasks when paused
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       // Only when paused, on the timer page, and not in an input
-      if (!isPaused || onProjectsPage) return;
+      if (!isPaused || !onTimerPage) return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -371,7 +377,7 @@ function App() {
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [isPaused, taskManager, onProjectsPage]);
+  }, [isPaused, taskManager, onTimerPage]);
 
   const activeTask = taskManager.getActiveTask();
   const activeColor = activeTask ? activeTask.color || DEFAULT_COLOR : undefined;
@@ -411,7 +417,8 @@ function App() {
     text: string,
     status: Task["status"],
     position: "top" | "bottom",
-    estimate?: number
+    estimate?: number,
+    subtasks?: Subtask[]
   ) => {
     // If adding as active, handle timer state
     if (status === "active") {
@@ -420,11 +427,11 @@ function App() {
       if (taskManager.getActiveTask()) {
         taskManager.logPause();
       }
-      taskManager.addTaskWithOptions(text, status, position, estimate);
+      taskManager.addTaskWithOptions(text, status, position, estimate, subtasks);
       taskManager.logStart();
       resetTimer(true);
     } else {
-      taskManager.addTaskWithOptions(text, status, position, estimate);
+      taskManager.addTaskWithOptions(text, status, position, estimate, subtasks);
     }
   };
 
@@ -501,13 +508,13 @@ function App() {
     resetTimer(true);
   };
 
-  const handleCreateAndStart = (text: string) => {
+  const handleCreateAndStart = (text: string, subtasks?: Subtask[]) => {
     requestNotificationPermission();
     // Pause current active task if exists
     if (taskManager.getActiveTask()) {
       taskManager.logPause();
     }
-    taskManager.addTaskWithOptions(text, "active", "bottom");
+    taskManager.addTaskWithOptions(text, "active", "bottom", undefined, subtasks);
     taskManager.logStart();
     resetTimer(true);
   };
@@ -542,6 +549,7 @@ function App() {
   );
 
   return (
+    <TemplatesContext.Provider value={templateManager.templates}>
     <main
       className="w-full max-w-2xl mx-auto px-4 py-8"
       onClick={() => setSelectedTaskId(null)}
@@ -549,7 +557,8 @@ function App() {
       <nav className="flex items-center gap-1 mb-4" aria-label="Pages">
         {navLink("timer", "Timer")}
         {navLink("projects", "Projects")}
-        {onProjectsPage && (
+        {navLink("templates", "Templates")}
+        {!onTimerPage && (
           <span className="ml-auto text-sm text-muted-foreground">
             {isPaused ? "⏸" : "▶"} {lastTimeRef.current}
           </span>
@@ -563,9 +572,10 @@ function App() {
           onRemoveFromToday={handleRemoveFromToday}
         />
       )}
-      {/* The timer page stays mounted while on projects so the countdown
-          and its effects keep running; it's just hidden */}
-      <div hidden={onProjectsPage}>
+      {onTemplatesPage && <TemplatesPage manager={templateManager} />}
+      {/* The timer page stays mounted while on the other pages so the
+          countdown and its effects keep running; it's just hidden */}
+      <div hidden={!onTimerPage}>
       <ColorGoals
         progress={progressByColor}
         isPaused={isPaused}
@@ -826,6 +836,7 @@ function App() {
         </div>
       )}
     </main>
+    </TemplatesContext.Provider>
   );
 }
 

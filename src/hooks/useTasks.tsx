@@ -83,8 +83,17 @@ const useTasks = () => {
     text: string,
     status: Task["status"],
     position: "top" | "bottom",
-    estimate?: number
-  ) => dispatch({ type: "ADD_TASK_WITH_OPTIONS", text, status, position, estimate });
+    estimate?: number,
+    subtasks?: Subtask[]
+  ) =>
+    dispatch({
+      type: "ADD_TASK_WITH_OPTIONS",
+      text,
+      status,
+      position,
+      estimate,
+      subtasks,
+    });
 
   // Pull a project task into today's ready list, linked so notes,
   // subtasks and completion stay shared with the projects page

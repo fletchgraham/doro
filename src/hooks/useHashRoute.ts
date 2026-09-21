@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 
 // Pages are addressed by hash so the timer keeps running (App never
-// unmounts) and the projects page has a URL you can bookmark.
-export type Route = "timer" | "projects";
+// unmounts) and the other pages have URLs you can bookmark.
+export type Route = "timer" | "projects" | "templates";
 
 export const routeHash: Record<Route, string> = {
   timer: "#/",
   projects: "#/projects",
+  templates: "#/templates",
 };
 
-const parseRoute = (hash: string): Route =>
-  hash.replace(/^#\/?/, "").split("/")[0] === "projects" ? "projects" : "timer";
+const parseRoute = (hash: string): Route => {
+  const page = hash.replace(/^#\/?/, "").split("/")[0];
+  if (page === "projects") return "projects";
+  if (page === "templates") return "templates";
+  return "timer";
+};
 
 export default function useHashRoute(): Route {
   const [route, setRoute] = useState<Route>(() =>
