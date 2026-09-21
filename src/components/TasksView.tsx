@@ -1,7 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import type Task from "../types/Task";
 import type Subtask from "../types/Subtask";
+import type { Template } from "../types/Template";
 import SubtaskList, { SubtaskCount } from "./SubtaskList";
+import LinkedText from "./LinkedText";
+import SlashInput from "./SlashInput";
+import { findTemplateByCommand, subtasksFromTemplate } from "../lib/templates";
+import { useTemplateList } from "../hooks/useTemplates";
 import { formatDuration } from "../lib/formatDuration";
 import { parseTime, formatEstimate } from "../lib/parseTime";
 import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
@@ -52,6 +57,13 @@ interface TaskManager {
   getInactiveTasks: () => Task[];
   getTasksByStatus: (status: string) => Task[];
   addTask: (text: string) => void;
+  addTaskWithOptions: (
+    text: string,
+    status: Task["status"],
+    position: "top" | "bottom",
+    estimate?: number,
+    subtasks?: Subtask[]
+  ) => void;
   removeTask: (task: Task) => void;
   setNotes: (task: Task, text: string) => void;
   setText: (task: Task, text: string) => void;
@@ -104,6 +116,7 @@ function TasksView({
   onSelectTask: (taskId: string | null) => void;
 }) {
   const [newTask, setNewTask] = useState("");
+  const templates = useTemplateList();
   const [timeBudgetInput, setTimeBudgetInput] = useState(
     () => localStorage.getItem("doroTimeBudgetInput") || ""
   );
@@ -258,12 +271,29 @@ function TasksView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedTaskId, taskManager, onSelectTask]);
 
+  // A template makes a task named after it, with its steps as subtasks
+  const addFromTemplate = (template: Template) => {
+    taskManager.addTaskWithOptions(
+      template.name,
+      "ready",
+      "bottom",
+      undefined,
+      subtasksFromTemplate(template)
+    );
+    setNewTask("");
+  };
+
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTask.trim()) {
-      taskManager.addTask(newTask.trim());
-      setNewTask("");
+    const text = newTask.trim();
+    if (!text) return;
+    const template = findTemplateByCommand(templates, text);
+    if (template) {
+      addFromTemplate(template);
+      return;
     }
+    taskManager.addTask(text);
+    setNewTask("");
   };
 
   const handleTimeBudgetBlur = () => {
@@ -453,12 +483,14 @@ function TasksView({
 
         <div className="mt-4">
           <form onSubmit={handleAddTask} className="flex gap-2">
-            <Input
+            <SlashInput
               value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
+              onChange={setNewTask}
+              onTemplate={addFromTemplate}
+              hint="adds a task with its subtasks"
               onClick={(e) => e.stopPropagation()}
-              placeholder="New task..."
-              className="flex-1"
+              placeholder="New task... (/ for a template)"
+              wrapperClassName="flex-1"
             />
             <Button type="submit" disabled={newTask.length === 0}>
               Add
@@ -556,7 +588,7 @@ const TaskItemOverlay = ({ task }: { task: Task }) => {
         style={{ backgroundColor: task.color || "#9ca3af" }}
       />
       <span className="flex-1 flex items-center gap-1">
-        {task.text}
+        <LinkedText text={task.text} />
         {task.projectTaskId && (
           <FolderKanban
             className="size-3.5 text-muted-foreground"
@@ -830,7 +862,9 @@ const TaskItem = ({
               task.status === "done" && "line-through text-muted-foreground"
             )}
           >
-            {task.text}
+            <span>
+              <LinkedText text={task.text} />
+            </span>
             {task.projectTaskId && (
               <a
                 href={routeHash.projects}

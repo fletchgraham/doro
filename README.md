@@ -16,6 +16,8 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 - Gold: earn it on some task colors, spend it on others (see below)
 - Projects page for longer-term planning, with story points and progress (see below)
 - Subtasks: a checklist inside any task (see below)
+- Templates: named subtask lists, applied with `/name` slash commands (see below)
+- Links in task and subtask text open in a new tab
 - Quick task entry with keyboard shortcuts
 - Export tasks to clipboard
 
@@ -80,6 +82,40 @@ A project task keeps its subtasks and their ticks between sessions, and
 a day copy pulled in with the sun button shares the same checklist, so
 ticking a step on the timer page ticks it in the project and vice versa.
 Subtasks don't affect story points or progress.
+
+## Templates
+
+The Templates page (`#/templates`) holds named lists of subtasks, one
+step per line (Alt+↑/↓ moves a line, double-click the name to rename,
+drag the header to reorder). They're applied as slash commands: type `/`
+in any box that adds a task or subtask and an autocomplete lists the
+templates, narrowed by what you type after the slash. ↑/↓ moves through
+them, Enter, Tab or a click picks one, Escape dismisses the menu. Typing
+the whole command and pressing Enter works too, as does a partial name
+that only one template matches (`/rel` for "Release").
+
+What picking does depends on the box:
+
+- In an "Add subtask..." box, the template's steps are added to that
+  task's checklist, in order.
+- In a "New task..." box (timer page or a project), a task named after
+  the template is added with the steps as its subtasks.
+- In the Add Task modal, the template's name fills the description and
+  its steps are attached (shown under the box). The name stays editable,
+  so `/release` can become "Release v2" and keep the checklist.
+- In the switch-task modal (`s`), a "Start" entry creates the task with
+  its subtasks and starts the timer on it.
+
+Templates are stored in `doroTemplates` in localStorage and survive the
+daily clear-out. A template only holds text; the subtasks it adds are
+ordinary subtasks from then on.
+
+## Links
+
+URLs in a task's or subtask's text (`https://...`, `http://...` or
+`www....`) render as links that open in a new tab, as do markdown-style
+`[label](https://...)` links. Trailing punctuation stays outside the
+link. Clicking a link doesn't select, drag or start editing the row.
 
 ## Keyboard Shortcuts
 

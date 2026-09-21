@@ -18,7 +18,7 @@ export type ProjectsAction =
   | { type: "REMOVE_PROJECT"; projectId: string }
   | { type: "SET_PROJECT_COLLAPSED"; projectId: string; collapsed: boolean }
   | { type: "MOVE_PROJECT"; projectId: string; order: number }
-  | { type: "ADD_TASK"; projectId: string; text: string }
+  | { type: "ADD_TASK"; projectId: string; text: string; subtasks?: Subtask[] }
   | { type: "SET_TASK_TEXT"; taskId: string; text: string }
   | { type: "SET_TASK_NOTES"; taskId: string; notes: string }
   | { type: "SET_TASK_POINTS"; taskId: string; points: number | undefined }
@@ -48,13 +48,14 @@ export const createProject = (name: string, order = Date.now()): Project => ({
 export const createProjectTask = (
   projectId: string,
   text: string,
-  order = Date.now()
+  order = Date.now(),
+  subtasks: Subtask[] = []
 ): ProjectTask => ({
   id: crypto.randomUUID(),
   projectId,
   text,
   notes: "",
-  subtasks: [],
+  subtasks,
   done: false,
   order,
 });
@@ -193,7 +194,12 @@ const projectsReducer = (
         ...state,
         tasks: [
           ...state.tasks,
-          createProjectTask(action.projectId, action.text, nextOrder(siblings)),
+          createProjectTask(
+            action.projectId,
+            action.text,
+            nextOrder(siblings),
+            action.subtasks
+          ),
         ],
       };
     }

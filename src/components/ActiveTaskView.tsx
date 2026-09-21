@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import type Task from "../types/Task";
 import type Subtask from "../types/Subtask";
 import SubtaskList from "./SubtaskList";
+import LinkedText from "./LinkedText";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,9 @@ function ActiveTaskView({
             className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 flex items-center gap-2"
             onClick={handleStartEdit}
           >
-            {task.text}
+            <span>
+              <LinkedText text={task.text} />
+            </span>
             {task.projectTaskId && (
               <a
                 href={routeHash.projects}
