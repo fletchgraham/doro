@@ -155,7 +155,8 @@ function App() {
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
-  // Day tasks pulled from a project share notes and completion with it.
+  // Day tasks pulled from a project share notes, subtasks and completion
+  // with it.
   // Edits on the timer page are diffed against the previous render and
   // carried to the project task; only genuine changes dispatch, so the
   // mirror effect below finds nothing left to do.
@@ -173,13 +174,15 @@ function App() {
   }, [taskManager.tasks]);
 
   // The projects store is the source of truth: whenever it changes, the
-  // linked day tasks follow (text incl. the project name, notes, done)
+  // linked day tasks follow (text incl. the project name, notes,
+  // subtasks, done)
   useEffect(() => {
     const manager = taskManagerRef.current;
     const updates = syncProjectsToDay(projectManager.state, manager.tasks);
-    for (const { task, text, notes, done } of updates) {
+    for (const { task, text, notes, subtasks, done } of updates) {
       if (text !== undefined) manager.setText(task, text);
       if (notes !== undefined) manager.setNotes(task, notes);
+      if (subtasks !== undefined) manager.setSubtasks(task, subtasks);
       if (done === true) {
         // Ticking off the task that's clocking time: stop the clock first
         if (task.status === "active") {
@@ -198,6 +201,7 @@ function App() {
     taskManager.addProjectTask(
       dayTaskText(project.name, projectTask.text),
       projectTask.notes,
+      projectTask.subtasks,
       projectTask.id
     );
   };
@@ -716,6 +720,11 @@ function App() {
         onNotesChange={taskManager.setNotes}
         onTextChange={taskManager.setText}
         onUrlChange={taskManager.setUrl}
+        onAddSubtask={taskManager.addSubtask}
+        onSubtaskTextChange={taskManager.setSubtaskText}
+        onSubtaskDoneChange={taskManager.setSubtaskDone}
+        onMoveSubtask={taskManager.moveSubtask}
+        onRemoveSubtask={taskManager.removeSubtask}
         onDurationOverride={taskManager.overrideDuration}
         onDone={taskManager.getActiveTask() ? handleDone : undefined}
         onDeactivate={

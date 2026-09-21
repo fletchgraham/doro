@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type Task from "../types/Task";
+import type Subtask from "../types/Subtask";
+import SubtaskList, { SubtaskCount } from "./SubtaskList";
 import { formatDuration } from "../lib/formatDuration";
 import { parseTime, formatEstimate } from "../lib/parseTime";
 import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
@@ -57,6 +59,11 @@ interface TaskManager {
   setColor: (task: Task, color: string | undefined) => void;
   setEstimate: (task: Task, estimate: number | undefined) => void;
   setUrl: (task: Task, url: string | undefined) => void;
+  addSubtask: (task: Task, text: string) => void;
+  setSubtaskText: (task: Task, subtask: Subtask, text: string) => void;
+  setSubtaskDone: (task: Task, subtask: Subtask, done: boolean) => void;
+  moveSubtask: (task: Task, subtask: Subtask, index: number) => void;
+  removeSubtask: (task: Task, subtask: Subtask) => void;
   reorderTask: (task: Task, direction: "up" | "down") => void;
   moveTask: (task: Task, toStatus: Task["status"], newOrder: number) => void;
   overrideDuration: (task: Task, duration: number) => void;
@@ -191,6 +198,9 @@ function TasksView({
         lines.push(`\t${task.text}`);
         if (task.duration > 0) {
           lines.push(`\t\tduration: ${formatDuration(task.duration)}`);
+        }
+        for (const subtask of task.subtasks) {
+          lines.push(`\t\t[${subtask.done ? "x" : " "}] ${subtask.text}`);
         }
         if (task.notes.trim()) {
           lines.push(`\t\tnotes`);
@@ -850,6 +860,8 @@ const TaskItem = ({
           </span>
         )}
 
+        <SubtaskCount subtasks={task.subtasks} />
+
         {/* Inline editable estimate */}
         {isEditingEstimate ? (
           <Input
@@ -924,6 +936,18 @@ const TaskItem = ({
             onPointerDown={(e) => e.stopPropagation()}
             placeholder="URL..."
             className="h-7 text-sm"
+          />
+          <SubtaskList
+            subtasks={task.subtasks}
+            onAdd={(text) => manager.addSubtask(task, text)}
+            onTextChange={(subtask, text) =>
+              manager.setSubtaskText(task, subtask, text)
+            }
+            onDoneChange={(subtask, done) =>
+              manager.setSubtaskDone(task, subtask, done)
+            }
+            onMove={(subtask, index) => manager.moveSubtask(task, subtask, index)}
+            onRemove={(subtask) => manager.removeSubtask(task, subtask)}
           />
           <Textarea
             value={task.notes}

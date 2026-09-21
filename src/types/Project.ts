@@ -1,3 +1,5 @@
+import type Subtask from "./Subtask";
+
 // Longer-term planning lives in projects, each holding an ordered list of
 // tasks. Unlike the day's tasks (which are thrown away each morning), these
 // persist until they're finished or deleted.
@@ -13,6 +15,8 @@ export interface ProjectTask {
   projectId: string;
   text: string;
   notes: string;
+  // Checklist within the task, kept (with its ticks) across sessions
+  subtasks: Subtask[];
   done: boolean;
   order: number;
   // Agile-style story points; unpointed tasks count for nothing in

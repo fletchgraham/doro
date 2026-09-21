@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from "react";
 import type { Project, ProjectTask } from "../types/Project";
+import type Subtask from "../types/Subtask";
 import projectsReducer, {
   byOrder,
   loadProjectsState,
@@ -53,6 +54,31 @@ const useProjects = () => {
       apply({ type: "SET_TASK_POINTS", taskId: task.id, points }),
     setTaskDone: (task: ProjectTask, done: boolean) =>
       apply({ type: "SET_TASK_DONE", taskId: task.id, done }),
+    addSubtask: (task: ProjectTask, text: string) =>
+      apply({ type: "ADD_SUBTASK", taskId: task.id, text }),
+    setSubtaskText: (task: ProjectTask, subtask: Subtask, text: string) =>
+      apply({
+        type: "SET_SUBTASK_TEXT",
+        taskId: task.id,
+        subtaskId: subtask.id,
+        text,
+      }),
+    setSubtaskDone: (task: ProjectTask, subtask: Subtask, done: boolean) =>
+      apply({
+        type: "SET_SUBTASK_DONE",
+        taskId: task.id,
+        subtaskId: subtask.id,
+        done,
+      }),
+    moveSubtask: (task: ProjectTask, subtask: Subtask, index: number) =>
+      apply({
+        type: "MOVE_SUBTASK",
+        taskId: task.id,
+        subtaskId: subtask.id,
+        index,
+      }),
+    removeSubtask: (task: ProjectTask, subtask: Subtask) =>
+      apply({ type: "REMOVE_SUBTASK", taskId: task.id, subtaskId: subtask.id }),
     moveTask: (task: ProjectTask, projectId: string, order: number) =>
       apply({ type: "MOVE_TASK", taskId: task.id, projectId, order }),
     removeTask: (task: ProjectTask) =>

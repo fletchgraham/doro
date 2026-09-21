@@ -1,6 +1,10 @@
+import type Subtask from "./Subtask";
+
 export default interface Task {
   text: string;
   notes: string;
+  // Checklist within the task; order is array order
+  subtasks: Subtask[];
   id: string;
   events: TaskEvent[];
   status: "ready" | "working" | "active" | "done";
