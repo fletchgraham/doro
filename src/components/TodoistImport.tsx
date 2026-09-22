@@ -1,46 +1,20 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  fetchTodaysTasks,
-  getTodoistToken,
-  setTodoistToken,
-  clearTodoistToken,
-  getTodoistLabel,
-  setTodoistLabel,
-  type ImportableTask,
-} from "../lib/todoist";
+import { fetchTodaysTasks, type ImportableTask } from "../lib/todoist";
+import { useSettingsContext } from "../hooks/useSettings";
 
 interface TodoistImportProps {
   onImport: (tasks: ImportableTask[]) => void;
+  onOpenSettings: () => void;
 }
 
-function TodoistImport({ onImport }: TodoistImportProps) {
-  const [token, setToken] = useState(getTodoistToken);
-  const [tokenInput, setTokenInput] = useState("");
-  const [label, setLabel] = useState(getTodoistLabel);
+// The import button for Todoist mode; the token and label filter are set
+// in the settings modal.
+function TodoistImport({ onImport, onOpenSettings }: TodoistImportProps) {
+  const { todoist, setTodoist } = useSettingsContext();
+  const { token, label } = todoist;
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-
-  const handleLabelChange = (value: string) => {
-    setLabel(value);
-    setTodoistLabel(value);
-  };
-
-  const handleSaveToken = () => {
-    const trimmed = tokenInput.trim();
-    if (!trimmed) return;
-    setTodoistToken(trimmed);
-    setToken(trimmed);
-    setTokenInput("");
-    setStatus(null);
-  };
-
-  const handleDisconnect = () => {
-    clearTodoistToken();
-    setToken(null);
-    setStatus(null);
-  };
 
   const handleImport = async () => {
     if (!token) return;
@@ -62,8 +36,7 @@ function TodoistImport({ onImport }: TodoistImportProps) {
       const message = err instanceof Error ? err.message : "Import failed";
       setStatus(message);
       if (message.includes("Invalid Todoist API token")) {
-        clearTodoistToken();
-        setToken(null);
+        setTodoist({ token: "" });
       }
     } finally {
       setLoading(false);
@@ -72,25 +45,21 @@ function TodoistImport({ onImport }: TodoistImportProps) {
 
   if (!token) {
     return (
-      <div className="flex items-center gap-2">
-        <Input
-          value={tokenInput}
-          onChange={(e) => setTokenInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSaveToken()}
-          onClick={(e) => e.stopPropagation()}
-          placeholder="Todoist API token..."
-          className="w-48 h-8 text-sm"
-          type="password"
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSaveToken}
-          disabled={!tokenInput.trim()}
+      <p className="text-xs text-muted-foreground">
+        Todoist mode is on. Add your API token in{" "}
+        <button
+          type="button"
+          className="underline hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenSettings();
+          }}
         >
-          Connect
-        </Button>
-      </div>
+          Settings
+        </button>{" "}
+        to import today's tasks.
+        {status && <span className="ml-2">{status}</span>}
+      </p>
     );
   }
 
@@ -99,19 +68,11 @@ function TodoistImport({ onImport }: TodoistImportProps) {
       <Button variant="outline" onClick={handleImport} disabled={loading}>
         {loading ? "Importing..." : "Import from Todoist"}
       </Button>
-      <Input
-        value={label}
-        onChange={(e) => handleLabelChange(e.target.value)}
-        onClick={(e) => e.stopPropagation()}
-        placeholder="label filter (optional)"
-        className="w-44 h-8 text-sm"
-      />
-      <button
-        onClick={handleDisconnect}
-        className="text-xs text-muted-foreground hover:text-foreground underline"
-      >
-        Disconnect
-      </button>
+      {label.trim() && (
+        <span className="text-xs text-muted-foreground">
+          label: {label.trim()}
+        </span>
+      )}
       {status && (
         <span className="text-xs text-muted-foreground">{status}</span>
       )}

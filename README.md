@@ -20,6 +20,8 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 - Links in task and subtask text open in a new tab
 - Quick task entry with keyboard shortcuts
 - Export tasks to clipboard
+- Settings modal (gear icon): theme, feature flags, Todoist and Workflowy
+  modes (see below)
 
 ## Usage
 
@@ -43,7 +45,35 @@ color either earns or spends gold, at a rate you set per minute worked:
 
 Defaults: red earns 1 and blue earns 0.2 per minute; every other color
 spends 1 per minute. Click the gold readout next to the shuffle button to
-change modes and rates. A rate of 0 makes a color neutral.
+change modes and rates. A rate of 0 makes a color neutral. The whole
+feature can be switched off in Settings (see below); off, the readout is
+hidden and the timer never stops for lack of gold.
+
+## Settings
+
+The gear icon at the right of the timer page's toolbar opens Settings.
+Everything in it is saved as you change it:
+
+- **Appearance**: light, dark or follow the system.
+- **Features**: feature flags to simplify the app. Each hides its feature
+  entirely while keeping its data, so it comes back as it was when
+  switched on again.
+  - *Gold economy*: the gold readout, its rates and the out-of-gold stop.
+  - *Accomplishable color coding*: the "Time left" budget above the task
+    lists. With a budget entered, each Working/Ready task turns green if
+    its remaining estimate (20 minutes when it has none) still fits in
+    order, red once the budget is used up, with an over/under readout.
+    Off by default.
+  - *Goals*: the per-color goal bars at the top of the timer page.
+- **Todoist mode**: with a token entered, an "Import from Todoist" button
+  on the timer page pulls today's tasks into Ready, optionally only those
+  with a given label. Priorities map to colors.
+- **Workflowy mode**: two-way sync between the day's tasks and the
+  children of one Workflowy node (paste a node link or UUID and your API
+  key). The timer page shows a Sync button and the last sync's result.
+
+Flags live in `doroFeatures` in localStorage; the first load carries the
+old "Show accomplishable" switch over.
 
 ## Projects
 

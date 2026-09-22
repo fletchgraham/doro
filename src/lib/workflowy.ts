@@ -19,42 +19,6 @@ export interface WorkflowyTaskData {
 
 const API_PROXY = "/api/workflowy";
 
-// --- settings (localStorage) ---
-
-export function getWorkflowyEnabled(): boolean {
-  return localStorage.getItem("doroWorkflowyEnabled") === "true";
-}
-
-export function setWorkflowyEnabled(enabled: boolean): void {
-  localStorage.setItem("doroWorkflowyEnabled", String(enabled));
-}
-
-export function getWorkflowyApiKey(): string {
-  return localStorage.getItem("doroWorkflowyApiKey") ?? "";
-}
-
-export function setWorkflowyApiKey(key: string): void {
-  if (key) localStorage.setItem("doroWorkflowyApiKey", key);
-  else localStorage.removeItem("doroWorkflowyApiKey");
-}
-
-export function getWorkflowyParentInput(): string {
-  return localStorage.getItem("doroWorkflowyParentInput") ?? "";
-}
-
-export function setWorkflowyParentInput(value: string): void {
-  localStorage.setItem("doroWorkflowyParentInput", value);
-}
-
-export function getWorkflowyParentId(): string {
-  return localStorage.getItem("doroWorkflowyParentId") ?? "";
-}
-
-export function setWorkflowyParentId(id: string): void {
-  if (id) localStorage.setItem("doroWorkflowyParentId", id);
-  else localStorage.removeItem("doroWorkflowyParentId");
-}
-
 // --- parent node input parsing ---
 
 const UUID_RE =

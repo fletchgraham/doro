@@ -25,6 +25,26 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   is migrated to `[]` on load). Every pause
   recomputes `duration` from `events`, so a seeded duration only survives
   if backed by a matching `start`/`stop` pair.
+- **Settings**: the gear button (aria-label "Open settings", right of the
+  toolbar) opens `[data-testid="settings-modal"]`: theme radios
+  (`role="radio"`, names Light/Dark/System), feature switches
+  `#feature-gold`, `#feature-accomplishable`, `#feature-goals`, and
+  `#todoist-mode` / `#workflowy-mode` switches whose inputs (aria-labels
+  "Todoist API token", "Todoist label filter", "Workflowy API key",
+  "Workflowy parent node") show while the mode is on. Flags persist at
+  once to `doroFeatures` (`{ gold, accomplishable, goals }`; seed it to
+  skip the modal). Off, gold hides its readout and never stops the timer,
+  accomplishable hides the "Time left" bar and row coloring, goals hides
+  the goal bars. Accomplishable is off by default (a legacy
+  `doroShowAccomplishable` of `"true"` turns it on when `doroFeatures` is
+  absent); coloring needs `doroTimeBudget` (ms) > 0 as well. Todoist mode
+  (`doroTodoistEnabled`, defaulting to on when `doroTodoistToken` exists)
+  shows "Import from Todoist" only with a token; Workflowy mode
+  (`doroWorkflowyEnabled` + `doroWorkflowyApiKey` +
+  `doroWorkflowyParentInput`) adds a "Workflowy mode … Sync" footer to
+  the timer page and syncs on enable/load once configured. The modal
+  fades out over ~200ms, so wait for it to detach before asserting on
+  the page behind it.
 - **Gold**: rates live in `doroGoldSettings`
   (`{ version: 2, rules: { [hex]: { mode, rate } } }`, rate per minute; an
   unversioned bare map is read as the old per-10-minute format and divided

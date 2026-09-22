@@ -44,8 +44,5 @@ export default function useTheme() {
     return () => media.removeEventListener("change", onChange);
   }, [theme]);
 
-  const cycleTheme = () =>
-    setTheme((t) => (t === "system" ? "light" : t === "light" ? "dark" : "system"));
-
-  return { theme, setTheme, cycleTheme };
+  return { theme, setTheme };
 }
