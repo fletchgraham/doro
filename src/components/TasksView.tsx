@@ -15,7 +15,6 @@ import { handleLineMoveKeyDown } from "../lib/moveLine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Popover,
   PopoverContent,
@@ -25,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { ExternalLink, FolderKanban, Lock, LockOpen } from "lucide-react";
 import { routeHash } from "../hooks/useHashRoute";
 import TodoistImport from "./TodoistImport";
+import { useSettingsContext } from "../hooks/useSettings";
 import {
   DndContext,
   DragOverlay,
@@ -110,21 +110,24 @@ function TasksView({
   taskManager,
   selectedTaskId,
   onSelectTask,
+  onOpenSettings,
 }: {
   taskManager: TaskManager;
   selectedTaskId: string | null;
   onSelectTask: (taskId: string | null) => void;
+  onOpenSettings: () => void;
 }) {
   const [newTask, setNewTask] = useState("");
   const templates = useTemplateList();
+  const { features, todoist } = useSettingsContext();
+  // Accomplishable coloring is a feature flag (Settings); the time budget
+  // it works against is entered here
+  const showAccomplishable = features.accomplishable;
   const [timeBudgetInput, setTimeBudgetInput] = useState(
     () => localStorage.getItem("doroTimeBudgetInput") || ""
   );
   const [timeBudget, setTimeBudget] = useState<number>(
     () => Number(localStorage.getItem("doroTimeBudget")) || 0
-  );
-  const [showAccomplishable, setShowAccomplishable] = useState(
-    () => localStorage.getItem("doroShowAccomplishable") === "true"
   );
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -136,10 +139,6 @@ function TasksView({
   useEffect(() => {
     localStorage.setItem("doroTimeBudget", String(timeBudget));
   }, [timeBudget]);
-
-  useEffect(() => {
-    localStorage.setItem("doroShowAccomplishable", String(showAccomplishable));
-  }, [showAccomplishable]);
 
   // Configure sensors for drag detection
   // Note: KeyboardSensor removed to avoid conflicts with existing arrow key reordering
@@ -373,6 +372,7 @@ function TasksView({
     >
       <div>
         {/* Time budget controls */}
+        {showAccomplishable && (
         <div className="flex items-center gap-4 mt-6 mb-4 p-3 bg-muted/50 rounded-lg">
           <div className="flex items-center gap-2">
             <label className="text-sm text-muted-foreground whitespace-nowrap">
@@ -388,14 +388,7 @@ function TasksView({
               className="w-24 h-8"
             />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Switch
-              checked={showAccomplishable}
-              onCheckedChange={setShowAccomplishable}
-            />
-            <span className="text-sm">Show accomplishable</span>
-          </label>
-          {showAccomplishable && timeBudget > 0 && (
+          {timeBudget > 0 && (
             <span
               className={cn(
                 "text-sm font-medium ml-auto",
@@ -412,6 +405,7 @@ function TasksView({
             </span>
           )}
         </div>
+        )}
 
         <h3 className="text-lg font-semibold mt-6 mb-2">Working</h3>
         <SortableContext
@@ -518,9 +512,14 @@ function TasksView({
           </DroppableList>
         </SortableContext>
 
-        <div className="mt-6">
-          <TodoistImport onImport={taskManager.importTasks} />
-        </div>
+        {todoist.enabled && (
+          <div className="mt-6">
+            <TodoistImport
+              onImport={taskManager.importTasks}
+              onOpenSettings={onOpenSettings}
+            />
+          </div>
+        )}
 
         <div className="mt-4 flex gap-2">
           <Button variant="outline" onClick={exportTasks}>

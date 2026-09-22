@@ -1,23 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type Task from "../types/Task";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import type { WorkflowySettings } from "../lib/settings";
 import {
   completeNode,
   createNode,
   fetchWorkflowyTasks,
-  getWorkflowyApiKey,
-  getWorkflowyEnabled,
   getWorkflowyNodeUrl,
-  getWorkflowyParentId,
-  getWorkflowyParentInput,
   parseParentInput,
   resolveParentId,
-  setWorkflowyApiKey,
-  setWorkflowyEnabled,
-  setWorkflowyParentId,
-  setWorkflowyParentInput,
   uncompleteNode,
   updateNode,
   type WorkflowyTaskData,
@@ -25,17 +15,24 @@ import {
 
 const PUSH_DEBOUNCE_MS = 1500;
 
-interface WorkflowyTaskManager {
+export interface WorkflowyTaskManager {
   tasks: Task[];
   mergeWorkflowyTasks: (nodes: WorkflowyTaskData[]) => void;
   setWorkflowyId: (taskId: string, workflowyId: string, url: string) => void;
 }
 
-function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
-  const [enabled, setEnabled] = useState(getWorkflowyEnabled);
-  const [apiKey, setApiKey] = useState(getWorkflowyApiKey);
-  const [parentInput, setParentInput] = useState(getWorkflowyParentInput);
-  const [parentId, setParentId] = useState(getWorkflowyParentId);
+/**
+ * Two-way sync between the day's tasks and the children of a Workflowy
+ * node: pulls on demand (and once on load), pushes local edits as they
+ * happen. Settings come from the settings modal; this only writes back
+ * the resolved parent id.
+ */
+export default function useWorkflowySync(
+  taskManager: WorkflowyTaskManager,
+  settings: WorkflowySettings,
+  onChange: (patch: Partial<WorkflowySettings>) => void
+) {
+  const { enabled, apiKey, parentInput, parentId } = settings;
   const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +44,10 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
   tasksRef.current = taskManager.tasks;
   const managerRef = useRef(taskManager);
   managerRef.current = taskManager;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const prevTasksRef = useRef<Task[] | null>(null);
   // Set while applying a remote merge so the diff effect doesn't push the
@@ -66,18 +67,19 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
    * by walking the tree once and caching the result.
    */
   const ensureParentId = async (key: string): Promise<string> => {
-    if (parentId) return parentId;
-    const target = parseParentInput(parentInput);
+    const current = settingsRef.current;
+    if (current.parentId) return current.parentId;
+    const target = parseParentInput(current.parentInput);
     if (!target) {
       throw new Error("Paste a Workflowy node link or UUID first");
     }
     const resolved = await resolveParentId(key, target);
-    setParentId(resolved);
-    setWorkflowyParentId(resolved);
+    onChangeRef.current({ parentId: resolved });
     return resolved;
   };
 
-  const syncNow = async (key = apiKey) => {
+  const syncNow = async () => {
+    const key = settingsRef.current.apiKey;
     if (!key) {
       setError("Enter your Workflowy API key first");
       return;
@@ -100,16 +102,26 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
     }
   };
 
-  // Pull from workflowy once on load when the mode is already configured
-  const didInitialSyncRef = useRef(false);
+  // Pull from workflowy once on load when the mode is already configured,
+  // and again whenever the mode is switched on with a key and node in place
+  const prevEnabledRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (didInitialSyncRef.current) return;
-    didInitialSyncRef.current = true;
-    if (getWorkflowyEnabled() && getWorkflowyApiKey() && getWorkflowyParentId()) {
-      syncNow(getWorkflowyApiKey());
+    const wasEnabled = prevEnabledRef.current;
+    prevEnabledRef.current = enabled;
+    const current = settingsRef.current;
+    if (wasEnabled === null) {
+      if (enabled && current.apiKey && current.parentId) syncNow();
+      return;
+    }
+    if (enabled && !wasEnabled) {
+      setError(null);
+      setStatus(null);
+      if (current.apiKey && (current.parentId || current.parentInput.trim())) {
+        syncNow();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 
   const schedulePush = (taskId: string, push: () => Promise<void>) => {
     const timers = pushTimersRef.current;
@@ -204,91 +216,10 @@ function WorkflowyMode({ taskManager }: { taskManager: WorkflowyTaskManager }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskManager.tasks, configured, apiKey, parentId]);
 
-  const handleToggle = (on: boolean) => {
-    setEnabled(on);
-    setWorkflowyEnabled(on);
-    setError(null);
-    setStatus(null);
-    if (on && apiKey && (parentId || parentInput.trim())) {
-      syncNow();
-    }
-  };
+  // Sync is possible once there's a key and something to resolve
+  const canSync = !!apiKey && !!(parentId || parentInput.trim());
 
-  const handleApiKeyChange = (value: string) => {
-    setApiKey(value);
-    setWorkflowyApiKey(value.trim());
-  };
-
-  const handleParentInputChange = (value: string) => {
-    setParentInput(value);
-    setWorkflowyParentInput(value);
-    // The target changed; forget the previously resolved node
-    setParentId("");
-    setWorkflowyParentId("");
-  };
-
-  return (
-    <div className="mt-10 pt-4 border-t" onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center gap-2 flex-wrap">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Switch checked={enabled} onCheckedChange={handleToggle} />
-          <span className="text-sm">Workflowy mode</span>
-        </label>
-        {enabled && (
-          <>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => handleApiKeyChange(e.target.value)}
-              placeholder="Workflowy API key..."
-              className="w-44 h-8 text-sm"
-            />
-            <Input
-              value={parentInput}
-              onChange={(e) => handleParentInputChange(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && syncNow()}
-              placeholder="Parent node link or UUID..."
-              className="flex-1 min-w-48 h-8 text-sm"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => syncNow()}
-              disabled={syncing || !apiKey || !parentInput.trim()}
-            >
-              {syncing ? "Syncing..." : "Sync"}
-            </Button>
-          </>
-        )}
-      </div>
-      {enabled && (error || status) && (
-        <p
-          className={
-            error
-              ? "text-xs text-red-600 dark:text-red-400 mt-2"
-              : "text-xs text-muted-foreground mt-2"
-          }
-        >
-          {error ?? status}
-        </p>
-      )}
-      {enabled && !error && !status && (
-        <p className="text-xs text-muted-foreground mt-2">
-          Tasks sync from the children of your chosen Workflowy node. Get an
-          API key at{" "}
-          <a
-            href="https://workflowy.com/api-key"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-foreground"
-          >
-            workflowy.com/api-key
-          </a>
-          .
-        </p>
-      )}
-    </div>
-  );
+  return { syncNow, syncing, status, error, configured, canSync };
 }
 
-export default WorkflowyMode;
+export type WorkflowySync = ReturnType<typeof useWorkflowySync>;

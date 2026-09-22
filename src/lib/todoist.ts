@@ -74,23 +74,3 @@ export async function fetchTodaysTasks(
       todoistId: t.id,
     }));
 }
-
-export function getTodoistToken(): string | null {
-  return localStorage.getItem("doroTodoistToken");
-}
-
-export function setTodoistToken(token: string): void {
-  localStorage.setItem("doroTodoistToken", token);
-}
-
-export function clearTodoistToken(): void {
-  localStorage.removeItem("doroTodoistToken");
-}
-
-export function getTodoistLabel(): string {
-  return localStorage.getItem("doroTodoistLabel") ?? "";
-}
-
-export function setTodoistLabel(label: string): void {
-  localStorage.setItem("doroTodoistLabel", label);
-}

@@ -5,9 +5,10 @@ import AllClear from "./components/AllClear";
 import TasksView from "./components/TasksView";
 import AddTaskModal from "./components/AddTaskModal";
 import SwitchTaskModal from "./components/SwitchTaskModal";
-import WorkflowyMode from "./components/WorkflowyMode";
+import WorkflowyStatus from "./components/WorkflowyStatus";
 import ColorGoals from "./components/ColorGoals";
 import GoldSettingsModal from "./components/GoldSettingsModal";
+import SettingsModal from "./components/SettingsModal";
 import ProjectsPage from "./components/ProjectsPage";
 import TemplatesPage from "./components/TemplatesPage";
 import useTasks from "./hooks/useTasks";
@@ -15,6 +16,8 @@ import useTimer from "./hooks/useTimer";
 import useTheme from "./hooks/useTheme";
 import useProjects from "./hooks/useProjects";
 import useTemplates, { TemplatesContext } from "./hooks/useTemplates";
+import useSettings, { SettingsContext } from "./hooks/useSettings";
+import useWorkflowySync from "./hooks/useWorkflowySync";
 import useHashRoute, { routeHash, type Route } from "./hooks/useHashRoute";
 import type Task from "./types/Task";
 import type Subtask from "./types/Subtask";
@@ -25,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
 import { getLiveDuration, hasOpenSession } from "./lib/getDuration";
-import { Coins, Monitor, Moon, Shuffle, Sun } from "lucide-react";
+import { Coins, Settings, Shuffle } from "lucide-react";
 import { DEFAULT_COLOR, colorLabel } from "./lib/taskColors";
 import {
   computeGold,
@@ -129,6 +132,7 @@ function App() {
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isColorBreakdownOpen, setIsColorBreakdownOpen] = useState(false);
   const [isGoldSettingsOpen, setIsGoldSettingsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [goldSettings, setGoldSettings] = useState(loadGoldSettings);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pausedLong, setPausedLong] = useState(false);
@@ -146,7 +150,14 @@ function App() {
   const projectManager = useProjects();
   const templateManager = useTemplates();
   const { isPaused, countdownRef, ...timer } = useTimer();
-  const { theme, cycleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const settings = useSettings();
+  const { features } = settings;
+  const workflowySync = useWorkflowySync(
+    taskManager,
+    settings.workflowy,
+    settings.setWorkflowy
+  );
   const route = useHashRoute();
   const onProjectsPage = route === "projects";
   const onTemplatesPage = route === "templates";
@@ -331,7 +342,10 @@ function App() {
         return;
       }
       const modalOpen =
-        isAddModalOpen || isSwitchModalOpen || isGoldSettingsOpen;
+        isAddModalOpen ||
+        isSwitchModalOpen ||
+        isGoldSettingsOpen ||
+        isSettingsOpen;
       if (!onTimerPage) return;
       if (e.key === "a" && !modalOpen) {
         e.preventDefault();
@@ -350,6 +364,7 @@ function App() {
     isSwitchModalOpen,
     isColorBreakdownOpen,
     isGoldSettingsOpen,
+    isSettingsOpen,
     onTimerPage,
   ]);
 
@@ -383,8 +398,10 @@ function App() {
   const activeColor = activeTask ? activeTask.color || DEFAULT_COLOR : undefined;
   const activeGoldRule = activeColor ? goldSettings[activeColor] : undefined;
   // On a spending task with nothing left to spend: the timer can't run,
-  // only moving on to another task (or earning) gets things going again
-  const isBroke = isSpendingRule(activeGoldRule) && isOutOfGold(gold);
+  // only moving on to another task (or earning) gets things going again.
+  // With the gold feature off, gold is neither shown nor enforced.
+  const isBroke =
+    features.gold && isSpendingRule(activeGoldRule) && isOutOfGold(gold);
 
   // Set right before forcing the countdown to zero so handleComplete can
   // tell an out-of-gold stop from a normal time's-up
@@ -394,6 +411,7 @@ function App() {
   // Moving the countdown's date into the past completes it, which rings
   // the bell and logs the pause through the normal onComplete path.
   useEffect(() => {
+    if (!features.gold) return;
     if (isPaused || !activeTask || !hasOpenSession(activeTask.events)) return;
     const msLeft = msUntilBroke(
       liveGold(taskManager.tasks, goldSettings),
@@ -405,7 +423,14 @@ function App() {
       setDate(Date.now() - 1);
     }, msLeft);
     return () => clearTimeout(timeout);
-  }, [isPaused, activeTask, activeGoldRule, goldSettings, taskManager.tasks]);
+  }, [
+    features.gold,
+    isPaused,
+    activeTask,
+    activeGoldRule,
+    goldSettings,
+    taskManager.tasks,
+  ]);
 
   const workingCount = taskManager.getTasksByStatus("working").length;
   const readyCount = taskManager.getTasksByStatus("ready").length;
@@ -549,6 +574,7 @@ function App() {
   );
 
   return (
+    <SettingsContext.Provider value={settings}>
     <TemplatesContext.Provider value={templateManager.templates}>
     <main
       className="w-full max-w-2xl mx-auto px-4 py-8"
@@ -576,11 +602,13 @@ function App() {
       {/* The timer page stays mounted while on the other pages so the
           countdown and its effects keep running; it's just hidden */}
       <div hidden={!onTimerPage}>
-      <ColorGoals
-        progress={progressByColor}
-        isPaused={isPaused}
-        activeColor={activeColor}
-      />
+      {features.goals && (
+        <ColorGoals
+          progress={progressByColor}
+          isPaused={isPaused}
+          activeColor={activeColor}
+        />
+      )}
       <div className="flex items-center gap-2 mb-4">
         <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
         <Input
@@ -605,6 +633,7 @@ function App() {
         >
           <Shuffle />
         </Button>
+        {features.gold && (
         <button
           type="button"
           className="flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -629,24 +658,19 @@ function App() {
             {formatGold(gold)}
           </span>
         </button>
+        )}
         <Button
           variant="ghost"
           size="icon"
           className="ml-auto text-muted-foreground"
           onClick={(e) => {
             e.stopPropagation();
-            cycleTheme();
+            setIsSettingsOpen(true);
           }}
-          title={`Theme: ${theme} — click to change`}
-          aria-label={`Theme: ${theme}. Click to change`}
+          title="Settings"
+          aria-label="Open settings"
         >
-          {theme === "light" ? (
-            <Sun />
-          ) : theme === "dark" ? (
-            <Moon />
-          ) : (
-            <Monitor />
-          )}
+          <Settings />
         </Button>
         <span
           className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
@@ -755,9 +779,15 @@ function App() {
           taskManager={taskManager}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
       )}
-      <WorkflowyMode taskManager={taskManager} />
+      {settings.workflowy.enabled && (
+        <WorkflowyStatus
+          sync={workflowySync}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+      )}
       </div>
       <AddTaskModal
         isOpen={isAddModalOpen}
@@ -776,6 +806,14 @@ function App() {
         onClose={() => setIsGoldSettingsOpen(false)}
         settings={goldSettings}
         onChange={setGoldSettings}
+      />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        settings={settings}
+        workflowySync={workflowySync}
       />
 
       {/* Color breakdown modal */}
@@ -837,6 +875,7 @@ function App() {
       )}
     </main>
     </TemplatesContext.Provider>
+    </SettingsContext.Provider>
   );
 }
 
