@@ -609,7 +609,7 @@ function App() {
           activeColor={activeColor}
         />
       )}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
         <Input
           type="number"
@@ -659,10 +659,12 @@ function App() {
           </span>
         </button>
         )}
+        {/* Grouped so a narrow screen wraps them together, still right-aligned */}
+        <div className="ml-auto flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
-          className="ml-auto text-muted-foreground"
+          className="text-muted-foreground"
           onClick={(e) => {
             e.stopPropagation();
             setIsSettingsOpen(true);
@@ -673,7 +675,7 @@ function App() {
           <Settings />
         </Button>
         <span
-          className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-nowrap"
           onClick={(e) => {
             e.stopPropagation();
             if (totalDuration > 0) setIsColorBreakdownOpen(true);
@@ -682,6 +684,7 @@ function App() {
         >
           {formatDuration(totalDuration)} worked
         </span>
+        </div>
       </div>
       <h1
         className={cn(

@@ -25,15 +25,12 @@ import { ExternalLink, FolderKanban, Lock, LockOpen } from "lucide-react";
 import { routeHash } from "../hooks/useHashRoute";
 import TodoistImport from "./TodoistImport";
 import { useSettingsContext } from "../hooks/useSettings";
+import { useDragSensors } from "../hooks/useDragSensors";
 import {
   DndContext,
   DragOverlay,
   pointerWithin,
   rectIntersection,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
   useDroppable,
   type CollisionDetection,
   type DragStartEvent,
@@ -140,21 +137,8 @@ function TasksView({
     localStorage.setItem("doroTimeBudget", String(timeBudget));
   }, [timeBudget]);
 
-  // Configure sensors for drag detection
-  // Note: KeyboardSensor removed to avoid conflicts with existing arrow key reordering
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 8px activation distance prevents click conflicts
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200, // 200ms delay prevents scroll conflicts on touch
-        tolerance: 5,
-      },
-    })
-  );
+  // Note: KeyboardSensor omitted to avoid conflicts with existing arrow key reordering
+  const sensors = useDragSensors();
 
   // Get tasks by status
   const workingTasks = useMemo(
@@ -521,7 +505,7 @@ function TasksView({
           </div>
         )}
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportTasks}>
             Export to Clipboard
           </Button>
@@ -792,21 +776,27 @@ const TaskItem = ({
         getAccomplishableClasses()
       )}
     >
+      {/* Below sm the row may wrap: the first group sizes to its text, so
+          the estimate, duration and delete controls drop to a second line
+          only when they don't fit beside it */}
       <div
         onClick={handleClick}
-        className="cursor-pointer p-2 px-3 flex items-center gap-2"
+        className="cursor-pointer p-2 px-3 flex flex-wrap items-center gap-2 drag-handle"
         {...sortableAttributes}
         {...sortableListeners}
       >
+        <div className="flex-auto sm:flex-1 min-w-0 flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon-xs"
           onClick={toggleExpand}
           onPointerDown={(e) => e.stopPropagation()}
           className={cn(
-            "opacity-0 group-hover:opacity-100",
-            isExpanded && "opacity-100"
+            !isExpanded &&
+              "can-hover:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
           )}
+          aria-label={isExpanded ? "Hide details" : "Show details"}
+          aria-expanded={isExpanded}
         >
           {isExpanded ? "▼" : "▶"}
         </Button>
@@ -851,25 +841,25 @@ const TaskItem = ({
             autoFocus
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className="flex-1 h-7"
+            className="flex-1 min-w-0 h-7"
           />
         ) : (
           <span
             onDoubleClick={handleDoubleClick}
             className={cn(
-              "flex-1 flex items-center gap-1",
+              "flex-1 min-w-0 break-words",
               task.status === "done" && "line-through text-muted-foreground"
             )}
           >
-            <span>
-              <LinkedText text={task.text} />
-            </span>
+            <LinkedText text={task.text} />
+            {/* Icons flow inline after the last word, so they stay with the
+                text when it wraps */}
             {task.projectTaskId && (
               <a
                 href={routeHash.projects}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="inline-flex text-muted-foreground hover:text-foreground"
+                className="inline-flex align-[-2px] ml-1 text-muted-foreground hover:text-foreground"
                 title="Part of a project — open Projects"
                 aria-label="Part of a project — open Projects"
                 data-testid="task-project-indicator"
@@ -884,7 +874,7 @@ const TaskItem = ({
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="inline-flex text-muted-foreground hover:text-foreground"
+                className="inline-flex align-[-2px] ml-1 text-muted-foreground hover:text-foreground"
                 title={task.url}
               >
                 <ExternalLink className="size-3.5" />
@@ -893,6 +883,8 @@ const TaskItem = ({
           </span>
         )}
 
+        </div>
+        <div className="ml-auto flex items-center gap-2">
         <SubtaskCount subtasks={task.subtasks} />
 
         {/* Inline editable estimate */}
@@ -954,10 +946,12 @@ const TaskItem = ({
             }
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="opacity-0 group-hover:opacity-100"
+          className="can-hover:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          aria-label={`Delete ${task.text}`}
         >
           ×
         </Button>
+        </div>
       </div>
 
       {isExpanded && (

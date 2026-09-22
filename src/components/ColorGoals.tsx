@@ -60,7 +60,7 @@ function GoalBar({
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="h-6 w-6 shrink-0 can-hover:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           onClick={onRemove}
           aria-label={`Remove ${colorLabel(goal.color)} goal`}
         >
@@ -184,7 +184,7 @@ export default function ColorGoals({
                 "h-6 w-6 text-muted-foreground",
                 // Keep the button discoverable when there's nothing to hover
                 goals.length > 0 &&
-                  "opacity-0 group-hover/goals:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  "can-hover:opacity-0 group-hover/goals:opacity-100 focus-visible:opacity-100 transition-opacity"
               )}
               onClick={(e) => {
                 e.stopPropagation();

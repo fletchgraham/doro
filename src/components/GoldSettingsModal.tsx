@@ -90,7 +90,7 @@ function GoldSettingsModal({
           {TASK_COLORS.map((c) => {
             const rule = ruleFor(settings, c.hex);
             return (
-              <div key={c.hex} className="flex items-center gap-3">
+              <div key={c.hex} className="flex flex-wrap items-center gap-3">
                 <div
                   className="w-4 h-4 rounded-full shrink-0"
                   style={{ backgroundColor: c.hex }}
@@ -113,21 +113,24 @@ function GoldSettingsModal({
                     <SelectItem value="spend">Spend</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={drafts[c.hex] ?? String(rule.rate)}
-                  onChange={(e) => handleRateChange(c.hex, e.target.value)}
-                  onBlur={() =>
-                    setDrafts((d) => ({ ...d, [c.hex]: String(rule.rate) }))
-                  }
-                  className="w-20"
-                  aria-label={`${colorLabel(c.hex)} gold per minute`}
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  gold / min
-                </span>
+                {/* Kept together so a narrow dialog wraps the rate as a unit */}
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={drafts[c.hex] ?? String(rule.rate)}
+                    onChange={(e) => handleRateChange(c.hex, e.target.value)}
+                    onBlur={() =>
+                      setDrafts((d) => ({ ...d, [c.hex]: String(rule.rate) }))
+                    }
+                    className="w-20"
+                    aria-label={`${colorLabel(c.hex)} gold per minute`}
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    gold / min
+                  </span>
+                </div>
               </div>
             );
           })}

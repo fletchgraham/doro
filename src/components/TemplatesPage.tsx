@@ -7,13 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useDragSensors } from "../hooks/useDragSensors";
 import {
   DndContext,
-  PointerSensor,
-  TouchSensor,
   closestCenter,
-  useSensor,
-  useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -35,12 +32,7 @@ function TemplatesPage({ manager }: { manager: TemplateManager }) {
     [manager.templates]
   );
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
-    })
-  );
+  const sensors = useDragSensors();
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -135,7 +127,7 @@ function TemplateCard({
     >
       {/* The header is the drag handle for reordering templates */}
       <div
-        className="group/template flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing"
+        className="group/template flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing drag-handle"
         {...attributes}
         {...listeners}
       >
@@ -178,7 +170,7 @@ function TemplateCard({
         <Button
           variant="ghost"
           size="icon-xs"
-          className="opacity-0 group-hover/template:opacity-100 focus-visible:opacity-100"
+          className="can-hover:opacity-0 group-hover/template:opacity-100 focus-visible:opacity-100"
           onPointerDown={stopPointer}
           onClick={() => {
             if (window.confirm(`Delete template "${template.name}"?`)) {
