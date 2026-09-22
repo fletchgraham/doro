@@ -9,7 +9,7 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 ## Features
 
 - Pomodoro-style countdown timer
-- Drag-and-drop task organization
+- Drag-and-drop task organization (long-press to drag on touch screens)
 - Task status workflow: Ready → Working → Active → Done
 - Time tracking per task
 - Estimate vs. actual duration tracking

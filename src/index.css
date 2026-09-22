@@ -3,8 +3,26 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Touch-screen support. Tailwind's hover: and group-hover: variants only
+   apply where the device can hover, so a control hidden with opacity-0
+   until hover would never show on a phone. Hide it with can-hover:opacity-0
+   instead, and it stays visible wherever hover can't reveal it. */
+@custom-variant can-hover (@media (hover: hover));
+
+/* Rows that drag on long-press. Where there's no hover, a long press would
+   otherwise start a text selection (and the iOS callout menu) instead. */
+@utility drag-handle {
+  @media (hover: none) {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
 body {
   @apply m-0 min-h-screen;
+  /* No double-tap zoom: taps act at once and double-tap edits work on touch */
+  touch-action: manipulation;
 }
 
 @theme inline {

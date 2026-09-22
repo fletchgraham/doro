@@ -23,16 +23,13 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Sun } from "lucide-react";
+import { useDragSensors } from "../hooks/useDragSensors";
 import {
   DndContext,
   DragOverlay,
   closestCenter,
   pointerWithin,
   rectIntersection,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
   useDroppable,
   type CollisionDetection,
   type DragEndEvent,
@@ -98,12 +95,7 @@ function ProjectsPage({
   const [newProject, setNewProject] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
-    })
-  );
+  const sensors = useDragSensors();
 
   const containerIds = useMemo(
     () => new Set(manager.projects.map((p) => p.id)),
@@ -437,7 +429,7 @@ function ProjectSection({
     <Button
       variant="ghost"
       size="icon-xs"
-      className="opacity-0 group-hover/project:opacity-100 focus-visible:opacity-100"
+      className="can-hover:opacity-0 group-hover/project:opacity-100 focus-visible:opacity-100"
       onPointerDown={stopPointer}
       onClick={() => {
         const count = tasks.length;
@@ -464,7 +456,7 @@ function ProjectSection({
     >
       {/* The header is the drag handle for reordering projects */}
       <div
-        className="group/project cursor-grab active:cursor-grabbing"
+        className="group/project cursor-grab active:cursor-grabbing drag-handle"
         {...sortableAttributes}
         {...sortableListeners}
       >
@@ -615,8 +607,10 @@ const ProjectTaskItem = ({
       )}
       data-testid="project-task"
     >
+      {/* Below sm the row wraps: the text keeps most of the first line and
+          the points and buttons drop to a second one */}
       <div
-        className="p-1 px-2 flex items-center gap-2"
+        className="p-1 px-2 flex flex-wrap items-center gap-2 drag-handle"
         {...sortableAttributes}
         {...sortableListeners}
       >
@@ -626,8 +620,8 @@ const ProjectTaskItem = ({
           onClick={() => setIsExpanded((v) => !v)}
           onPointerDown={stopPointer}
           className={cn(
-            "opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100",
-            isExpanded && "opacity-100"
+            !isExpanded &&
+              "can-hover:opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100"
           )}
           aria-label={isExpanded ? "Hide details" : "Show details"}
           aria-expanded={isExpanded}
@@ -656,7 +650,7 @@ const ProjectTaskItem = ({
             }}
             autoFocus
             onPointerDown={stopPointer}
-            className="flex-1 h-7"
+            className="flex-1 min-w-[60%] sm:min-w-0 h-7"
             aria-label="Task text"
           />
         ) : (
@@ -666,7 +660,7 @@ const ProjectTaskItem = ({
               setIsEditing(true);
             }}
             className={cn(
-              "flex-1 cursor-default",
+              "flex-1 min-w-[60%] sm:min-w-0 break-words cursor-default",
               task.done && "line-through text-muted-foreground"
             )}
             title="Double-click to rename"
@@ -674,6 +668,7 @@ const ProjectTaskItem = ({
             <LinkedText text={task.text} />
           </span>
         )}
+        <div className="ml-auto flex items-center gap-2">
         <SubtaskCount subtasks={task.subtasks} />
         {dayTask && dayTask.duration >= 1000 && (
           <span
@@ -733,7 +728,7 @@ const ProjectTaskItem = ({
           }
           className={cn(
             !dayTask &&
-              "opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100 text-muted-foreground"
+              "can-hover:opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100 text-muted-foreground"
           )}
           title={
             dayTask
@@ -752,11 +747,12 @@ const ProjectTaskItem = ({
           onClick={() => {
             if (window.confirm(`Delete "${task.text}"?`)) manager.removeTask(task);
           }}
-          className="opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100"
+          className="can-hover:opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100"
           aria-label={`Delete ${task.text}`}
         >
           ×
         </Button>
+        </div>
       </div>
       {isExpanded && (
         <div className="px-2 pb-2 pl-14 space-y-2">

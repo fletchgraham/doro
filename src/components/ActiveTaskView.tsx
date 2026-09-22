@@ -136,7 +136,7 @@ function ActiveTaskView({
       className="mt-6 p-4 rounded-lg"
       style={{ backgroundColor: `${bgColor}20` }}
     >
-      <div className="flex items-baseline gap-3 mb-3">
+      <div className="flex flex-wrap items-baseline gap-3 mb-3">
         {isEditing ? (
           <Input
             ref={inputRef}
@@ -148,10 +148,10 @@ function ActiveTaskView({
           />
         ) : (
           <h2
-            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 flex items-center gap-2"
+            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 flex items-center gap-2 min-w-0"
             onClick={handleStartEdit}
           >
-            <span>
+            <span className="min-w-0 break-words">
               <LinkedText text={task.text} />
             </span>
             {task.projectTaskId && (

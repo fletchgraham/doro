@@ -109,6 +109,17 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
 - **Drag & drop** (dnd-kit, 8px pointer activation): mouse.down on the row
   center, move 12px to activate, then move in steps to the target, brief
   pause, mouse.up. Task lists only render while the timer is paused.
+  Sensors come from `useDragSensors`: the pointer sensor ignores touch,
+  which drags after a 250ms hold instead (`Input.dispatchTouchEvent` via
+  a CDP session: touchStart, wait 400ms, touchMove steps, touchEnd; a
+  quick swipe scrolls). A hold that starts on an input, button or link
+  never drags.
+- **Touch screens**: controls that reveal on hover (`can-hover:opacity-0`,
+  see `index.css`) are always visible where `(hover: none)`. Chromium's
+  emulation of that query is unreliable across navigations and taps, so
+  pin it per page with `Emulation.setEmulatedMedia` `features:
+  [{ name: "hover", value: "none" }]` on a fresh page. Below `sm` a task
+  row wraps its estimate/duration/delete controls onto a second line.
 - **Timer flows**: set the minutes input to 1 for a fast completion cycle.
   Keyboard: `a` add modal, `s` switch modal (type + Enter creates & starts).
 - **Notifications**: stub `window.Notification` via addInitScript and

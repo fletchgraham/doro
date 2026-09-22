@@ -10,13 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ListChecks } from "lucide-react";
+import { useDragSensors } from "../hooks/useDragSensors";
 import {
   DndContext,
-  PointerSensor,
-  TouchSensor,
   closestCenter,
-  useSensor,
-  useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -59,12 +56,7 @@ function SubtaskList({
   const templates = useTemplateList();
   const ids = useMemo(() => subtasks.map((s) => s.id), [subtasks]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
-    })
-  );
+  const sensors = useDragSensors({ distance: 5 });
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -178,7 +170,7 @@ function SubtaskRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "list-none flex items-center gap-2 rounded px-1 py-0.5 text-sm group/subtask",
+        "list-none flex items-center gap-2 rounded px-1 py-0.5 text-sm group/subtask drag-handle",
         isDragging && "opacity-50"
       )}
       data-testid="subtask"
@@ -220,7 +212,7 @@ function SubtaskRow({
         <span
           onDoubleClick={startEdit}
           className={cn(
-            "flex-1 cursor-default",
+            "flex-1 min-w-0 break-words cursor-default",
             subtask.done && "line-through text-muted-foreground"
           )}
           title="Double-click to rename, drag to reorder"
@@ -233,7 +225,7 @@ function SubtaskRow({
         size="icon-xs"
         onPointerDown={stop}
         onClick={onRemove}
-        className="opacity-0 group-hover/subtask:opacity-100 focus-visible:opacity-100"
+        className="can-hover:opacity-0 group-hover/subtask:opacity-100 focus-visible:opacity-100"
         aria-label={`Delete subtask ${subtask.text}`}
       >
         ×
