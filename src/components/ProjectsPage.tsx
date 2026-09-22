@@ -607,13 +607,15 @@ const ProjectTaskItem = ({
       )}
       data-testid="project-task"
     >
-      {/* Below sm the row wraps: the text keeps most of the first line and
-          the points and buttons drop to a second one */}
+      {/* Below sm the row may wrap: the first group sizes to its text, so
+          the points and buttons drop to a second line only when they don't
+          fit beside it */}
       <div
         className="p-1 px-2 flex flex-wrap items-center gap-2 drag-handle"
         {...sortableAttributes}
         {...sortableListeners}
       >
+        <div className="flex-auto sm:flex-1 min-w-0 flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon-xs"
@@ -650,7 +652,7 @@ const ProjectTaskItem = ({
             }}
             autoFocus
             onPointerDown={stopPointer}
-            className="flex-1 min-w-[60%] sm:min-w-0 h-7"
+            className="flex-1 min-w-0 h-7"
             aria-label="Task text"
           />
         ) : (
@@ -660,7 +662,7 @@ const ProjectTaskItem = ({
               setIsEditing(true);
             }}
             className={cn(
-              "flex-1 min-w-[60%] sm:min-w-0 break-words cursor-default",
+              "flex-1 min-w-0 break-words cursor-default",
               task.done && "line-through text-muted-foreground"
             )}
             title="Double-click to rename"
@@ -668,6 +670,7 @@ const ProjectTaskItem = ({
             <LinkedText text={task.text} />
           </span>
         )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
         <SubtaskCount subtasks={task.subtasks} />
         {dayTask && dayTask.duration >= 1000 && (

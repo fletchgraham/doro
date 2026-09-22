@@ -776,14 +776,16 @@ const TaskItem = ({
         getAccomplishableClasses()
       )}
     >
-      {/* Below sm the row wraps: the text keeps most of the first line and
-          the estimate, duration and delete controls drop to a second one */}
+      {/* Below sm the row may wrap: the first group sizes to its text, so
+          the estimate, duration and delete controls drop to a second line
+          only when they don't fit beside it */}
       <div
         onClick={handleClick}
         className="cursor-pointer p-2 px-3 flex flex-wrap items-center gap-2 drag-handle"
         {...sortableAttributes}
         {...sortableListeners}
       >
+        <div className="flex-auto sm:flex-1 min-w-0 flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon-xs"
@@ -839,25 +841,25 @@ const TaskItem = ({
             autoFocus
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className="flex-1 min-w-[60%] sm:min-w-0 h-7"
+            className="flex-1 min-w-0 h-7"
           />
         ) : (
           <span
             onDoubleClick={handleDoubleClick}
             className={cn(
-              "flex-1 min-w-[60%] sm:min-w-0 flex items-center gap-1",
+              "flex-1 min-w-0 break-words",
               task.status === "done" && "line-through text-muted-foreground"
             )}
           >
-            <span className="min-w-0 break-words">
-              <LinkedText text={task.text} />
-            </span>
+            <LinkedText text={task.text} />
+            {/* Icons flow inline after the last word, so they stay with the
+                text when it wraps */}
             {task.projectTaskId && (
               <a
                 href={routeHash.projects}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="inline-flex text-muted-foreground hover:text-foreground"
+                className="inline-flex align-[-2px] ml-1 text-muted-foreground hover:text-foreground"
                 title="Part of a project — open Projects"
                 aria-label="Part of a project — open Projects"
                 data-testid="task-project-indicator"
@@ -872,7 +874,7 @@ const TaskItem = ({
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="inline-flex text-muted-foreground hover:text-foreground"
+                className="inline-flex align-[-2px] ml-1 text-muted-foreground hover:text-foreground"
                 title={task.url}
               >
                 <ExternalLink className="size-3.5" />
@@ -881,6 +883,7 @@ const TaskItem = ({
           </span>
         )}
 
+        </div>
         <div className="ml-auto flex items-center gap-2">
         <SubtaskCount subtasks={task.subtasks} />
 

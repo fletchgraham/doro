@@ -119,7 +119,8 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   emulation of that query is unreliable across navigations and taps, so
   pin it per page with `Emulation.setEmulatedMedia` `features:
   [{ name: "hover", value: "none" }]` on a fresh page. Below `sm` a task
-  row wraps its estimate/duration/delete controls onto a second line.
+  row wraps its estimate/duration/delete controls onto a second line when
+  they don't fit beside the text.
 - **Timer flows**: set the minutes input to 1 for a fast completion cycle.
   Keyboard: `a` add modal, `s` switch modal (type + Enter creates & starts).
 - **Notifications**: stub `window.Notification` via addInitScript and

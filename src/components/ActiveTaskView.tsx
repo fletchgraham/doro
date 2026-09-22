@@ -148,17 +148,15 @@ function ActiveTaskView({
           />
         ) : (
           <h2
-            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 flex items-center gap-2 min-w-0"
+            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 min-w-0 break-words"
             onClick={handleStartEdit}
           >
-            <span className="min-w-0 break-words">
-              <LinkedText text={task.text} />
-            </span>
+            <LinkedText text={task.text} />
             {task.projectTaskId && (
               <a
                 href={routeHash.projects}
                 onClick={(e) => e.stopPropagation()}
-                className="text-muted-foreground hover:text-foreground"
+                className="inline-flex align-[-2px] ml-2 text-muted-foreground hover:text-foreground"
                 title="Part of a project — open Projects"
                 aria-label="Part of a project — open Projects"
                 data-testid="task-project-indicator"
@@ -172,7 +170,7 @@ function ActiveTaskView({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-muted-foreground hover:text-foreground"
+                className="inline-flex align-[-2px] ml-2 text-muted-foreground hover:text-foreground"
                 title={task.url}
               >
                 <ExternalLink className="size-4" />
