@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { Download, Monitor, Moon, Sun, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { FEATURE_DEFINITIONS } from "@/lib/settings";
+import {
+  backupFilename,
+  createBackup,
+  parseBackup,
+  restoreBackup,
+} from "@/lib/backup";
 import type { Theme } from "../hooks/useTheme";
 import type { SettingsManager } from "../hooks/useSettings";
 import type { WorkflowySync } from "../hooks/useWorkflowySync";
@@ -82,6 +88,90 @@ function ToggleRow({
   );
 }
 
+// Download every piece of stored app state as one JSON file, or replace it
+// all from such a file (then reload so every hook re-reads storage)
+function BackupSection() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const exportData = () => {
+    setError(null);
+    const json = JSON.stringify(createBackup(localStorage), null, 2);
+    const url = URL.createObjectURL(
+      new Blob([json], { type: "application/json" })
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = backupFilename();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = async (file: File) => {
+    setError(null);
+    try {
+      const backup = parseBackup(await file.text());
+      const when = backup.exportedAt
+        ? ` from ${new Date(backup.exportedAt).toLocaleString()}`
+        : "";
+      if (
+        !window.confirm(
+          `Replace all of Doro's current data with the backup${when}? This can't be undone.`
+        )
+      )
+        return;
+      restoreBackup(localStorage, backup);
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't read that file.");
+    }
+  };
+
+  return (
+    <Section title="Backup">
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={exportData}>
+          <Download />
+          Export data
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload />
+          Restore from file
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          aria-label="Backup file"
+          data-testid="backup-file-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) importData(file);
+          }}
+        />
+      </div>
+      <p
+        className={
+          error
+            ? "text-xs text-red-600 dark:text-red-400"
+            : "text-xs text-muted-foreground"
+        }
+      >
+        {error ??
+          "Saves tasks, projects, templates and settings as a JSON file. API keys aren't included, and restoring keeps the ones already set here."}
+      </p>
+    </Section>
+  );
+}
+
 function SettingsModal({
   isOpen,
   onClose,
@@ -104,7 +194,8 @@ function SettingsModal({
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Pick a theme, switch features off to simplify the app, and
-            connect Todoist or Workflowy. Everything is saved as you go.
+            connect Todoist or Workflowy. Everything is saved as you go, and
+            you can back it all up to a file.
           </DialogDescription>
         </DialogHeader>
 
@@ -247,6 +338,8 @@ function SettingsModal({
               </div>
             )}
           </Section>
+
+          <BackupSection />
         </div>
       </DialogContent>
     </Dialog>

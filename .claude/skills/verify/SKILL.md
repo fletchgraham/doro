@@ -45,6 +45,15 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   the timer page and syncs on enable/load once configured. The modal
   fades out over ~200ms, so wait for it to detach before asserting on
   the page behind it.
+- **Backup**: the settings modal's Backup section has "Export data"
+  (downloads `doro-backup-YYYY-MM-DD.json`: `{ app: "doro", version,
+  exportedAt, data }` with every `doro*` localStorage key except `doroTodoistToken` and
+  `doroWorkflowyApiKey`, which are never exported and survive a restore;
+  object/array
+  values embedded as JSON, the rest as raw strings) and "Restore from
+  file" (hidden `[data-testid="backup-file-input"]`, so use
+  `setInputFiles`). Restore validates, asks via window.confirm, replaces
+  all `doro*` keys, then reloads the page; bad files show an error line.
 - **Gold**: rates live in `doroGoldSettings`
   (`{ version: 2, rules: { [hex]: { mode, rate } } }`, rate per minute; an
   unversioned bare map is read as the old per-10-minute format and divided
