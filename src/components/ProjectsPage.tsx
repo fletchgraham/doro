@@ -22,7 +22,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Sun } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronRight,
+  EllipsisVertical,
+  Sun,
+  Trash2,
+} from "lucide-react";
 import { useDragSensors } from "../hooks/useDragSensors";
 import {
   DndContext,
@@ -50,6 +58,8 @@ const stopPointer = (e: React.PointerEvent) => e.stopPropagation();
 
 interface ProjectsPageProps {
   manager: ProjectManager;
+  // Show the archived projects instead of the active ones
+  archive?: boolean;
   dayTasks: Task[];
   onAssignToday: (project: Project, task: ProjectTask) => void;
   onRemoveFromToday: (dayTask: Task) => void;
@@ -88,6 +98,7 @@ const collisionDetection =
 
 function ProjectsPage({
   manager,
+  archive = false,
   dayTasks,
   onAssignToday,
   onRemoveFromToday,
@@ -96,18 +107,19 @@ function ProjectsPage({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useDragSensors();
+  const projects = archive ? manager.archivedProjects : manager.projects;
 
   const containerIds = useMemo(
-    () => new Set(manager.projects.map((p) => p.id)),
-    [manager.projects]
+    () => new Set(projects.map((p) => p.id)),
+    [projects]
   );
   const detectCollisions = useMemo(
     () => collisionDetection(containerIds),
     [containerIds]
   );
   const projectSortableIds = useMemo(
-    () => manager.projects.map((p) => projectSortableId(p.id)),
-    [manager.projects]
+    () => projects.map((p) => projectSortableId(p.id)),
+    [projects]
   );
 
   const draggingTask = useMemo(
@@ -117,9 +129,9 @@ function ProjectsPage({
   const draggingProject = useMemo(
     () =>
       activeId && isProjectId(activeId)
-        ? manager.projects.find((p) => projectSortableId(p.id) === activeId)
+        ? projects.find((p) => projectSortableId(p.id) === activeId)
         : undefined,
-    [manager.projects, activeId]
+    [projects, activeId]
   );
 
   const handleAddProject = (e: React.FormEvent) => {
@@ -131,12 +143,12 @@ function ProjectsPage({
   };
 
   const handleProjectDragEnd = (active: DragEndEvent["active"], over: NonNullable<DragEndEvent["over"]>) => {
-    const project = manager.projects.find(
+    const project = projects.find(
       (p) => projectSortableId(p.id) === active.id
     );
     const overIndex = over.data.current?.sortable?.index;
     if (!project || typeof overIndex !== "number") return;
-    const order = calculateDropOrder(manager.projects, overIndex, project.id);
+    const order = calculateDropOrder(projects, overIndex, project.id);
     if (order !== project.order) manager.moveProject(project, order);
   };
 
@@ -192,16 +204,18 @@ function ProjectsPage({
       onDragCancel={() => setActiveId(null)}
     >
       <div className="space-y-4">
-        {manager.projects.length === 0 && (
+        {projects.length === 0 && (
           <p className="text-sm text-muted-foreground py-6 text-center border border-dashed rounded-lg">
-            No projects yet. Add one below to start planning beyond today.
+            {archive
+              ? "No archived projects."
+              : "No projects yet. Add one below to start planning beyond today."}
           </p>
         )}
         <SortableContext
           items={projectSortableIds}
           strategy={verticalListSortingStrategy}
         >
-          {manager.projects.map((project) => (
+          {projects.map((project) => (
             <ProjectSection
               key={project.id}
               project={project}
@@ -213,18 +227,20 @@ function ProjectsPage({
             />
           ))}
         </SortableContext>
-        <form onSubmit={handleAddProject} className="flex gap-2 pt-2">
-          <Input
-            value={newProject}
-            onChange={(e) => setNewProject(e.target.value)}
-            placeholder="New project..."
-            className="flex-1"
-            aria-label="New project name"
-          />
-          <Button type="submit" disabled={!newProject.trim()}>
-            Add Project
-          </Button>
-        </form>
+        {!archive && (
+          <form onSubmit={handleAddProject} className="flex gap-2 pt-2">
+            <Input
+              value={newProject}
+              onChange={(e) => setNewProject(e.target.value)}
+              placeholder="New project..."
+              className="flex-1"
+              aria-label="New project name"
+            />
+            <Button type="submit" disabled={!newProject.trim()}>
+              Add Project
+            </Button>
+          </form>
+        )}
       </div>
       <DragOverlay>
         {draggingTask ? (
@@ -307,6 +323,74 @@ function ProjectHeader({
       </div>
       <ProgressBar done={progress.done} total={progress.total} />
     </div>
+  );
+}
+
+// The ⋮ menu on a project header: archive (or unarchive) and delete
+function ProjectMenu({
+  project,
+  tasks,
+  manager,
+}: {
+  project: Project;
+  tasks: ProjectTask[];
+  manager: ProjectManager;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const handleDelete = () => {
+    setOpen(false);
+    const count = tasks.length;
+    const detail = count ? ` and its ${count} task${count === 1 ? "" : "s"}` : "";
+    if (window.confirm(`Delete project "${project.name}"${detail}?`)) {
+      manager.removeProject(project);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className={cn(
+            !open &&
+              "can-hover:opacity-0 group-hover/project:opacity-100 focus-visible:opacity-100"
+          )}
+          onPointerDown={stopPointer}
+          aria-label={`Actions for project ${project.name}`}
+        >
+          <EllipsisVertical />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-1 flex flex-col"
+        align="end"
+        data-testid="project-menu"
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start"
+          onClick={() => {
+            setOpen(false);
+            manager.setArchived(project, !project.archived);
+          }}
+        >
+          {project.archived ? <ArchiveRestore /> : <Archive />}
+          {project.archived ? "Unarchive" : "Archive"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start text-destructive hover:text-destructive"
+          onClick={handleDelete}
+        >
+          <Trash2 />
+          Delete
+        </Button>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -426,24 +510,7 @@ function ProjectSection({
   );
 
   const actions = (
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      className="can-hover:opacity-0 group-hover/project:opacity-100 focus-visible:opacity-100"
-      onPointerDown={stopPointer}
-      onClick={() => {
-        const count = tasks.length;
-        const detail = count
-          ? ` and its ${count} task${count === 1 ? "" : "s"}`
-          : "";
-        if (window.confirm(`Delete project "${project.name}"${detail}?`)) {
-          manager.removeProject(project);
-        }
-      }}
-      aria-label={`Delete project ${project.name}`}
-    >
-      ×
-    </Button>
+    <ProjectMenu project={project} tasks={tasks} manager={manager} />
   );
 
   return (

@@ -160,6 +160,7 @@ function App() {
   );
   const route = useHashRoute();
   const onProjectsPage = route === "projects";
+  const onArchivePage = route === "archive";
   const onTemplatesPage = route === "templates";
   const onTimerPage = route === "timer";
 
@@ -583,6 +584,7 @@ function App() {
       <nav className="flex items-center gap-1 mb-4" aria-label="Pages">
         {navLink("timer", "Timer")}
         {navLink("projects", "Projects")}
+        {navLink("archive", "Archive")}
         {navLink("templates", "Templates")}
         {!onTimerPage && (
           <span className="ml-auto text-sm text-muted-foreground">
@@ -590,8 +592,10 @@ function App() {
           </span>
         )}
       </nav>
-      {onProjectsPage && (
+      {(onProjectsPage || onArchivePage) && (
         <ProjectsPage
+          key={route}
+          archive={onArchivePage}
           manager={projectManager}
           dayTasks={taskManager.tasks}
           onAssignToday={handleAssignToday}

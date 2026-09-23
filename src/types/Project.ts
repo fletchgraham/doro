@@ -8,6 +8,9 @@ export interface Project {
   name: string;
   order: number;
   collapsed: boolean;
+  // Archived projects move to the Archive page; their tasks stay put,
+  // including any already on today's list
+  archived: boolean;
 }
 
 export interface ProjectTask {

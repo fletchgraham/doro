@@ -168,6 +168,26 @@ test("rename and collapse a project", () => {
   expect(state.projects[0]).toMatchObject({ name: "Z", collapsed: true });
 });
 
+test("archiving a project keeps its tasks", () => {
+  let state = withProject("A");
+  const projectId = state.projects[0].id;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "t" });
+  expect(state.projects[0].archived).toBe(false);
+  state = projectsReducer(state, {
+    type: "SET_PROJECT_ARCHIVED",
+    projectId,
+    archived: true,
+  });
+  expect(state.projects[0].archived).toBe(true);
+  expect(state.tasks).toHaveLength(1);
+  state = projectsReducer(state, {
+    type: "SET_PROJECT_ARCHIVED",
+    projectId,
+    archived: false,
+  });
+  expect(state.projects[0].archived).toBe(false);
+});
+
 test("progress sums points of done tasks over all pointed tasks", () => {
   let state = withProject();
   const projectId = state.projects[0].id;
@@ -204,7 +224,7 @@ test("loads persisted state and drops malformed entries", () => {
     })
   );
   expect(loaded.projects).toEqual([
-    { id: "p1", name: "P", order: 0, collapsed: false },
+    { id: "p1", name: "P", order: 0, collapsed: false, archived: false },
   ]);
   expect(loaded.tasks).toEqual([
     {

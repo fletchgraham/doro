@@ -17,6 +17,7 @@ export type ProjectsAction =
   | { type: "RENAME_PROJECT"; projectId: string; name: string }
   | { type: "REMOVE_PROJECT"; projectId: string }
   | { type: "SET_PROJECT_COLLAPSED"; projectId: string; collapsed: boolean }
+  | { type: "SET_PROJECT_ARCHIVED"; projectId: string; archived: boolean }
   | { type: "MOVE_PROJECT"; projectId: string; order: number }
   | { type: "ADD_TASK"; projectId: string; text: string; subtasks?: Subtask[] }
   | { type: "SET_TASK_TEXT"; taskId: string; text: string }
@@ -43,6 +44,7 @@ export const createProject = (name: string, order = Date.now()): Project => ({
   name,
   order,
   collapsed: false,
+  archived: false,
 });
 
 export const createProjectTask = (
@@ -113,6 +115,7 @@ export const loadProjectsState = (raw: string | null): ProjectsState => {
         ...p,
         order: typeof p.order === "number" ? p.order : i * 1000,
         collapsed: p.collapsed === true,
+        archived: p.archived === true,
       })),
       tasks: tasks.map((t, i) => ({
         ...t,
@@ -178,6 +181,13 @@ const projectsReducer = (
         ...state,
         projects: state.projects.map((p) =>
           p.id === action.projectId ? { ...p, collapsed: action.collapsed } : p
+        ),
+      };
+    case "SET_PROJECT_ARCHIVED":
+      return {
+        ...state,
+        projects: state.projects.map((p) =>
+          p.id === action.projectId ? { ...p, archived: action.archived } : p
         ),
       };
     case "MOVE_PROJECT":

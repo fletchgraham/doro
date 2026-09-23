@@ -61,7 +61,11 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   Rows are `[data-testid="project-task"]`; projects are
   `section[data-testid="project"]` and reorder by dragging their header
   (their sortable id is `project:<id>`, the task list droppable is the
-  bare id). The sun button is labelled
+  bare id). Each project header has a ⋮ button (aria-label
+  `Actions for project <name>`) opening `[data-testid="project-menu"]`
+  with Archive (Unarchive on archived ones) and Delete (window.confirm).
+  Archived projects (`archived: true`) show only on `#/archive`, the
+  Archive tab; their tasks stay on today's list. The sun button is labelled
   "Add to today" / "Remove from today", progress is
   `[data-testid="project-progress"]`. A project header shows
   `[data-testid="project-today-count"]` (sun + count) only while one of its
