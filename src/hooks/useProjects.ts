@@ -33,7 +33,8 @@ const useProjects = () => {
   return {
     state,
     dispatch: apply,
-    projects: byOrder(state.projects),
+    projects: byOrder(state.projects.filter((p) => !p.archived)),
+    archivedProjects: byOrder(state.projects.filter((p) => p.archived)),
     tasksFor: (projectId: string) => tasksForProject(state, projectId),
     addProject: (name: string) => apply({ type: "ADD_PROJECT", name }),
     renameProject: (project: Project, name: string) =>
@@ -42,6 +43,8 @@ const useProjects = () => {
       apply({ type: "REMOVE_PROJECT", projectId: project.id }),
     setCollapsed: (project: Project, collapsed: boolean) =>
       apply({ type: "SET_PROJECT_COLLAPSED", projectId: project.id, collapsed }),
+    setArchived: (project: Project, archived: boolean) =>
+      apply({ type: "SET_PROJECT_ARCHIVED", projectId: project.id, archived }),
     moveProject: (project: Project, order: number) =>
       apply({ type: "MOVE_PROJECT", projectId: project.id, order }),
     addTask: (project: Project, text: string, subtasks?: Subtask[]) =>

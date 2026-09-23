@@ -11,7 +11,7 @@ import type Task from "../types/Task";
 import type { ProjectsState } from "../types/Project";
 
 const state: ProjectsState = {
-  projects: [{ id: "p1", name: "Project X", order: 0, collapsed: false }],
+  projects: [{ id: "p1", name: "Project X", order: 0, collapsed: false, archived: false }],
   tasks: [
     {
       id: "pt1",
