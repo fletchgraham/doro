@@ -166,7 +166,7 @@ function BackupSection() {
         }
       >
         {error ??
-          "Saves tasks, projects, templates and settings (including API keys) as a JSON file. Restoring replaces everything with the file's contents."}
+          "Saves tasks, projects, templates and settings as a JSON file. API keys aren't included, and restoring keeps the ones already set here."}
       </p>
     </Section>
   );

@@ -47,7 +47,9 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   the page behind it.
 - **Backup**: the settings modal's Backup section has "Export data"
   (downloads `doro-backup-YYYY-MM-DD.json`: `{ app: "doro", version,
-  exportedAt, data }` with every `doro*` localStorage key; object/array
+  exportedAt, data }` with every `doro*` localStorage key except `doroTodoistToken` and
+  `doroWorkflowyApiKey`, which are never exported and survive a restore;
+  object/array
   values embedded as JSON, the rest as raw strings) and "Restore from
   file" (hidden `[data-testid="backup-file-input"]`, so use
   `setInputFiles`). Restore validates, asks via window.confirm, replaces

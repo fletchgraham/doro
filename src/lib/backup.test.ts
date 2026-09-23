@@ -37,12 +37,14 @@ const SAMPLE = {
   doroTheme: "dark",
   doroReadyLocked: "true",
   doroTimeBudget: "3600000",
-  doroTodoistToken: "1e5",
+  doroTodoistLabel: "1e5",
+  doroTodoistToken: "secret-token",
+  doroWorkflowyApiKey: "secret-key",
   otherApp: "untouched",
 };
 
 describe("createBackup", () => {
-  it("captures every doro key, embedding JSON objects and keeping strings raw", () => {
+  it("captures every doro key except credentials, embedding JSON objects and keeping strings raw", () => {
     const backup = createBackup(
       memoryStorage(SAMPLE),
       new Date("2026-09-23T10:00:00Z")
@@ -57,18 +59,33 @@ describe("createBackup", () => {
         doroTasks: [{ id: "1", text: "Write", status: "ready" }],
         doroTheme: "dark",
         doroTimeBudget: "3600000",
-        doroTodoistToken: "1e5",
+        doroTodoistLabel: "1e5",
       },
     });
   });
 });
 
 describe("restoreBackup", () => {
-  it("round-trips storage exactly", () => {
+  it("round-trips storage, keeping this device's credentials", () => {
     const backup = createBackup(memoryStorage(SAMPLE));
-    const target = memoryStorage({ otherApp: "untouched" });
+    const target = memoryStorage({
+      otherApp: "untouched",
+      doroTodoistToken: "secret-token",
+      doroWorkflowyApiKey: "secret-key",
+    });
     restoreBackup(target, parseBackup(JSON.stringify(backup)));
     expect(dump(target)).toEqual(SAMPLE);
+  });
+
+  it("ignores credentials inside a backup file", () => {
+    const target = memoryStorage({ doroTodoistToken: "mine" });
+    restoreBackup(target, {
+      app: "doro",
+      version: 1,
+      exportedAt: "",
+      data: { doroTodoistToken: "theirs", doroWorkflowyApiKey: "theirs" },
+    });
+    expect(dump(target)).toEqual({ doroTodoistToken: "mine" });
   });
 
   it("removes doro keys missing from the backup and ignores foreign keys", () => {

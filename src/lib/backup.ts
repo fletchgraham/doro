@@ -2,6 +2,11 @@
 // app owns starts with "doro", so a backup is simply all of those keys.
 // Values holding JSON objects/arrays are embedded as JSON so the file is
 // readable; everything else is kept as the raw stored string.
+//
+// Credentials (API keys and tokens) never go into a backup, and a restore
+// leaves the ones already on this device in place.
+
+import { TODOIST_TOKEN_KEY, WORKFLOWY_API_KEY_KEY } from "./settings";
 
 export const BACKUP_APP = "doro";
 export const BACKUP_VERSION = 1;
@@ -14,7 +19,10 @@ export interface Backup {
   data: Record<string, unknown>;
 }
 
-const isAppKey = (key: string) => key.startsWith(KEY_PREFIX);
+const SECRET_KEYS = new Set([TODOIST_TOKEN_KEY, WORKFLOWY_API_KEY_KEY]);
+
+const isAppKey = (key: string) =>
+  key.startsWith(KEY_PREFIX) && !SECRET_KEYS.has(key);
 
 const appKeys = (storage: Storage): string[] => {
   const keys: string[] = [];
@@ -91,7 +99,8 @@ export const parseBackup = (text: string): Backup => {
 
 // Replace all of the app's stored state with the backup's. Keys in storage
 // that aren't in the backup are removed, so the result matches the backup
-// exactly. Non-Doro keys in the backup are ignored.
+// exactly. Credentials stay as they are; non-Doro and credential keys in the
+// backup are ignored.
 export const restoreBackup = (storage: Storage, backup: Backup): void => {
   for (const key of appKeys(storage)) storage.removeItem(key);
   for (const [key, value] of Object.entries(backup.data)) {
