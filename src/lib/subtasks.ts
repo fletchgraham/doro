@@ -43,6 +43,16 @@ export const moveSubtask = (
   return next;
 };
 
+/** Put a subtask at `index` in another list, clamped to its ends. */
+export const insertSubtask = (
+  list: Subtask[],
+  subtask: Subtask,
+  index: number
+): Subtask[] => {
+  const to = Math.max(0, Math.min(index, list.length));
+  return [...list.slice(0, to), subtask, ...list.slice(to)];
+};
+
 export const removeSubtask = (list: Subtask[], subtaskId: string): Subtask[] =>
   list.filter((s) => s.id !== subtaskId);
 

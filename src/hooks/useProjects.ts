@@ -80,6 +80,19 @@ const useProjects = () => {
         subtaskId: subtask.id,
         index,
       }),
+    transferSubtask: (
+      from: ProjectTask,
+      subtask: Subtask,
+      to: ProjectTask,
+      index: number
+    ) =>
+      apply({
+        type: "TRANSFER_SUBTASK",
+        fromTaskId: from.id,
+        toTaskId: to.id,
+        subtaskId: subtask.id,
+        index,
+      }),
     removeSubtask: (task: ProjectTask, subtask: Subtask) =>
       apply({ type: "REMOVE_SUBTASK", taskId: task.id, subtaskId: subtask.id }),
     moveTask: (task: ProjectTask, projectId: string, order: number) =>

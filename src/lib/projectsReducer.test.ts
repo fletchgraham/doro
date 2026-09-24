@@ -84,6 +84,70 @@ test("subtasks are added, ticked, renamed, reordered and removed on a task", () 
   ).toEqual(state);
 });
 
+test("transfers a subtask to another task, keeping its tick", () => {
+  let state = withProject();
+  const projectId = state.projects[0].id;
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "one" });
+  state = projectsReducer(state, { type: "ADD_TASK", projectId, text: "two" });
+  const [one, two] = state.tasks.map((t) => t.id);
+  for (const text of ["a", "b"]) {
+    state = projectsReducer(state, { type: "ADD_SUBTASK", taskId: one, text });
+  }
+  for (const text of ["x", "y"]) {
+    state = projectsReducer(state, { type: "ADD_SUBTASK", taskId: two, text });
+  }
+  const texts = (id: string) =>
+    state.tasks.find((t) => t.id === id)!.subtasks.map((s) => s.text);
+  const a = state.tasks[0].subtasks[0];
+  state = projectsReducer(state, {
+    type: "SET_SUBTASK_DONE",
+    taskId: one,
+    subtaskId: a.id,
+    done: true,
+  });
+
+  state = projectsReducer(state, {
+    type: "TRANSFER_SUBTASK",
+    fromTaskId: one,
+    toTaskId: two,
+    subtaskId: a.id,
+    index: 1,
+  });
+  expect(texts(one)).toEqual(["b"]);
+  expect(texts(two)).toEqual(["x", "a", "y"]);
+  expect(state.tasks[1].subtasks[1]).toEqual({ ...a, done: true });
+
+  // Past the end appends; within one task it reorders
+  const b = state.tasks[0].subtasks[0];
+  state = projectsReducer(state, {
+    type: "TRANSFER_SUBTASK",
+    fromTaskId: one,
+    toTaskId: two,
+    subtaskId: b.id,
+    index: 99,
+  });
+  expect(texts(one)).toEqual([]);
+  expect(texts(two)).toEqual(["x", "a", "y", "b"]);
+  state = projectsReducer(state, {
+    type: "TRANSFER_SUBTASK",
+    fromTaskId: two,
+    toTaskId: two,
+    subtaskId: b.id,
+    index: 0,
+  });
+  expect(texts(two)).toEqual(["b", "x", "a", "y"]);
+
+  // Unknown subtask or target: no change
+  for (const action of [
+    { fromTaskId: one, toTaskId: two, subtaskId: "nope" },
+    { fromTaskId: two, toTaskId: "nope", subtaskId: b.id },
+  ]) {
+    expect(
+      projectsReducer(state, { type: "TRANSFER_SUBTASK", index: 0, ...action })
+    ).toBe(state);
+  }
+});
+
 test("ignores tasks added to an unknown project", () => {
   const state = withProject();
   const next = projectsReducer(state, {
