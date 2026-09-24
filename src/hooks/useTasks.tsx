@@ -180,7 +180,7 @@ const useTasks = () => {
     dispatch({ type: "COMPLETE_TASK", pullFromReady: !readyLocked });
 
   const logStart = () => dispatch({ type: "LOG_START" });
-  const logPause = () => dispatch({ type: "LOG_PAUSE" });
+  const logPause = (at?: number) => dispatch({ type: "LOG_PAUSE", at });
 
   const overrideDuration = (task: Task, duration: number) =>
     dispatch({ type: "OVERRIDE_DURATION", taskId: task.id, duration });

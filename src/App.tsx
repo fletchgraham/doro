@@ -408,6 +408,17 @@ function App() {
   // tell an out-of-gold stop from a normal time's-up
   const outOfGoldRef = useRef(false);
 
+  // When the running countdown will hit zero, refreshed on every start and
+  // tick. Browsers throttle or outright freeze timers in background tabs
+  // (e.g. a hidden window while a video call hogs the machine), so the
+  // countdown's onComplete can fire long after the time actually ran out;
+  // the task's session is stopped at this deadline, not at that late
+  // moment, so only the timer's length gets recorded.
+  const deadlineRef = useRef<number | null>(null);
+  const trackDeadline = ({ total }: { total: number }) => {
+    deadlineRef.current = Date.now() + total;
+  };
+
   // While a spending task is clocking, stop it the instant gold hits zero.
   // Moving the countdown's date into the past completes it, which rings
   // the bell and logs the pause through the normal onComplete path.
@@ -419,8 +430,11 @@ function App() {
       activeGoldRule
     );
     if (msLeft === null) return;
+    const brokeAt = Date.now() + msLeft;
     const timeout = setTimeout(() => {
       outOfGoldRef.current = true;
+      // A frozen tab may resume past both; whichever came first ended it
+      deadlineRef.current = Math.min(brokeAt, deadlineRef.current ?? brokeAt);
       setDate(Date.now() - 1);
     }, msLeft);
     return () => clearTimeout(timeout);
@@ -473,8 +487,10 @@ function App() {
   const handleComplete = () => {
     const outOfGold = outOfGoldRef.current;
     outOfGoldRef.current = false;
+    const endedAt = deadlineRef.current ?? undefined;
+    deadlineRef.current = null;
     timer.playAudio();
-    taskManager.logPause();
+    taskManager.logPause(endedAt);
     lastTimeRef.current = "0:00";
     document.title = outOfGold
       ? "💰 Out of gold - Doro"
@@ -704,7 +720,10 @@ function App() {
           autoStart={false}
           date={date}
           onComplete={handleComplete}
-          onTick={({ hours, minutes, seconds }) => {
+          onStart={trackDeadline}
+          onTick={(delta) => {
+            trackDeadline(delta);
+            const { hours, minutes, seconds } = delta;
             const time = `${hours * 60 + minutes}:${seconds
               .toString()
               .padStart(2, "0")}`;
