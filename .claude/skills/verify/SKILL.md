@@ -89,7 +89,10 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   `[data-testid="subtask"]` rows; the "New subtask" input adds on Enter
   and keeps focus, so blur it before using the `a`/`s` shortcuts.
   Checkboxes are labelled `Mark "<text>" done` / `not done`, rows drag
-  to reorder in their own nested DndContext (5px activation), and a
+  to reorder in their own nested DndContext (5px activation) — except on
+  the projects page, where checklists join the page's DndContext so a
+  subtask drags into another expanded task's checklist (lower half of a
+  row = after it) or onto a task row (appends, even when folded); a
   folded row shows `[data-testid="subtask-count"]` as `done/total`.
   Prefer `exact: true` on role/label locators and scope them to a row:
   the timer page stays mounted (hidden) under the projects page, so its

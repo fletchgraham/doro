@@ -2,6 +2,7 @@ import type { Project, ProjectTask, ProjectsState } from "../types/Project";
 import type Subtask from "../types/Subtask";
 import {
   addSubtask,
+  insertSubtask,
   moveSubtask,
   normalizeSubtasks,
   removeSubtask,
@@ -29,6 +30,14 @@ export type ProjectsAction =
   | { type: "SET_SUBTASK_DONE"; taskId: string; subtaskId: string; done: boolean }
   | { type: "MOVE_SUBTASK"; taskId: string; subtaskId: string; index: number }
   | { type: "REMOVE_SUBTASK"; taskId: string; subtaskId: string }
+  // Move a subtask into another task's checklist at `index`
+  | {
+      type: "TRANSFER_SUBTASK";
+      fromTaskId: string;
+      toTaskId: string;
+      subtaskId: string;
+      index: number;
+    }
   // Replace the whole list, used to mirror a linked day task
   | { type: "SET_SUBTASKS"; taskId: string; subtasks: Subtask[] }
   | { type: "MOVE_TASK"; taskId: string; projectId: string; order: number }
@@ -242,6 +251,25 @@ const projectsReducer = (
       return updateSubtasks(state, action.taskId, (s) =>
         removeSubtask(s, action.subtaskId)
       );
+    case "TRANSFER_SUBTASK": {
+      if (action.fromTaskId === action.toTaskId) {
+        return updateSubtasks(state, action.toTaskId, (s) =>
+          moveSubtask(s, action.subtaskId, action.index)
+        );
+      }
+      const from = state.tasks.find((t) => t.id === action.fromTaskId);
+      const subtask = from?.subtasks.find((s) => s.id === action.subtaskId);
+      if (!subtask || !state.tasks.some((t) => t.id === action.toTaskId)) {
+        return state;
+      }
+      return updateSubtasks(
+        updateSubtasks(state, action.fromTaskId, (s) =>
+          removeSubtask(s, action.subtaskId)
+        ),
+        action.toTaskId,
+        (s) => insertSubtask(s, subtask, action.index)
+      );
+    }
     case "SET_SUBTASKS":
       return updateSubtasks(state, action.taskId, () => action.subtasks);
     case "MOVE_TASK":

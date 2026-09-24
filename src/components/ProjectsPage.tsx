@@ -3,7 +3,13 @@ import type Task from "../types/Task";
 import type { Project, ProjectTask } from "../types/Project";
 import type { ProjectManager } from "../hooks/useProjects";
 import type { Template } from "../types/Template";
-import SubtaskList, { SubtaskCount } from "./SubtaskList";
+import type Subtask from "../types/Subtask";
+import SubtaskList, {
+  SubtaskCount,
+  SubtaskOverlay,
+  type SubtaskDragData,
+  type SubtaskListDropData,
+} from "./SubtaskList";
 import LinkedText from "./LinkedText";
 import SlashInput from "./SlashInput";
 import { findTemplateByCommand, subtasksFromTemplate } from "../lib/templates";
@@ -39,6 +45,7 @@ import {
   pointerWithin,
   rectIntersection,
   useDroppable,
+  type Collision,
   type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
@@ -73,17 +80,60 @@ const projectSortableId = (projectId: string) => PROJECT_PREFIX + projectId;
 const isProjectId = (id: string | number) =>
   String(id).startsWith(PROJECT_PREFIX);
 
+// Task rows carry this so a subtask dragged onto one can tell it apart
+// from the project lists
+interface TaskDragData {
+  type: "task";
+  task: ProjectTask;
+}
+
+type DragData = SubtaskDragData | SubtaskListDropData | TaskDragData;
+const dragType = (data: { current?: unknown }) =>
+  (data.current as DragData | undefined)?.type;
+const isSubtaskDroppable = (data: { current?: unknown }) => {
+  const type = dragType(data);
+  return type === "subtask" || type === "subtask-list";
+};
+
+// A subtask drops into the checklist under the pointer, onto the row
+// nearest it there. Over a task's row (a folded one, say) it joins the
+// end of that task's checklist.
+const subtaskCollisions: CollisionDetection = (args) => {
+  const containers = args.droppableContainers.filter(
+    (c) => isSubtaskDroppable(c.data) || dragType(c.data) === "task"
+  );
+  const hitData = (c: Collision) =>
+    c.data?.droppableContainer?.data.current as DragData | undefined;
+  const hits = pointerWithin({ ...args, droppableContainers: containers });
+  const row = hits.find((c) => hitData(c)?.type === "subtask");
+  if (row) return [row];
+  const list = hits.find((c) => hitData(c)?.type === "subtask-list");
+  if (list) {
+    const { taskId } = hitData(list) as SubtaskListDropData;
+    const rows = containers.filter(
+      (c) =>
+        dragType(c.data) === "subtask" &&
+        (c.data.current as SubtaskDragData).taskId === taskId
+    );
+    if (rows.length === 0) return [list];
+    return closestCenter({ ...args, droppableContainers: rows }).slice(0, 1);
+  }
+  return hits.filter((c) => hitData(c)?.type === "task");
+};
+
 // Dragging a project only considers other project rows; dragging a task
 // only the task lists and rows, preferring a task under the pointer so the
 // drop lands at a precise position (see TasksView)
 const collisionDetection =
   (containerIds: Set<string>): CollisionDetection =>
   (args) => {
+    if (dragType(args.active.data) === "subtask") return subtaskCollisions(args);
     const draggingProject = isProjectId(args.active.id);
     const scoped = {
       ...args,
       droppableContainers: args.droppableContainers.filter(
-        (c) => isProjectId(c.id) === draggingProject
+        (c) =>
+          isProjectId(c.id) === draggingProject && !isSubtaskDroppable(c.data)
       ),
     };
     if (draggingProject) return closestCenter(scoped);
@@ -105,6 +155,7 @@ function ProjectsPage({
 }: ProjectsPageProps) {
   const [newProject, setNewProject] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggingSubtask, setDraggingSubtask] = useState<Subtask | null>(null);
 
   const sensors = useDragSensors();
   const projects = archive ? manager.archivedProjects : manager.projects;
@@ -152,10 +203,46 @@ function ProjectsPage({
     if (order !== project.order) manager.moveProject(project, order);
   };
 
+  const handleSubtaskDragEnd = (
+    { taskId, subtask }: SubtaskDragData,
+    active: DragEndEvent["active"],
+    over: NonNullable<DragEndEvent["over"]>
+  ) => {
+    const from = manager.state.tasks.find((t) => t.id === taskId);
+    const overData = over.data.current as DragData | undefined;
+    if (!from || !overData) return;
+    const toTaskId = overData.type === "task" ? overData.task.id : overData.taskId;
+    const to = manager.state.tasks.find((t) => t.id === toTaskId);
+    if (!to) return;
+
+    let index = Number.MAX_SAFE_INTEGER;
+    if (overData.type === "subtask") {
+      if (over.id === active.id) return;
+      index = to.subtasks.findIndex((s) => s.id === over.id);
+      // As with tasks across projects, the other checklist opens no gap,
+      // so the lower half of the hovered row means "after it"
+      const rect = active.rect.current.translated;
+      if (from.id !== to.id && rect) {
+        const activeMiddle = rect.top + rect.height / 2;
+        const overMiddle = over.rect.top + over.rect.height / 2;
+        if (activeMiddle > overMiddle) index += 1;
+      }
+    } else if (from.id === to.id) {
+      return;
+    }
+    manager.transferSubtask(from, subtask, to, index);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    setDraggingSubtask(null);
     if (!over) return;
+    const activeData = active.data.current as DragData | undefined;
+    if (activeData?.type === "subtask") {
+      handleSubtaskDragEnd(activeData, active, over);
+      return;
+    }
     if (isProjectId(active.id)) {
       handleProjectDragEnd(active, over);
       return;
@@ -199,9 +286,16 @@ function ProjectsPage({
     <DndContext
       sensors={sensors}
       collisionDetection={detectCollisions}
-      onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
+      onDragStart={(e: DragStartEvent) => {
+        setActiveId(String(e.active.id));
+        const data = e.active.data.current as DragData | undefined;
+        setDraggingSubtask(data?.type === "subtask" ? data.subtask : null);
+      }}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveId(null)}
+      onDragCancel={() => {
+        setActiveId(null);
+        setDraggingSubtask(null);
+      }}
     >
       <div className="space-y-4">
         {projects.length === 0 && (
@@ -243,7 +337,9 @@ function ProjectsPage({
         )}
       </div>
       <DragOverlay>
-        {draggingTask ? (
+        {draggingSubtask ? (
+          <SubtaskOverlay subtask={draggingSubtask} />
+        ) : draggingTask ? (
           <ProjectTaskOverlay task={draggingTask} />
         ) : draggingProject ? (
           <ProjectOverlay
@@ -617,7 +713,17 @@ const SortableProjectTaskItem = (props: ProjectTaskItemProps) => {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props.task.id });
+    isOver,
+    active,
+  } = useSortable({
+    id: props.task.id,
+    data: { type: "task", task: props.task } as TaskDragData,
+  });
+  // A subtask from another task hovering to join this one
+  const subtaskOver =
+    isOver &&
+    dragType(active?.data ?? {}) === "subtask" &&
+    (active?.data.current as SubtaskDragData).taskId !== props.task.id;
   return (
     <ProjectTaskItem
       {...props}
@@ -629,6 +735,7 @@ const SortableProjectTaskItem = (props: ProjectTaskItemProps) => {
       sortableAttributes={attributes}
       sortableListeners={listeners}
       isDragging={isDragging}
+      subtaskOver={subtaskOver}
     />
   );
 };
@@ -645,12 +752,14 @@ const ProjectTaskItem = ({
   sortableAttributes,
   sortableListeners,
   isDragging,
+  subtaskOver,
 }: ProjectTaskItemProps & {
   sortableRef?: (node: HTMLElement | null) => void;
   sortableStyle?: React.CSSProperties;
   sortableAttributes?: DraggableAttributes;
   sortableListeners?: DraggableSyntheticListeners;
   isDragging?: boolean;
+  subtaskOver?: boolean;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
@@ -670,7 +779,8 @@ const ProjectTaskItem = ({
       className={cn(
         "list-none rounded-md group/task",
         isDragging && "opacity-50",
-        task.done && "opacity-60"
+        task.done && "opacity-60",
+        subtaskOver && "bg-muted/50"
       )}
       data-testid="project-task"
     >
@@ -828,6 +938,7 @@ const ProjectTaskItem = ({
         <div className="px-2 pb-2 pl-14 space-y-2">
           <SubtaskList
             subtasks={task.subtasks}
+            dragTaskId={task.id}
             onAdd={(text) => manager.addSubtask(task, text)}
             onTextChange={(subtask, text) =>
               manager.setSubtaskText(task, subtask, text)
