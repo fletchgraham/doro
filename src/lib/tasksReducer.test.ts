@@ -932,3 +932,46 @@ test("subtasks are added, ticked, renamed, reordered, removed and replaced", () 
   tasks = tasksReducer(tasks, { type: "SET_SUBTASKS", taskId, subtasks: replacement });
   expect(subtasks()).toEqual(replacement);
 });
+
+// LOG_PAUSE backdating: a countdown that completes late (throttled or
+// frozen background tab) records its stop at the real deadline
+
+test("LOG_PAUSE with `at` stops the session at that time, not now", () => {
+  const start = Date.now() - 76 * 60 * 1000;
+  const deadline = start + 15 * 60 * 1000;
+  const tasks: Task[] = [
+    {
+      ...createTask("meeting prep"),
+      status: "active",
+      events: [{ eventType: "start", timestamp: start }],
+    },
+  ];
+
+  const [updated] = tasksReducer(tasks, { type: "LOG_PAUSE", at: deadline });
+
+  expect(updated.events.at(-1)).toEqual({ eventType: "stop", timestamp: deadline });
+  expect(updated.duration).toBe(15 * 60 * 1000);
+});
+
+test("LOG_PAUSE never stops before the session started or after now", () => {
+  const start = Date.now() - 60 * 1000;
+  const tasks: Task[] = [
+    {
+      ...createTask("foo"),
+      status: "active",
+      events: [{ eventType: "start", timestamp: start }],
+    },
+  ];
+
+  const [early] = tasksReducer(tasks, { type: "LOG_PAUSE", at: start - 5000 });
+  expect(early.duration).toBe(0);
+
+  const before = Date.now();
+  const [late] = tasksReducer(tasks, {
+    type: "LOG_PAUSE",
+    at: Date.now() + 60 * 60 * 1000,
+  });
+  const stop = late.events.at(-1)!.timestamp;
+  expect(stop).toBeGreaterThanOrEqual(before);
+  expect(stop).toBeLessThanOrEqual(Date.now());
+});

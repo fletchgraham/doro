@@ -40,7 +40,9 @@ export type TasksAction =
   | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
   | { type: "COMPLETE_TASK"; pullFromReady?: boolean }
   | { type: "LOG_START" }
-  | { type: "LOG_PAUSE" }
+  // `at` backdates the stop, e.g. to when the countdown really ran out
+  // rather than when a throttled/frozen tab got around to noticing
+  | { type: "LOG_PAUSE"; at?: number }
   | { type: "OVERRIDE_DURATION"; taskId: string; duration: number }
   | {
       type: "IMPORT_TASKS";
@@ -222,17 +224,17 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         t.id === action.taskId ? { ...t, notes: action.text } : t,
       );
     case "LOG_PAUSE": {
-      const updated = state.map((t) =>
-        t.status === "active"
-          ? {
-              ...t,
-              events: [
-                ...t.events,
-                { eventType: "stop" as const, timestamp: Date.now() },
-              ],
-            }
-          : t,
-      );
+      const now = Date.now();
+      const updated = state.map((t) => {
+        if (t.status !== "active") return t;
+        // Never stop before the last event (the session's start)
+        const last = t.events[t.events.length - 1]?.timestamp ?? -Infinity;
+        const timestamp = Math.max(Math.min(action.at ?? now, now), last);
+        return {
+          ...t,
+          events: [...t.events, { eventType: "stop" as const, timestamp }],
+        };
+      });
       return updated.map((t) => ({ ...t, duration: getDuration(t.events) }));
     }
     case "LOG_START":
