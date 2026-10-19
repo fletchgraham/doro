@@ -1,6 +1,7 @@
 import type Task from "../types/Task";
 import type Subtask from "../types/Subtask";
 import getDuration from "./getDuration";
+import { todayKey } from "./dates";
 import {
   addSubtask,
   moveSubtask,
@@ -10,7 +11,8 @@ import {
 } from "./subtasks";
 
 export type TasksAction =
-  | { type: "ADD_TASK"; text: string }
+  // `date` is the day the task goes on (default today)
+  | { type: "ADD_TASK"; text: string; date?: string }
   | {
       type: "ADD_TASK_WITH_OPTIONS";
       text: string;
@@ -20,9 +22,16 @@ export type TasksAction =
       notes?: string;
       subtasks?: Subtask[];
       projectTaskId?: string;
+      date?: string;
     }
   | { type: "REMOVE_TASK"; taskId: string }
-  | { type: "NEXT_TASK"; shuffle?: boolean; pullFromReady?: boolean }
+  // The timer only ever pulls in work planned for `today` (default: now)
+  | {
+      type: "NEXT_TASK";
+      shuffle?: boolean;
+      pullFromReady?: boolean;
+      today?: string;
+    }
   | { type: "SET_STATUS"; taskId: string; status: Task["status"] }
   | { type: "SET_NOTES"; taskId: string; text: string }
   | { type: "SET_TEXT"; taskId: string; text: string }
@@ -38,7 +47,10 @@ export type TasksAction =
   | { type: "SET_SUBTASKS"; taskId: string; subtasks: Subtask[] }
   | { type: "REORDER_TASK"; taskId: string; direction: "up" | "down" }
   | { type: "MOVE_TASK"; taskId: string; toStatus: Task["status"]; newOrder: number }
-  | { type: "COMPLETE_TASK"; pullFromReady?: boolean }
+  | { type: "COMPLETE_TASK"; pullFromReady?: boolean; today?: string }
+  // Move a task to another day (or reorder it within its day) in the
+  // week planner. Time already logged stays on the day it was logged.
+  | { type: "MOVE_TASK_TO_DAY"; taskId: string; date: string; weekOrder?: number }
   | { type: "LOG_START" }
   // `at` backdates the stop, e.g. to when the countdown really ran out
   // rather than when a throttled/frozen tab got around to noticing
@@ -54,6 +66,7 @@ export type TasksAction =
         estimate?: number;
         todoistId?: string;
       }>;
+      today?: string;
     }
   | {
       type: "WORKFLOWY_MERGE";
@@ -64,12 +77,13 @@ export type TasksAction =
         url: string;
         completed: boolean;
       }>;
+      today?: string;
     }
   | { type: "SET_WORKFLOWY_ID"; taskId: string; workflowyId: string; url: string };
 
 const DEFAULT_ESTIMATE = 20 * 60 * 1000; // 20 minutes
 
-export const createTask = (text: string): Task => {
+export const createTask = (text: string, date: string = todayKey()): Task => {
   return {
     text: text,
     notes: "",
@@ -78,9 +92,21 @@ export const createTask = (text: string): Task => {
     duration: 0,
     status: "ready",
     id: crypto.randomUUID(),
+    date,
     order: Date.now(),
+    weekOrder: Date.now(),
     estimate: DEFAULT_ESTIMATE,
   };
+};
+
+// Whether any time has been clocked against the task
+export const hasLoggedTime = (task: Task): boolean =>
+  task.duration > 0 || getDuration(task.events) > 0;
+
+// The week planner position below everything already on `date`
+const nextWeekOrder = (tasks: Task[], date: string): number => {
+  const orders = tasks.filter((t) => t.date === date).map((t) => t.weekOrder);
+  return orders.length > 0 ? Math.max(...orders) + 1000 : Date.now();
 };
 
 const calculateNewOrder = (
@@ -92,7 +118,7 @@ const calculateNewOrder = (
   if (!task) return 0;
 
   const bucketTasks = tasks
-    .filter((t) => t.status === task.status)
+    .filter((t) => t.status === task.status && t.date === task.date)
     .sort((a, b) => a.order - b.order);
 
   const currentIndex = bucketTasks.findIndex((t) => t.id === taskId);
@@ -125,11 +151,19 @@ const updateSubtasks = (
 
 const tasksReducer = (state: Task[], action: TasksAction) => {
   switch (action.type) {
-    case "ADD_TASK":
-      return [...state, createTask(action.text)];
+    case "ADD_TASK": {
+      const date = action.date ?? todayKey();
+      return [
+        ...state,
+        { ...createTask(action.text, date), weekOrder: nextWeekOrder(state, date) },
+      ];
+    }
     case "ADD_TASK_WITH_OPTIONS": {
+      const date = action.date ?? todayKey();
       // Calculate order based on position
-      const statusTasks = state.filter((t) => t.status === action.status);
+      const statusTasks = state.filter(
+        (t) => t.status === action.status && t.date === date
+      );
       const orders = statusTasks.map((t) => t.order);
       const minOrder = Math.min(...orders, Date.now());
       const maxOrder = Math.max(...orders, 0);
@@ -137,9 +171,10 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         action.position === "top" ? minOrder - 1000 : maxOrder + 1000;
 
       const newTask: Task = {
-        ...createTask(action.text),
+        ...createTask(action.text, date),
         status: action.status,
         order,
+        weekOrder: nextWeekOrder(state, date),
         ...(action.estimate !== undefined && { estimate: action.estimate }),
         ...(action.notes !== undefined && { notes: action.notes }),
         ...(action.subtasks !== undefined && { subtasks: action.subtasks }),
@@ -169,6 +204,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
     case "REMOVE_TASK":
       return state.filter((t) => t.id !== action.taskId);
     case "NEXT_TASK": {
+      const today = action.today ?? todayKey();
       const activeTask = state.find((t) => t.status === "active");
 
       const maxWorkingOrder = Math.max(
@@ -190,7 +226,12 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
 
       // Find working tasks to pick next active from
       const workingTasks = updatedState
-        .filter((t) => t.status === "working" && t.id !== activeTask?.id)
+        .filter(
+          (t) =>
+            t.status === "working" &&
+            t.date === today &&
+            t.id !== activeTask?.id
+        )
         .sort((a, b) => a.order - b.order);
 
       if (workingTasks.length === 0) {
@@ -198,7 +239,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
         // ready list is locked (pullFromReady defaults to true)
         if (action.pullFromReady === false) return updatedState;
         const readyTasks = updatedState
-          .filter((t) => t.status === "ready")
+          .filter((t) => t.status === "ready" && t.date === today)
           .sort((a, b) => a.order - b.order);
         if (readyTasks.length === 0) return updatedState;
         return updatedState.map((t) =>
@@ -357,19 +398,26 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       });
     }
     case "IMPORT_TASKS": {
+      // Imports land on today; a task imported on an earlier day can come
+      // in again
+      const today = action.today ?? todayKey();
       const existingTodoistIds = new Set(
-        state.filter((t) => t.todoistId).map((t) => t.todoistId)
+        state
+          .filter((t) => t.todoistId && t.date === today)
+          .map((t) => t.todoistId)
       );
       const newTasks = action.tasks.filter(
         (t) => !t.todoistId || !existingTodoistIds.has(t.todoistId)
       );
 
       const maxOrder = Math.max(...state.map((t) => t.order), 0);
+      const weekOrder = nextWeekOrder(state, today);
 
       return [
         ...state,
         ...newTasks.map((t, i) => ({
-          ...createTask(t.text),
+          ...createTask(t.text, today),
+          weekOrder: weekOrder + i * 1000,
           notes: t.notes,
           url: t.url,
           color: t.color,
@@ -386,12 +434,21 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       // among ready/working/active, color, estimate, order, and all tracked
       // time in events/duration) is doro's own local state and survives
       // the merge untouched.
+      //
+      // Only today's tasks take part: earlier days are a record of what
+      // happened, and a node already planned for a later day stays there.
+      const today = action.today ?? todayKey();
       const remoteById = new Map(action.nodes.map((n) => [n.workflowyId, n]));
+      for (const task of state) {
+        if (task.workflowyId && task.date > today) {
+          remoteById.delete(task.workflowyId);
+        }
+      }
 
       let merged: Task[] = [];
       for (const task of state) {
-        if (!task.workflowyId) {
-          // Tasks not linked to workflowy are left alone
+        if (!task.workflowyId || task.date !== today) {
+          // Tasks not linked to workflowy (or not on today) are left alone
           merged.push(task);
           continue;
         }
@@ -420,12 +477,14 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
 
       // Remaining remote nodes are new tasks; preserve their sibling order
       const maxOrder = Math.max(...merged.map((t) => t.order), Date.now());
+      const weekOrder = nextWeekOrder(merged, today);
       let i = 0;
       for (const remote of remoteById.values()) {
         merged = [
           ...merged,
           {
-            ...createTask(remote.text),
+            ...createTask(remote.text, today),
+            weekOrder: weekOrder + i * 1000,
             notes: remote.notes,
             url: remote.url,
             workflowyId: remote.workflowyId,
@@ -442,7 +501,40 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
           ? { ...t, workflowyId: action.workflowyId, url: t.url || action.url }
           : t
       );
+    case "MOVE_TASK_TO_DAY": {
+      const task = state.find((t) => t.id === action.taskId);
+      if (!task) return state;
+      const weekOrder = action.weekOrder ?? nextWeekOrder(state, action.date);
+      if (task.date === action.date) {
+        return state.map((t) => (t.id === task.id ? { ...t, weekOrder } : t));
+      }
+
+      // Only today can have a task on the clock; anywhere else it waits
+      // in working
+      const status = task.status === "active" ? ("working" as const) : task.status;
+      // Land at the bottom of its list on the new day
+      const order =
+        Math.max(
+          ...state
+            .filter((t) => t.date === action.date && t.status === status)
+            .map((t) => t.order),
+          0
+        ) + 1000;
+      const moved: Task = { ...task, date: action.date, weekOrder, status, order };
+
+      if (!hasLoggedTime(task)) {
+        return state.map((t) => (t.id === task.id ? moved : t));
+      }
+      // The time log stays where it was clocked: this instance keeps its
+      // events on its own day and a fresh copy, with no time of its own,
+      // goes to the new one
+      return [
+        ...state.map((t) => (t.id === task.id ? { ...t, status } : t)),
+        { ...moved, id: crypto.randomUUID(), events: [], duration: 0 },
+      ];
+    }
     case "COMPLETE_TASK": {
+      const today = action.today ?? todayKey();
       const activeTask = state.find((t) => t.status === "active");
       if (!activeTask) return state;
 
@@ -452,7 +544,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
       );
 
       const readyTasks = updated
-        .filter((t) => t.status === "ready")
+        .filter((t) => t.status === "ready" && t.date === today)
         .sort((a, b) => a.order - b.order);
 
       // Promote a ready task to working to maintain the pool, unless the
@@ -472,7 +564,7 @@ const tasksReducer = (state: Task[], action: TasksAction) => {
 
       // Activate the first working task
       const workingTasks = updated
-        .filter((t) => t.status === "working")
+        .filter((t) => t.status === "working" && t.date === today)
         .sort((a, b) => a.order - b.order);
 
       if (workingTasks.length > 0) {

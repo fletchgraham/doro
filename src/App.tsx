@@ -11,7 +11,9 @@ import GoldSettingsModal from "./components/GoldSettingsModal";
 import SettingsModal from "./components/SettingsModal";
 import ProjectsPage from "./components/ProjectsPage";
 import TemplatesPage from "./components/TemplatesPage";
+import WeekPage from "./components/WeekPage";
 import useTasks from "./hooks/useTasks";
+import useToday from "./hooks/useToday";
 import useTimer from "./hooks/useTimer";
 import useTheme from "./hooks/useTheme";
 import useProjects from "./hooks/useProjects";
@@ -28,7 +30,14 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./lib/formatDuration";
 import { getLiveDuration, hasOpenSession } from "./lib/getDuration";
-import { Coins, Settings, Shuffle } from "lucide-react";
+import { addDays, formatDay } from "./lib/dates";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Coins,
+  Settings,
+  Shuffle,
+} from "lucide-react";
 import { DEFAULT_COLOR, colorLabel } from "./lib/taskColors";
 import {
   computeGold,
@@ -146,7 +155,8 @@ function App() {
   useEffect(() => {
     saveGoldSettings(goldSettings);
   }, [goldSettings]);
-  const taskManager = useTasks();
+  const today = useToday();
+  const taskManager = useTasks(today);
   const projectManager = useProjects();
   const templateManager = useTemplates();
   const { isPaused, countdownRef, ...timer } = useTimer();
@@ -159,10 +169,28 @@ function App() {
     settings.setWorkflowy
   );
   const route = useHashRoute();
+  const onWeekPage = route === "week";
   const onProjectsPage = route === "projects";
   const onArchivePage = route === "archive";
   const onTemplatesPage = route === "templates";
   const onTimerPage = route === "timer";
+
+  // The day page shows today unless it's been stepped to another day.
+  // Only today has the timer; other days show their lists, e.g. to
+  // export the time logged on them.
+  const [viewDate, setViewDate] = useState<string | null>(null);
+  const dayKey = viewDate ?? today;
+  const viewingToday = dayKey === today;
+  const showDay = (date: string) => setViewDate(date === today ? null : date);
+
+  const todayTasks = useMemo(
+    () => taskManager.tasks.filter((t) => t.date === today),
+    [taskManager.tasks, today]
+  );
+  const dayTasks = useMemo(
+    () => taskManager.tasks.filter((t) => t.date === dayKey),
+    [taskManager.tasks, dayKey]
+  );
 
   // Latest managers for the sync effects below, which must not re-run
   // just because App re-rendered and handed out fresh closures
@@ -172,6 +200,8 @@ function App() {
   projectManagerRef.current = projectManager;
   const timerRef = useRef(timer);
   timerRef.current = timer;
+  const todayKeyRef = useRef(today);
+  todayKeyRef.current = today;
 
   // Day tasks pulled from a project share notes, subtasks and completion
   // with it.
@@ -196,7 +226,11 @@ function App() {
   // subtasks, done)
   useEffect(() => {
     const manager = taskManagerRef.current;
-    const updates = syncProjectsToDay(projectManager.state, manager.tasks);
+    const updates = syncProjectsToDay(
+      projectManager.state,
+      manager.tasks,
+      todayKeyRef.current
+    );
     for (const { task, text, notes, subtasks, done } of updates) {
       if (text !== undefined) manager.setText(task, text);
       if (notes !== undefined) manager.setNotes(task, notes);
@@ -224,14 +258,41 @@ function App() {
     );
   };
 
-  // Taking a task off today only drops the day copy; the project keeps it
-  const handleRemoveFromToday = (dayTask: Task) => {
-    if (dayTask.status === "active") {
+  // Stop the clock before a task on it leaves today or gets ticked off
+  const stopClockOn = (task: Task) => {
+    if (task.status === "active") {
       timer.pauseAudio();
       timer.pause();
       taskManager.logPause();
     }
+  };
+
+  // Taking a task off today only drops the day copy; the project keeps it
+  const handleRemoveFromToday = (dayTask: Task) => {
+    stopClockOn(dayTask);
     taskManager.removeTask(dayTask);
+  };
+
+  const handleWeekAdd = (date: string, text: string, subtasks?: Subtask[]) =>
+    taskManager.addTaskWithOptions(text, "ready", "bottom", undefined, subtasks, date);
+
+  const handleWeekMove = (task: Task, date: string, weekOrder?: number) => {
+    if (task.date !== date) stopClockOn(task);
+    taskManager.moveTaskToDay(task, date, weekOrder);
+  };
+
+  const handleToggleDone = (task: Task) => {
+    if (task.status === "done") {
+      taskManager.setStatus(task, "ready");
+    } else {
+      stopClockOn(task);
+      taskManager.setStatus(task, "done");
+    }
+  };
+
+  const handleOpenDay = (date: string) => {
+    showDay(date);
+    window.location.hash = routeHash.timer;
   };
 
   // Give the countdown a fresh full duration, optionally starting it once
@@ -292,15 +353,9 @@ function App() {
     return task.duration;
   };
 
-  // Use tick in dependency to force recalc while running
-  const totalDuration = useMemo(() => {
-    return taskManager.tasks.reduce((sum, t) => sum + getTaskDuration(t), 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskManager.tasks, isPaused, tick]);
-
-  const colorBreakdown = useMemo(() => {
+  const breakdownByColor = (tasks: Task[]): [string, number][] => {
     const map = new Map<string, number>();
-    for (const task of taskManager.tasks) {
+    for (const task of tasks) {
       const dur = getTaskDuration(task);
       if (dur <= 0) continue;
       const color = task.color || DEFAULT_COLOR;
@@ -308,12 +363,27 @@ function App() {
     }
     // Sort by duration descending
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  };
+
+  // Today's time drives the goals and gold. Use tick in dependency to
+  // force recalc while running.
+  const todayBreakdown = useMemo(
+    () => breakdownByColor(todayTasks),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskManager.tasks, isPaused, tick]);
+    [todayTasks, isPaused, tick]
+  );
+
+  // The day on screen drives the "worked" total and its breakdown
+  const colorBreakdown = useMemo(
+    () => (viewingToday ? todayBreakdown : breakdownByColor(dayTasks)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewingToday, todayBreakdown, dayTasks]
+  );
+  const totalDuration = colorBreakdown.reduce((sum, [, d]) => sum + d, 0);
 
   const progressByColor = useMemo(
-    () => Object.fromEntries(colorBreakdown),
-    [colorBreakdown]
+    () => Object.fromEntries(todayBreakdown),
+    [todayBreakdown]
   );
 
   const gold = useMemo(
@@ -388,12 +458,19 @@ function App() {
       e.preventDefault();
       const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
       for (const line of lines) {
-        taskManager.addTaskWithOptions(line, "ready", "bottom");
+        taskManager.addTaskWithOptions(
+          line,
+          "ready",
+          "bottom",
+          undefined,
+          undefined,
+          dayKey
+        );
       }
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [isPaused, taskManager, onTimerPage]);
+  }, [isPaused, taskManager, onTimerPage, dayKey]);
 
   const activeTask = taskManager.getActiveTask();
   const activeColor = activeTask ? activeTask.color || DEFAULT_COLOR : undefined;
@@ -426,7 +503,7 @@ function App() {
     if (!features.gold) return;
     if (isPaused || !activeTask || !hasOpenSession(activeTask.events)) return;
     const msLeft = msUntilBroke(
-      liveGold(taskManager.tasks, goldSettings),
+      liveGold(todayTasks, goldSettings),
       activeGoldRule
     );
     if (msLeft === null) return;
@@ -444,7 +521,7 @@ function App() {
     activeTask,
     activeGoldRule,
     goldSettings,
-    taskManager.tasks,
+    todayTasks,
   ]);
 
   const workingCount = taskManager.getTasksByStatus("working").length;
@@ -463,6 +540,8 @@ function App() {
     // If adding as active, handle timer state
     if (status === "active") {
       requestNotificationPermission();
+      // Only today's tasks go on the clock
+      setViewDate(null);
       // Pause current active task if exists
       if (taskManager.getActiveTask()) {
         taskManager.logPause();
@@ -471,7 +550,14 @@ function App() {
       taskManager.logStart();
       resetTimer(true);
     } else {
-      taskManager.addTaskWithOptions(text, status, position, estimate, subtasks);
+      taskManager.addTaskWithOptions(
+        text,
+        status,
+        position,
+        estimate,
+        subtasks,
+        dayKey
+      );
     }
   };
 
@@ -540,6 +626,7 @@ function App() {
 
   const handleSwitchTask = (task: Task) => {
     requestNotificationPermission();
+    setViewDate(null);
     // Pause current active task if exists
     if (taskManager.getActiveTask()) {
       taskManager.logPause();
@@ -552,6 +639,7 @@ function App() {
 
   const handleCreateAndStart = (text: string, subtasks?: Subtask[]) => {
     requestNotificationPermission();
+    setViewDate(null);
     // Pause current active task if exists
     if (taskManager.getActiveTask()) {
       taskManager.logPause();
@@ -598,11 +686,12 @@ function App() {
       onClick={() => setSelectedTaskId(null)}
     >
       <nav className="flex items-center gap-1 mb-4" aria-label="Pages">
-        {navLink("timer", "Timer")}
+        {navLink("timer", "Day")}
+        {navLink("week", "Week")}
         {navLink("projects", "Projects")}
         {navLink("archive", "Archive")}
         {navLink("templates", "Templates")}
-        {!onTimerPage && (
+        {!(onTimerPage && viewingToday) && (
           <span className="ml-auto text-sm text-muted-foreground">
             {isPaused ? "⏸" : "▶"} {lastTimeRef.current}
           </span>
@@ -613,16 +702,61 @@ function App() {
           key={route}
           archive={onArchivePage}
           manager={projectManager}
-          dayTasks={taskManager.tasks}
+          dayTasks={todayTasks}
           onAssignToday={handleAssignToday}
           onRemoveFromToday={handleRemoveFromToday}
         />
       )}
       {onTemplatesPage && <TemplatesPage manager={templateManager} />}
-      {/* The timer page stays mounted while on the other pages so the
+      {onWeekPage && (
+        <WeekPage
+          tasks={taskManager.tasks}
+          today={today}
+          manager={taskManager}
+          getTaskDuration={getTaskDuration}
+          onAdd={handleWeekAdd}
+          onMove={handleWeekMove}
+          onToggleDone={handleToggleDone}
+          onRemove={handleRemoveFromToday}
+          onOpenDay={handleOpenDay}
+        />
+      )}
+      {/* The day page stays mounted while on the other pages so the
           countdown and its effects keep running; it's just hidden */}
       <div hidden={!onTimerPage}>
-      {features.goals && (
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => showDay(addDays(dayKey, -1))}
+          aria-label="Previous day"
+          title="Previous day"
+        >
+          <ChevronLeft />
+        </Button>
+        <h2 className="text-lg font-semibold" data-testid="day-title">
+          {formatDay(dayKey)}
+        </h2>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => showDay(addDays(dayKey, 1))}
+          aria-label="Next day"
+          title="Next day"
+        >
+          <ChevronRight />
+        </Button>
+        {viewingToday ? (
+          <span className="text-xs font-medium rounded bg-foreground text-background px-1.5 py-0.5">
+            Today
+          </span>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setViewDate(null)}>
+            Back to today
+          </Button>
+        )}
+      </div>
+      {features.goals && viewingToday && (
         <ColorGoals
           progress={progressByColor}
           isPaused={isPaused}
@@ -706,6 +840,9 @@ function App() {
         </span>
         </div>
       </div>
+      {/* Only today has the timer; kept mounted (hidden) on other days so
+          the countdown keeps running */}
+      <div hidden={!viewingToday}>
       <h1
         className={cn(
           "text-5xl font-bold py-4 px-6 rounded-lg text-center",
@@ -800,9 +937,11 @@ function App() {
         }
       />
       )}
-      {isPaused && (
+      </div>
+      {(isPaused || !viewingToday) && (
         <TasksView
           taskManager={taskManager}
+          date={dayKey}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -823,7 +962,7 @@ function App() {
       <SwitchTaskModal
         isOpen={isSwitchModalOpen}
         onClose={() => setIsSwitchModalOpen(false)}
-        tasks={taskManager.tasks}
+        tasks={todayTasks}
         onSwitch={handleSwitchTask}
         onCreate={handleCreateAndStart}
       />

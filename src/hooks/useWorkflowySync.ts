@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type Task from "../types/Task";
 import type { WorkflowySettings } from "../lib/settings";
+import { todayKey } from "../lib/dates";
 import {
   completeNode,
   createNode,
@@ -22,7 +23,7 @@ export interface WorkflowyTaskManager {
 }
 
 /**
- * Two-way sync between the day's tasks and the children of a Workflowy
+ * Two-way sync between today's tasks and the children of a Workflowy
  * node: pulls on demand (and once on load), pushes local edits as they
  * happen. Settings come from the settings modal; this only writes back
  * the resolved parent id.
@@ -179,9 +180,12 @@ export default function useWorkflowySync(
     for (const task of taskManager.tasks) {
       const before = prevById.get(task.id);
 
-      // Newly added in doro: append it under the workflowy parent node
+      // Newly added in doro for today: append it under the workflowy
+      // parent node (tasks planned for other days stay local)
       if (!before) {
-        if (!task.workflowyId) createInWorkflowy(task, apiKey, parentId);
+        if (!task.workflowyId && task.date === todayKey()) {
+          createInWorkflowy(task, apiKey, parentId);
+        }
         continue;
       }
 

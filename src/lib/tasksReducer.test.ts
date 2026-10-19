@@ -975,3 +975,210 @@ test("LOG_PAUSE never stops before the session started or after now", () => {
   expect(stop).toBeGreaterThanOrEqual(before);
   expect(stop).toBeLessThanOrEqual(Date.now());
 });
+
+// Days: every task belongs to a date, and the timer only works today's
+
+test("new tasks go on the given day, below what's already planned there", () => {
+  const monday = { ...createTask("first", "2026-10-19"), weekOrder: 5000 };
+  const added = tasksReducer([monday], {
+    type: "ADD_TASK",
+    text: "second",
+    date: "2026-10-19",
+  });
+  expect(added[1].date).toBe("2026-10-19");
+  expect(added[1].weekOrder).toBe(6000);
+
+  const withOptions = tasksReducer(added, {
+    type: "ADD_TASK_WITH_OPTIONS",
+    text: "tuesday",
+    status: "ready",
+    position: "bottom",
+    date: "2026-10-20",
+  });
+  expect(withOptions[2].date).toBe("2026-10-20");
+});
+
+test("next task and complete task only pull in today's work", () => {
+  const tasks: Task[] = [
+    { ...createTask("active", "2026-10-19"), status: "active", order: 1 },
+    { ...createTask("tomorrow", "2026-10-20"), status: "working", order: 2 },
+    { ...createTask("yesterday", "2026-10-18"), status: "ready", order: 3 },
+    { ...createTask("today", "2026-10-19"), status: "ready", order: 4 },
+  ];
+  // Tomorrow's working task is passed over for today's ready one
+  const next = tasksReducer(tasks, { type: "NEXT_TASK", today: "2026-10-19" });
+  expect(next.find((t) => t.status === "active")?.text).toBe("today");
+  expect(next.find((t) => t.text === "tomorrow")?.status).toBe("working");
+
+  const completed = tasksReducer(tasks, {
+    type: "COMPLETE_TASK",
+    today: "2026-10-19",
+  });
+  expect(completed.find((t) => t.status === "active")?.text).toBe("today");
+  expect(completed.find((t) => t.text === "tomorrow")?.status).toBe("working");
+  expect(completed.find((t) => t.text === "yesterday")?.status).toBe("ready");
+});
+
+test("reordering with arrows stays within the task's own day", () => {
+  const tasks: Task[] = [
+    { ...createTask("other day", "2026-10-18"), order: 1000 },
+    { ...createTask("a", "2026-10-19"), order: 2000 },
+    { ...createTask("b", "2026-10-19"), order: 3000 },
+  ];
+  const updated = tasksReducer(tasks, {
+    type: "REORDER_TASK",
+    taskId: tasks[1].id,
+    direction: "up",
+  });
+  // Already first on its day
+  expect(updated[1].order).toBe(2000);
+});
+
+test("moving a task without logged time to another day just moves it", () => {
+  const task = { ...createTask("plan", "2026-10-19"), status: "working" as const };
+  const updated = tasksReducer([task], {
+    type: "MOVE_TASK_TO_DAY",
+    taskId: task.id,
+    date: "2026-10-21",
+    weekOrder: 42,
+  });
+  expect(updated).toHaveLength(1);
+  expect(updated[0]).toMatchObject({
+    id: task.id,
+    date: "2026-10-21",
+    weekOrder: 42,
+    status: "working",
+  });
+});
+
+test("moving within a day only changes its week order", () => {
+  const task = { ...createTask("plan", "2026-10-19"), order: 7 };
+  const updated = tasksReducer([task], {
+    type: "MOVE_TASK_TO_DAY",
+    taskId: task.id,
+    date: "2026-10-19",
+    weekOrder: 99,
+  });
+  expect(updated[0]).toEqual({ ...task, weekOrder: 99 });
+});
+
+test("moving a task with logged time leaves its time log on the original day", () => {
+  const events = [
+    { eventType: "start" as const, timestamp: 1000 },
+    { eventType: "stop" as const, timestamp: 61000 },
+  ];
+  const task: Task = {
+    ...createTask("write report", "2026-10-19"),
+    status: "ready",
+    events,
+    duration: 60000,
+    notes: "draft",
+    subtasks: [{ id: "s1", text: "outline", done: true }],
+    color: "#ef4444",
+    projectTaskId: "pt1",
+  };
+  const updated = tasksReducer([task], {
+    type: "MOVE_TASK_TO_DAY",
+    taskId: task.id,
+    date: "2026-10-20",
+    weekOrder: 5,
+  });
+  expect(updated).toHaveLength(2);
+  // The original stays put with its time
+  expect(updated[0]).toEqual(task);
+  // A fresh copy with no time goes to the new day
+  const copy = updated[1];
+  expect(copy.id).not.toBe(task.id);
+  expect(copy).toMatchObject({
+    text: "write report",
+    date: "2026-10-20",
+    weekOrder: 5,
+    events: [],
+    duration: 0,
+    notes: "draft",
+    color: "#ef4444",
+    projectTaskId: "pt1",
+    status: "ready",
+  });
+  expect(copy.subtasks).toEqual(task.subtasks);
+});
+
+test("an overridden duration counts as logged time when moving", () => {
+  const task: Task = {
+    ...createTask("call", "2026-10-19"),
+    events: [{ eventType: "duration_override", timestamp: 1, duration: 300000 }],
+    duration: 300000,
+  };
+  const updated = tasksReducer([task], {
+    type: "MOVE_TASK_TO_DAY",
+    taskId: task.id,
+    date: "2026-10-22",
+  });
+  expect(updated).toHaveLength(2);
+});
+
+test("moving the active task off its day leaves it waiting in working", () => {
+  const events = [
+    { eventType: "start" as const, timestamp: 1000 },
+    { eventType: "stop" as const, timestamp: 2000 },
+  ];
+  const task: Task = {
+    ...createTask("busy", "2026-10-19"),
+    status: "active",
+    events,
+    duration: 1000,
+  };
+  const updated = tasksReducer([task], {
+    type: "MOVE_TASK_TO_DAY",
+    taskId: task.id,
+    date: "2026-10-20",
+  });
+  expect(updated.map((t) => [t.date, t.status])).toEqual([
+    ["2026-10-19", "working"],
+    ["2026-10-20", "working"],
+  ]);
+});
+
+test("todoist imports only dedupe against today's tasks", () => {
+  const yesterday = { ...createTask("old", "2026-10-18"), todoistId: "1" };
+  const imported = tasksReducer([yesterday], {
+    type: "IMPORT_TASKS",
+    tasks: [{ text: "old", notes: "", todoistId: "1" }],
+    today: "2026-10-19",
+  });
+  expect(imported).toHaveLength(2);
+  expect(imported[1].date).toBe("2026-10-19");
+
+  const again = tasksReducer(imported, {
+    type: "IMPORT_TASKS",
+    tasks: [{ text: "old", notes: "", todoistId: "1" }],
+    today: "2026-10-19",
+  });
+  expect(again).toHaveLength(2);
+});
+
+test("workflowy merges only touch today, and skip nodes planned for later", () => {
+  const past = {
+    ...createTask("past", "2026-10-18"),
+    workflowyId: "gone",
+  };
+  const later = {
+    ...createTask("later", "2026-10-21"),
+    workflowyId: "planned",
+  };
+  const merged = tasksReducer([past, later], {
+    type: "WORKFLOWY_MERGE",
+    nodes: [
+      { workflowyId: "planned", text: "later", notes: "", url: "u", completed: false },
+      { workflowyId: "new", text: "fresh", notes: "", url: "u", completed: false },
+    ],
+    today: "2026-10-19",
+  });
+  // The past task survives even though its node is gone
+  expect(merged.find((t) => t.id === past.id)).toEqual(past);
+  expect(merged.find((t) => t.id === later.id)).toEqual(later);
+  const created = merged.filter((t) => t.workflowyId === "new");
+  expect(created).toHaveLength(1);
+  expect(created[0].date).toBe("2026-10-19");
+  expect(merged.filter((t) => t.workflowyId === "planned")).toHaveLength(1);
+});

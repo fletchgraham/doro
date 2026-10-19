@@ -4,11 +4,12 @@ A focused task timer for working through your day.
 
 ## Philosophy
 
-Doro is like a doctor's notepad—start fresh each morning, throw it away at the end of the day. The timer page isn't meant for persistent task storage; it's a tool for deciding, moment by moment, what to work on right now. Longer-term planning lives on the separate Projects page, which feeds tasks into the day one at a time (see below).
+Doro is like a doctor's notepad—start fresh each morning. The Day page is a tool for deciding, moment by moment, what to work on right now; each morning it starts on a new, empty page, while earlier days are kept as a record of what was done and how long it took. The Week page plans the days ahead, and longer-term planning lives on the separate Projects page, which feeds tasks into the day one at a time (see below).
 
 ## Features
 
 - Pomodoro-style countdown timer
+- Day view with previous and upcoming days, and a Monday-to-Sunday week planner (see below)
 - Drag-and-drop task organization (long-press to drag on touch screens)
 - Task status workflow: Ready → Working → Active → Done
 - Time tracking per task
@@ -29,6 +30,34 @@ Doro is like a doctor's notepad—start fresh each morning, throw it away at the
 npm install
 npm run dev
 ```
+
+## Days and the week planner
+
+Every task belongs to a day. The **Day** page (`#/`, the first tab) shows
+one day's lists; the arrows beside its date step to earlier or later
+days, and "Back to today" returns. Only today has the timer: on any other
+day the page shows that day's Working/Ready/Done lists with their logged
+time, so "Export to Clipboard" and "Export for Sheets" (dated with the
+day shown) work for any past day. Tasks added there go on the day shown.
+The timer only ever pulls in today's tasks, and the gold, goals, Todoist
+import and Workflowy sync work on today's tasks only.
+
+The **Week** page (`#/week`) lists Monday to Sunday, each day with its
+tasks and an "Add task..." box (with `/` templates). The arrows step
+between weeks. Today's list is the same tasks as the Day page, but each
+view keeps its own order: reordering in one leaves the other alone.
+Earlier days are greyed out but stay editable. Drag a task within a day
+to reorder it, or onto another day to move it (the → button moves it to
+the next day, also across weeks). Tick a task off with its checkbox, or
+expand it for subtasks and notes. Clicking a day's name opens it on the
+Day page.
+
+Moving a task never loses logged time: if a task already has time on its
+day, that instance stays there with its time and a fresh copy, with no
+time of its own, moves to the new day. A task without time just moves.
+
+Tasks saved before days existed are put on the day the app is first
+opened after the update.
 
 ## Gold
 
@@ -66,7 +95,7 @@ Everything in it is saved as you change it:
     Off by default.
   - *Goals*: the per-color goal bars at the top of the timer page.
 - **Todoist mode**: with a token entered, an "Import from Todoist" button
-  on the timer page pulls today's tasks into Ready, optionally only those
+  on the Day page pulls today's Todoist tasks into today's Ready list, optionally only those
   with a given label. Priorities map to colors.
 - **Workflowy mode**: two-way sync between the day's tasks and the
   children of one Workflowy node (paste a node link or UUID and your API
@@ -92,7 +121,8 @@ share notes and completion:
   through and greyed); unticking it in the project reopens the day copy.
 - Deleting the day copy (Delete Completed, Delete All, or the row's ×)
   never touches the project. Add it to today again tomorrow and it comes
-  back with the same notes, so one task can span several days.
+  back with the same notes, so one task can span several days. Copies on
+  earlier days keep their own done state as a record of that day.
 - Renaming the task or its project retitles the day copy.
 
 Projects are stored separately from the day's tasks (`doroProjects` in

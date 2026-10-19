@@ -98,11 +98,14 @@ export interface DayTaskUpdate {
  * store is the source of truth, so after any change there (a rename, a
  * project rename, notes, subtasks, ticking a task off) the day copies
  * follow. Day tasks whose project task is gone are left alone as plain
- * tasks.
+ * tasks. Copies on days before `today` keep their own done-ness: they're
+ * a record of that day, e.g. the part of a task worked on before it was
+ * moved on.
  */
 export function syncProjectsToDay(
   state: ProjectsState,
-  dayTasks: Task[]
+  dayTasks: Task[],
+  today?: string
 ): DayTaskUpdate[] {
   const updates: DayTaskUpdate[] = [];
   const projectTaskById = new Map(state.tasks.map((t) => [t.id, t]));
@@ -122,7 +125,10 @@ export function syncProjectsToDay(
     if (!sameSubtasks(task.subtasks, projectTask.subtasks)) {
       update.subtasks = projectTask.subtasks;
     }
-    if (isDone(task) !== projectTask.done) update.done = projectTask.done;
+    const past = today !== undefined && task.date < today;
+    if (!past && isDone(task) !== projectTask.done) {
+      update.done = projectTask.done;
+    }
     if (
       update.text !== undefined ||
       update.notes !== undefined ||

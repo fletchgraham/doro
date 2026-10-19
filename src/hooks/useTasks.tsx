@@ -3,10 +3,11 @@ import type Task from "../types/Task";
 import type Subtask from "../types/Subtask";
 import tasksReducer from "../lib/tasksReducer";
 import { normalizeSubtasks } from "../lib/subtasks";
+import { todayKey } from "../lib/dates";
 
 const STORAGE_DEBOUNCE_MS = 500;
 
-const migrateTask = (task: Task, index: number): Task => {
+const migrateTask = (task: Task, index: number, today: string): Task => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const legacy = task as any;
   // Backlog is no longer a status; fold legacy backlog tasks into ready
@@ -20,9 +21,13 @@ const migrateTask = (task: Task, index: number): Task => {
     status = "active";
   }
 
+  const order = task.order ?? index * 1000;
   const migrated: Task = {
     ...task,
-    order: task.order ?? index * 1000,
+    // Tasks saved before days existed were the day's list
+    date: task.date ?? today,
+    order,
+    weekOrder: task.weekOrder ?? order,
     status,
     // Tasks saved before subtasks existed have none
     subtasks: normalizeSubtasks(task.subtasks),
@@ -34,11 +39,14 @@ const migrateTask = (task: Task, index: number): Task => {
   return migrated;
 };
 
-const useTasks = () => {
+// Every day's tasks live in one list, each tagged with its date. `today`
+// scopes what the timer pulls in and where imports land.
+const useTasks = (today: string = todayKey()) => {
   const [tasks, dispatch] = useReducer(
     tasksReducer,
     JSON.parse(localStorage.getItem("doroTasks") || "[]"),
-    (initial: Task[]) => initial.map(migrateTask)
+    (initial: Task[]) =>
+      initial.map((task, index) => migrateTask(task, index, todayKey()))
   );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // When locked, the ready list doesn't feed new tasks into working/active
@@ -72,19 +80,21 @@ const useTasks = () => {
   const getInactiveTasks = (): Task[] =>
     tasks.filter((task) => task.status !== "active");
 
-  const getTasksByStatus = (status: string): Task[] =>
+  const getTasksByStatus = (status: string, date: string = today): Task[] =>
     tasks
-      .filter((task) => task.status === status)
+      .filter((task) => task.status === status && task.date === date)
       .sort((a, b) => a.order - b.order);
 
-  const addTask = (text: string) => dispatch({ type: "ADD_TASK", text });
+  const addTask = (text: string, date: string = today) =>
+    dispatch({ type: "ADD_TASK", text, date });
 
   const addTaskWithOptions = (
     text: string,
     status: Task["status"],
     position: "top" | "bottom",
     estimate?: number,
-    subtasks?: Subtask[]
+    subtasks?: Subtask[],
+    date: string = today
   ) =>
     dispatch({
       type: "ADD_TASK_WITH_OPTIONS",
@@ -93,6 +103,7 @@ const useTasks = () => {
       position,
       estimate,
       subtasks,
+      date,
     });
 
   // Pull a project task into today's ready list, linked so notes,
@@ -111,13 +122,19 @@ const useTasks = () => {
       notes,
       subtasks,
       projectTaskId,
+      date: today,
     });
 
   const removeTask = (task: Task) =>
     dispatch({ type: "REMOVE_TASK", taskId: task.id });
 
   const nextTask = (shuffle = false) =>
-    dispatch({ type: "NEXT_TASK", shuffle, pullFromReady: !readyLocked });
+    dispatch({
+      type: "NEXT_TASK",
+      shuffle,
+      pullFromReady: !readyLocked,
+      today,
+    });
 
   const setStatus = (task: Task, status: Task["status"]) =>
     dispatch({ type: "SET_STATUS", taskId: task.id, status });
@@ -176,8 +193,11 @@ const useTasks = () => {
   const moveTask = (task: Task, toStatus: Task["status"], newOrder: number) =>
     dispatch({ type: "MOVE_TASK", taskId: task.id, toStatus, newOrder });
 
+  const moveTaskToDay = (task: Task, date: string, weekOrder?: number) =>
+    dispatch({ type: "MOVE_TASK_TO_DAY", taskId: task.id, date, weekOrder });
+
   const completeTask = () =>
-    dispatch({ type: "COMPLETE_TASK", pullFromReady: !readyLocked });
+    dispatch({ type: "COMPLETE_TASK", pullFromReady: !readyLocked, today });
 
   const logStart = () => dispatch({ type: "LOG_START" });
   const logPause = (at?: number) => dispatch({ type: "LOG_PAUSE", at });
@@ -194,7 +214,7 @@ const useTasks = () => {
       estimate?: number;
       todoistId?: string;
     }>
-  ) => dispatch({ type: "IMPORT_TASKS", tasks });
+  ) => dispatch({ type: "IMPORT_TASKS", tasks, today });
 
   const mergeWorkflowyTasks = (
     nodes: Array<{
@@ -204,7 +224,7 @@ const useTasks = () => {
       url: string;
       completed: boolean;
     }>
-  ) => dispatch({ type: "WORKFLOWY_MERGE", nodes });
+  ) => dispatch({ type: "WORKFLOWY_MERGE", nodes, today });
 
   const setWorkflowyId = (taskId: string, workflowyId: string, url: string) =>
     dispatch({ type: "SET_WORKFLOWY_ID", taskId, workflowyId, url });
@@ -235,6 +255,7 @@ const useTasks = () => {
     setSubtasks,
     reorderTask,
     moveTask,
+    moveTaskToDay,
     completeTask,
     logStart,
     logPause,
