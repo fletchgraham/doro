@@ -163,4 +163,7 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   override `document.hasFocus = () => false` (completion notification is
   skipped when the app has focus).
 - localStorage writes are debounced 500ms — wait ~700ms before reading
-  `doroTasks` back.
+  `doroTasks` back from a live page. Pending writes are flushed when the
+  page is hidden or unloads (`usePersistedState`), so a reload right after
+  a change keeps it; a backup restore suspends writes so the reload can't
+  undo it.

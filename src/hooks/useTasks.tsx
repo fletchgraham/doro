@@ -1,11 +1,10 @@
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import type Task from "../types/Task";
 import type Subtask from "../types/Subtask";
 import tasksReducer from "../lib/tasksReducer";
 import { normalizeSubtasks } from "../lib/subtasks";
 import { todayKey } from "../lib/dates";
-
-const STORAGE_DEBOUNCE_MS = 500;
+import usePersistedState from "./usePersistedState";
 
 const migrateTask = (task: Task, index: number, today: string): Task => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,7 +47,6 @@ const useTasks = (today: string = todayKey()) => {
     (initial: Task[]) =>
       initial.map((task, index) => migrateTask(task, index, todayKey()))
   );
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // When locked, the ready list doesn't feed new tasks into working/active
   const [readyLocked, setReadyLocked] = useState(
     () => localStorage.getItem("doroReadyLocked") === "true"
@@ -58,21 +56,7 @@ const useTasks = (today: string = todayKey()) => {
     localStorage.setItem("doroReadyLocked", String(readyLocked));
   }, [readyLocked]);
 
-  // Debounce localStorage writes to reduce lag during rapid updates (e.g., typing notes)
-  useEffect(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      localStorage.setItem("doroTasks", JSON.stringify(tasks));
-    }, STORAGE_DEBOUNCE_MS);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [tasks]);
+  usePersistedState("doroTasks", tasks);
 
   const getActiveTask = (): Task | undefined =>
     tasks.find((task) => task.status === "active");

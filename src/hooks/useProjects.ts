@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useReducer } from "react";
 import type { Project, ProjectTask } from "../types/Project";
 import type Subtask from "../types/Subtask";
 import projectsReducer, {
@@ -7,26 +7,16 @@ import projectsReducer, {
   tasksForProject,
   type ProjectsAction,
 } from "../lib/projectsReducer";
+import usePersistedState from "./usePersistedState";
 
 const STORAGE_KEY = "doroProjects";
-const STORAGE_DEBOUNCE_MS = 500;
 
 const useProjects = () => {
   const [state, dispatch] = useReducer(projectsReducer, null, () =>
     loadProjectsState(localStorage.getItem(STORAGE_KEY))
   );
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced like the day's tasks, so typing notes doesn't thrash storage
-  useEffect(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }, STORAGE_DEBOUNCE_MS);
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [state]);
+  usePersistedState(STORAGE_KEY, state);
 
   const apply = (action: ProjectsAction) => dispatch(action);
 
