@@ -71,8 +71,11 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   `section[data-testid="week-day"][data-date="YYYY-MM-DD"]` (past ones at
   opacity 0.6), rows `[data-testid="week-task"]` sorted by `weekOrder`,
   with a done checkbox (`Mark "<text>" done`), `Move "<text>" to the next
-  day` button and `[data-testid="week-task-duration"]`. Each day's add box
-  is a `SlashInput`. Drags go day to day (the day section is the droppable,
+  day` button and `[data-testid="week-task-duration"]`. A day's add box
+  (a `SlashInput`) only exists after clicking its `Add task to <day>`
+  button; Escape or blurring it empty removes it. `Collapse <day>` /
+  `Expand <day>` toggle a day (collapsed: `[data-testid="week-day-count"]`,
+  saved to `doroWeekCollapsed`). Drags go day to day (the day section is the droppable,
   id = date key); grab a row by its text, not its left edge (checkbox).
   Moving a task with logged time adds a copy on the target day and keeps
   the original where it was.

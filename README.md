@@ -43,8 +43,11 @@ The timer only ever pulls in today's tasks, and the gold, goals, Todoist
 import and Workflowy sync work on today's tasks only.
 
 The **Week** page (`#/week`) lists Monday to Sunday, each day with its
-tasks and an "Add task..." box (with `/` templates). The arrows step
-between weeks. Today's list is the same tasks as the Day page, but each
+tasks. A day's + button opens a box for a new task (with `/` templates;
+Enter adds and keeps it open, Escape or clicking away closes it), and its
+chevron collapses it to a task count (remembered in this browser; a task
+can still be dropped onto a collapsed day). The arrows step between
+weeks. Today's list is the same tasks as the Day page, but each
 view keeps its own order: reordering in one leaves the other alone.
 Earlier days are greyed out but stay editable. Drag a task within a day
 to reorder it, or onto another day to move it (the → button moves it to

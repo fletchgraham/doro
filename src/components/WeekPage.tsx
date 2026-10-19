@@ -26,8 +26,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Plus,
   FolderKanban,
   Timer,
 } from "lucide-react";
@@ -79,6 +81,26 @@ interface WeekPageProps {
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
+// Collapsed days are a per-browser convenience, remembered by date
+const COLLAPSED_KEY = "doroWeekCollapsed";
+
+const loadCollapsed = (): Set<string> => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(COLLAPSED_KEY) || "[]");
+    return new Set(Array.isArray(stored) ? stored.filter(isDateKey) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+const saveCollapsed = (collapsed: Set<string>) => {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+  } catch {
+    // Storage unavailable: collapsing just won't be remembered
+  }
+};
+
 // Prefer task rows under the pointer over the day lists holding them, so
 // a drop lands at a precise position
 const preferItemCollision: CollisionDetection = (args) => {
@@ -102,7 +124,17 @@ function WeekPage({
 }: WeekPageProps) {
   const [monday, setMonday] = useState(() => startOfWeek(today));
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
   const sensors = useDragSensors();
+
+  const setDayCollapsed = (date: string, value: boolean) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (value) next.add(date);
+      else next.delete(date);
+      saveCollapsed(next);
+      return next;
+    });
   const days = useMemo(() => weekDays(monday), [monday]);
   const thisWeek = startOfWeek(today);
 
@@ -196,11 +228,13 @@ function WeekPage({
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           {days.map((date) => (
             <WeekDay
               key={date}
               date={date}
+              collapsed={collapsed.has(date)}
+              onCollapsedChange={(value) => setDayCollapsed(date, value)}
               today={today}
               tasks={tasksByDay.get(date) ?? []}
               manager={manager}
@@ -227,6 +261,8 @@ function WeekPage({
 
 function WeekDay({
   date,
+  collapsed,
+  onCollapsedChange,
   today,
   tasks,
   manager,
@@ -236,14 +272,26 @@ function WeekDay({
   onToggleDone,
   onRemove,
   onOpenDay,
-}: Omit<WeekPageProps, "tasks"> & { date: string; tasks: Task[] }) {
+}: Omit<WeekPageProps, "tasks"> & {
+  date: string;
+  tasks: Task[];
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+}) {
   const [newTask, setNewTask] = useState("");
+  // The add box only shows once the + is clicked
+  const [adding, setAdding] = useState(false);
   const templates = useTemplateList();
   const { setNodeRef, isOver } = useDroppable({ id: date });
   const ids = useMemo(() => tasks.map((t) => t.id), [tasks]);
   const isToday = date === today;
   const isPast = date < today;
   const total = tasks.reduce((sum, t) => sum + getTaskDuration(t), 0);
+
+  const closeAdd = () => {
+    setAdding(false);
+    setNewTask("");
+  };
 
   const addFromTemplate = (template: Template) => {
     onAdd(date, template.name, subtasksFromTemplate(template));
@@ -264,18 +312,31 @@ function WeekDay({
   };
 
   return (
+    // The whole day is the drop target, so a task can be dropped onto a
+    // collapsed day's header
     <section
+      ref={setNodeRef}
       data-testid="week-day"
       data-date={date}
       aria-label={formatDay(date)}
       aria-current={isToday ? "date" : undefined}
       className={cn(
-        "rounded-lg border p-3 transition-opacity",
-        isToday && "border-foreground/40",
-        isPast && "opacity-60"
+        "rounded-md transition-[opacity,background-color]",
+        isPast && "opacity-60",
+        isOver && "bg-muted/50"
       )}
     >
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-1 min-h-8">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => onCollapsedChange(!collapsed)}
+          className="text-muted-foreground"
+          aria-label={collapsed ? `Expand ${formatDay(date)}` : `Collapse ${formatDay(date)}`}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <ChevronRight /> : <ChevronDown />}
+        </Button>
         <a
           href={routeHash.timer}
           onClick={(e) => {
@@ -288,52 +349,83 @@ function WeekDay({
           {formatDay(date)}
         </a>
         {isToday && (
-          <span className="text-xs font-medium rounded bg-foreground text-background px-1.5 py-0.5">
+          <span className="ml-1 text-xs font-medium rounded bg-foreground text-background px-1.5 py-0.5">
             Today
           </span>
         )}
-        {total > 0 && (
+        {collapsed && tasks.length > 0 && (
           <span
-            className="ml-auto text-xs text-muted-foreground tabular-nums"
-            data-testid="week-day-total"
-            title="Time worked this day"
+            className="ml-1 text-xs text-muted-foreground"
+            data-testid="week-day-count"
           >
-            {formatDuration(total)}
+            {tasks.length} task{tasks.length === 1 ? "" : "s"}
           </span>
         )}
-      </div>
-      <SortableContext id={date} items={ids} strategy={verticalListSortingStrategy}>
-        <ul
-          ref={setNodeRef}
-          className={cn(
-            "min-h-[8px] rounded-md p-0 transition-colors",
-            isOver && "bg-muted/50"
+        <div className="ml-auto flex items-center gap-1">
+          {total > 0 && (
+            <span
+              className="text-xs text-muted-foreground tabular-nums"
+              data-testid="week-day-total"
+              title="Time worked this day"
+            >
+              {formatDuration(total)}
+            </span>
           )}
-        >
-          {tasks.map((task) => (
-            <WeekTaskRow
-              key={task.id}
-              task={task}
-              duration={getTaskDuration(task)}
-              manager={manager}
-              onToggleDone={() => onToggleDone(task)}
-              onMoveNext={() => onMove(task, addDays(date, 1))}
-              onRemove={() => onRemove(task)}
-            />
-          ))}
-        </ul>
-      </SortableContext>
-      <form onSubmit={handleSubmit} className="mt-1">
-        <SlashInput
-          value={newTask}
-          onChange={setNewTask}
-          onTemplate={addFromTemplate}
-          hint="adds a task with its subtasks"
-          placeholder="Add task... (/ for a template)"
-          aria-label={`New task for ${formatDay(date)}`}
-          className="h-8 border-transparent shadow-none bg-transparent hover:border-input focus-visible:border-input"
-        />
-      </form>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => {
+              onCollapsedChange(false);
+              setAdding(true);
+            }}
+            className="text-muted-foreground"
+            aria-label={`Add task to ${formatDay(date)}`}
+            title="Add task"
+          >
+            <Plus />
+          </Button>
+        </div>
+      </div>
+      {!collapsed && (
+        <>
+          <SortableContext id={date} items={ids} strategy={verticalListSortingStrategy}>
+            <ul className="p-0 pl-5">
+              {tasks.map((task) => (
+                <WeekTaskRow
+                  key={task.id}
+                  task={task}
+                  duration={getTaskDuration(task)}
+                  manager={manager}
+                  onToggleDone={() => onToggleDone(task)}
+                  onMoveNext={() => onMove(task, addDays(date, 1))}
+                  onRemove={() => onRemove(task)}
+                />
+              ))}
+            </ul>
+          </SortableContext>
+          {adding && (
+            <form onSubmit={handleSubmit} className="pl-6 mt-1">
+              <SlashInput
+                value={newTask}
+                onChange={setNewTask}
+                onTemplate={addFromTemplate}
+                hint="adds a task with its subtasks"
+                placeholder="New task... (/ for a template)"
+                aria-label={`New task for ${formatDay(date)}`}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeAdd();
+                }}
+                // Clicking away from an empty box puts the + back
+                onBlur={() => {
+                  if (!newTask.trim()) closeAdd();
+                }}
+                className="h-8"
+              />
+            </form>
+          )}
+        </>
+      )}
     </section>
   );
 }
