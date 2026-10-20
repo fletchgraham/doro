@@ -9,7 +9,13 @@ export default interface Task {
   events: TaskEvent[];
   status: "ready" | "working" | "active" | "done";
   duration: number;
+  // The day the task belongs to, as a local date key ("2026-10-19")
+  date: string;
+  // Position in the day view's status list
   order: number;
+  // Position in the week planner's list for the day, kept separate so
+  // reordering one view leaves the other alone
+  weekOrder: number;
   color?: string;
   estimate?: number;
   url?: string;

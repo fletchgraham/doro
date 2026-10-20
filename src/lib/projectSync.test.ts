@@ -166,3 +166,14 @@ test("project subtask changes are pushed to the linked day task", () => {
   ]);
   expect(syncProjectsToDay(state, [day])).toEqual([]);
 });
+
+test("copies on earlier days keep their own done-ness", () => {
+  const doneState = {
+    ...state,
+    tasks: [{ ...state.tasks[0], done: true }],
+  };
+  const past = { ...linkedDayTask(), date: "2026-10-18" };
+  const current = { ...linkedDayTask(), date: "2026-10-19" };
+  const updates = syncProjectsToDay(doneState, [past, current], "2026-10-19");
+  expect(updates).toEqual([{ task: current, done: true }]);
+});

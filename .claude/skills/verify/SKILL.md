@@ -20,9 +20,10 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
 
 - **Seed state** instead of clicking through modals:
   `page.addInitScript(seed => localStorage.setItem("doroTasks", JSON.stringify(seed)), SEED)`.
-  Task shape: `{ id, text, notes: "", subtasks: [], events: [], status, duration, order, estimate }`
-  with status one of ready | working | active | done (a missing `subtasks`
-  is migrated to `[]` on load). Every pause
+  Task shape: `{ id, text, notes: "", subtasks: [], events: [], status, duration, date, order, weekOrder, estimate }`
+  with status one of ready | working | active | done and `date` a local
+  `YYYY-MM-DD` key (a missing `subtasks` is migrated to `[]`, a missing
+  `date` to the load day, a missing `weekOrder` to `order`). Every pause
   recomputes `duration` from `events`, so a seeded duration only survives
   if backed by a matching `start`/`stop` pair.
 - **Settings**: the gear button (aria-label "Open settings", right of the
@@ -59,6 +60,25 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   unversioned bare map is read as the old per-10-minute format and divided
   by 10). Seed a huge spend rate to hit the out-of-gold stop in seconds.
   The readout is `[data-testid="gold-readout"]`.
+- **Days**: the Day page (`#/`, nav label "Day") has "Previous day" /
+  "Next day" buttons around `[data-testid="day-title"]`; off today it shows
+  "Back to today", hides the countdown (still mounted) and always shows the
+  lists. The timer, gold and goals only use today's tasks. To test past
+  days, fix the clock with `page.clock.setFixedTime(...)` — `clock.install`
+  fakes animation frames and breaks dnd-kit drags.
+- **Week**: `#/week`. `[data-testid="week-range"]` with "Previous week" /
+  "Next week" / "This week" buttons; days are
+  `section[data-testid="week-day"][data-date="YYYY-MM-DD"]` (past ones at
+  opacity 0.6), rows `[data-testid="week-task"]` sorted by `weekOrder`,
+  with a done checkbox (`Mark "<text>" done`), `Move "<text>" to the next
+  day` button and `[data-testid="week-task-duration"]`. A day's add box
+  (a `SlashInput`) only exists after clicking its `Add task to <day>`
+  button; Escape or blurring it empty removes it. `Collapse <day>` /
+  `Expand <day>` toggle a day (collapsed: `[data-testid="week-day-count"]`,
+  saved to `doroWeekCollapsed`). Drags go day to day (the day section is the droppable,
+  id = date key); grab a row by its text, not its left edge (checkbox).
+  Moving a task with logged time adds a copy on the target day and keeps
+  the original where it was.
 - **Projects**: the projects page is `#/projects`; the timer page stays
   mounted (hidden) underneath so the countdown keeps running (same for
   `#/templates`). Seed
@@ -143,4 +163,7 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   override `document.hasFocus = () => false` (completion notification is
   skipped when the app has focus).
 - localStorage writes are debounced 500ms — wait ~700ms before reading
-  `doroTasks` back.
+  `doroTasks` back from a live page. Pending writes are flushed when the
+  page is hidden or unloads (`usePersistedState`), so a reload right after
+  a change keeps it; a backup restore suspends writes so the reload can't
+  undo it.

@@ -21,6 +21,10 @@ import {
 import type { Theme } from "../hooks/useTheme";
 import type { SettingsManager } from "../hooks/useSettings";
 import type { WorkflowySync } from "../hooks/useWorkflowySync";
+import {
+  flushStorageWrites,
+  suspendStorageWrites,
+} from "../hooks/usePersistedState";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -96,6 +100,8 @@ function BackupSection() {
 
   const exportData = () => {
     setError(null);
+    // Changes still waiting on their debounced save belong in the backup
+    flushStorageWrites();
     const json = JSON.stringify(createBackup(localStorage), null, 2);
     const url = URL.createObjectURL(
       new Blob([json], { type: "application/json" })
@@ -122,6 +128,9 @@ function BackupSection() {
         )
       )
         return;
+      // The open page's state is stale now; saving it on the way out
+      // would undo the restore
+      suspendStorageWrites();
       restoreBackup(localStorage, backup);
       window.location.reload();
     } catch (e) {

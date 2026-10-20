@@ -52,14 +52,15 @@ interface TaskManager {
   setReadyLocked: (locked: boolean) => void;
   getActiveTask: () => Task | undefined;
   getInactiveTasks: () => Task[];
-  getTasksByStatus: (status: string) => Task[];
-  addTask: (text: string) => void;
+  getTasksByStatus: (status: string, date?: string) => Task[];
+  addTask: (text: string, date?: string) => void;
   addTaskWithOptions: (
     text: string,
     status: Task["status"],
     position: "top" | "bottom",
     estimate?: number,
-    subtasks?: Subtask[]
+    subtasks?: Subtask[],
+    date?: string
   ) => void;
   removeTask: (task: Task) => void;
   setNotes: (task: Task, text: string) => void;
@@ -103,13 +104,16 @@ const preferItemCollision: CollisionDetection = (args) => {
   return itemCollision ? [itemCollision] : collisions;
 };
 
+// The lists of one day's tasks (`date`, a date key) on the day page
 function TasksView({
   taskManager,
+  date,
   selectedTaskId,
   onSelectTask,
   onOpenSettings,
 }: {
   taskManager: TaskManager;
+  date: string;
   selectedTaskId: string | null;
   onSelectTask: (taskId: string | null) => void;
   onOpenSettings: () => void;
@@ -142,16 +146,16 @@ function TasksView({
 
   // Get tasks by status
   const workingTasks = useMemo(
-    () => taskManager.getTasksByStatus("working"),
-    [taskManager]
+    () => taskManager.getTasksByStatus("working", date),
+    [taskManager, date]
   );
   const readyTasks = useMemo(
-    () => taskManager.getTasksByStatus("ready"),
-    [taskManager]
+    () => taskManager.getTasksByStatus("ready", date),
+    [taskManager, date]
   );
   const doneTasks = useMemo(
-    () => taskManager.getTasksByStatus("done"),
-    [taskManager]
+    () => taskManager.getTasksByStatus("done", date),
+    [taskManager, date]
   );
 
   // Get task IDs for SortableContext
@@ -186,7 +190,7 @@ function TasksView({
     const statuses: Task["status"][] = ["working", "ready", "done"];
 
     for (const status of statuses) {
-      const tasks = taskManager.getTasksByStatus(status);
+      const tasks = taskManager.getTasksByStatus(status, date);
       if (tasks.length === 0) continue;
 
       lines.push(status);
@@ -212,12 +216,11 @@ function TasksView({
   };
 
   const exportTasksForSheets = () => {
-    const today = new Date().toLocaleDateString("en-CA");
     const allTasks = [...workingTasks, ...readyTasks, ...doneTasks];
     const rows = allTasks.map((task) => {
       const hours = (task.duration / 3_600_000).toFixed(2);
       const notes = task.notes.replace(/[\r\n]+/g, " ").trim();
-      return `${today}\t${task.text}\t${notes}\t${hours}`;
+      return `${date}\t${task.text}\t${notes}\t${hours}`;
     });
     navigator.clipboard.writeText(rows.join("\n"));
   };
@@ -261,7 +264,8 @@ function TasksView({
       "ready",
       "bottom",
       undefined,
-      subtasksFromTemplate(template)
+      subtasksFromTemplate(template),
+      date
     );
     setNewTask("");
   };
@@ -275,7 +279,7 @@ function TasksView({
       addFromTemplate(template);
       return;
     }
-    taskManager.addTask(text);
+    taskManager.addTask(text, date);
     setNewTask("");
   };
 
