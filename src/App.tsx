@@ -764,7 +764,6 @@ function App() {
         />
       )}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
         <Input
           type="number"
           min={1}
@@ -898,7 +897,7 @@ function App() {
             hasNextCandidate
               ? undefined
               : taskManager.readyLocked && readyCount > 0
-                ? "Ready list is locked — unlock it to pull in more tasks"
+                ? "Next list is locked — unlock it to pull in more tasks"
                 : "No tasks available to pull in"
           }
         >
@@ -917,6 +916,8 @@ function App() {
         onNotesChange={taskManager.setNotes}
         onTextChange={taskManager.setText}
         onUrlChange={taskManager.setUrl}
+        onColorChange={taskManager.setColor}
+        onRemove={handleRemoveFromToday}
         onAddSubtask={taskManager.addSubtask}
         onSubtaskTextChange={taskManager.setSubtaskText}
         onSubtaskDoneChange={taskManager.setSubtaskDone}
@@ -944,6 +945,7 @@ function App() {
           date={dayKey}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
+          onToggleDone={handleToggleDone}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
       )}

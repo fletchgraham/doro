@@ -11,9 +11,8 @@ import SubtaskList, {
   type SubtaskListDropData,
 } from "./SubtaskList";
 import LinkedText from "./LinkedText";
-import SlashInput from "./SlashInput";
-import { findTemplateByCommand, subtasksFromTemplate } from "../lib/templates";
-import { useTemplateList } from "../hooks/useTemplates";
+import AddInline from "./AddInline";
+import { subtasksFromTemplate } from "../lib/templates";
 import { POINT_OPTIONS, projectProgress } from "../lib/projectsReducer";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
 import { findDayTask } from "../lib/projectSync";
@@ -519,8 +518,6 @@ function ProjectSection({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
-  const [newTask, setNewTask] = useState("");
-  const templates = useTemplateList();
   const { setNodeRef, isOver } = useDroppable({ id: project.id });
   const {
     attributes: sortableAttributes,
@@ -544,23 +541,8 @@ function ProjectSection({
   };
 
   // A template makes a task named after it, with its steps as subtasks
-  const addFromTemplate = (template: Template) => {
+  const addFromTemplate = (template: Template) =>
     manager.addTask(project, template.name, subtasksFromTemplate(template));
-    setNewTask("");
-  };
-
-  const handleAddTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = newTask.trim();
-    if (!text) return;
-    const template = findTemplateByCommand(templates, text);
-    if (template) {
-      addFromTemplate(template);
-      return;
-    }
-    manager.addTask(project, text);
-    setNewTask("");
-  };
 
   const collapseButton = (
     <Button
@@ -659,21 +641,16 @@ function ProjectSection({
               ))}
             </ul>
           </SortableContext>
-          <form onSubmit={handleAddTask} className="flex gap-2 mt-2 pl-8">
-            <SlashInput
-              value={newTask}
-              onChange={setNewTask}
-              onTemplate={addFromTemplate}
-              hint="adds a task with its subtasks"
-              placeholder="New task... (/ for a template)"
-              wrapperClassName="flex-1"
-              className="h-8"
-              aria-label={`New task in ${project.name}`}
-            />
-            <Button type="submit" size="sm" disabled={!newTask.trim()}>
-              Add
-            </Button>
-          </form>
+          <AddInline
+            onAdd={(text) => manager.addTask(project, text)}
+            onTemplate={addFromTemplate}
+            hint="adds a task with its subtasks"
+            placeholder="New task... (/ for a template)"
+            buttonLabel={`Add task to ${project.name}`}
+            inputLabel={`New task in ${project.name}`}
+            size="sm"
+            className="pl-2"
+          />
         </div>
       )}
     </section>

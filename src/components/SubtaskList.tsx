@@ -2,10 +2,9 @@ import { useId, useMemo, useState } from "react";
 import type Subtask from "../types/Subtask";
 import type { Template } from "../types/Template";
 import { subtaskProgress } from "../lib/subtasks";
-import { findTemplateByCommand, templateSteps } from "../lib/templates";
-import { useTemplateList } from "../hooks/useTemplates";
+import { templateSteps } from "../lib/templates";
 import LinkedText from "./LinkedText";
-import SlashInput from "./SlashInput";
+import AddInline from "./AddInline";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -74,8 +73,6 @@ function SubtaskList({
   dragTaskId,
   className,
 }: SubtaskListProps) {
-  const [newText, setNewText] = useState("");
-  const templates = useTemplateList();
   const ids = useMemo(() => subtasks.map((s) => s.id), [subtasks]);
 
   const sensors = useDragSensors({ distance: 5 });
@@ -103,20 +100,6 @@ function SubtaskList({
   // add against the state the previous one left
   const addTemplate = (template: Template) => {
     for (const step of templateSteps(template)) onAdd(step);
-    setNewText("");
-  };
-
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = newText.trim();
-    if (!text) return;
-    const template = findTemplateByCommand(templates, text);
-    if (template) {
-      addTemplate(template);
-      return;
-    }
-    onAdd(text);
-    setNewText("");
   };
 
   const list = (
@@ -165,18 +148,15 @@ function SubtaskList({
             {list}
           </DndContext>
         ))}
-      <form onSubmit={handleAdd}>
-        <SlashInput
-          value={newText}
-          onChange={setNewText}
-          onTemplate={addTemplate}
-          hint="adds its subtasks"
-          placeholder="Add subtask... (/ for a template)"
-          enterKeyHint="done"
-          className="h-7 text-sm"
-          aria-label="New subtask"
-        />
-      </form>
+      <AddInline
+        onAdd={onAdd}
+        onTemplate={addTemplate}
+        hint="adds its subtasks"
+        placeholder="Add subtask... (/ for a template)"
+        buttonLabel="Add subtask"
+        inputLabel="New subtask"
+        size="sm"
+      />
     </div>
   );
 }

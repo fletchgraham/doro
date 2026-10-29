@@ -4,14 +4,14 @@ import type Subtask from "../types/Subtask";
 import type { Template } from "../types/Template";
 import SubtaskList, { SubtaskCount } from "./SubtaskList";
 import LinkedText from "./LinkedText";
-import SlashInput from "./SlashInput";
-import { findTemplateByCommand, subtasksFromTemplate } from "../lib/templates";
-import { useTemplateList } from "../hooks/useTemplates";
+import AddInline from "./AddInline";
+import TaskMenu from "./TaskMenu";
+import TaskNotes from "./TaskNotes";
+import { subtasksFromTemplate } from "../lib/templates";
 import { useDragSensors } from "../hooks/useDragSensors";
 import { routeHash } from "../hooks/useHashRoute";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
 import { formatDuration } from "../lib/formatDuration";
-import { handleLineMoveKeyDown } from "../lib/moveLine";
 import {
   addDays,
   formatDay,
@@ -22,14 +22,11 @@ import {
 } from "../lib/dates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  ArrowRight,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Plus,
   FolderKanban,
   Timer,
 } from "lucide-react";
@@ -59,6 +56,8 @@ import { CSS } from "@dnd-kit/utilities";
 export interface WeekTaskManager {
   setText: (task: Task, text: string) => void;
   setNotes: (task: Task, text: string) => void;
+  setColor: (task: Task, color: string | undefined) => void;
+  setUrl: (task: Task, url: string | undefined) => void;
   addSubtask: (task: Task, text: string) => void;
   setSubtaskText: (task: Task, subtask: Subtask, text: string) => void;
   setSubtaskDone: (task: Task, subtask: Subtask, done: boolean) => void;
@@ -278,38 +277,14 @@ function WeekDay({
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
 }) {
-  const [newTask, setNewTask] = useState("");
-  // The add box only shows once the + is clicked
-  const [adding, setAdding] = useState(false);
-  const templates = useTemplateList();
   const { setNodeRef, isOver } = useDroppable({ id: date });
   const ids = useMemo(() => tasks.map((t) => t.id), [tasks]);
   const isToday = date === today;
   const isPast = date < today;
   const total = tasks.reduce((sum, t) => sum + getTaskDuration(t), 0);
 
-  const closeAdd = () => {
-    setAdding(false);
-    setNewTask("");
-  };
-
-  const addFromTemplate = (template: Template) => {
+  const addFromTemplate = (template: Template) =>
     onAdd(date, template.name, subtasksFromTemplate(template));
-    setNewTask("");
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = newTask.trim();
-    if (!text) return;
-    const template = findTemplateByCommand(templates, text);
-    if (template) {
-      addFromTemplate(template);
-      return;
-    }
-    onAdd(date, text);
-    setNewTask("");
-  };
 
   return (
     // The whole day is the drop target, so a task can be dropped onto a
@@ -361,30 +336,15 @@ function WeekDay({
             {tasks.length} task{tasks.length === 1 ? "" : "s"}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-1">
-          {total > 0 && (
-            <span
-              className="text-xs text-muted-foreground tabular-nums"
-              data-testid="week-day-total"
-              title="Time worked this day"
-            >
-              {formatDuration(total)}
-            </span>
-          )}
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => {
-              onCollapsedChange(false);
-              setAdding(true);
-            }}
-            className="text-muted-foreground"
-            aria-label={`Add task to ${formatDay(date)}`}
-            title="Add task"
+        {total > 0 && (
+          <span
+            className="ml-auto text-xs text-muted-foreground tabular-nums"
+            data-testid="week-day-total"
+            title="Time worked this day"
           >
-            <Plus />
-          </Button>
-        </div>
+            {formatDuration(total)}
+          </span>
+        )}
       </div>
       {!collapsed && (
         <>
@@ -403,27 +363,16 @@ function WeekDay({
               ))}
             </ul>
           </SortableContext>
-          {adding && (
-            <form onSubmit={handleSubmit} className="pl-6 mt-1">
-              <SlashInput
-                value={newTask}
-                onChange={setNewTask}
-                onTemplate={addFromTemplate}
-                hint="adds a task with its subtasks"
-                placeholder="New task... (/ for a template)"
-                aria-label={`New task for ${formatDay(date)}`}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") closeAdd();
-                }}
-                // Clicking away from an empty box puts the + back
-                onBlur={() => {
-                  if (!newTask.trim()) closeAdd();
-                }}
-                className="h-8"
-              />
-            </form>
-          )}
+          <AddInline
+            onAdd={(text) => onAdd(date, text)}
+            onTemplate={addFromTemplate}
+            hint="adds a task with its subtasks"
+            placeholder="New task... (/ for a template)"
+            buttonLabel={`Add task to ${formatDay(date)}`}
+            inputLabel={`New task for ${formatDay(date)}`}
+            size="sm"
+            className="pl-6"
+          />
         </>
       )}
     </section>
@@ -448,6 +397,7 @@ function WeekTaskRow({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
+  const [notesEditing, setNotesEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
   const done = task.status === "done";
@@ -554,36 +504,32 @@ function WeekTaskRow({
             {formatDuration(duration)}
           </span>
         )}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={onMoveNext}
-          onPointerDown={stop}
-          className="can-hover:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          title={
-            duration > 0
-              ? "Move to the next day (the time logged stays on this one)"
-              : "Move to the next day"
-          }
-          aria-label={`Move "${task.text}" to the next day`}
-        >
-          <ArrowRight />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => {
-            if (window.confirm(`Delete "${task.text}"?`)) onRemove();
+        <TaskMenu
+          task={task}
+          onColorChange={(color) => manager.setColor(task, color)}
+          onUrlChange={(url) => manager.setUrl(task, url)}
+          onAddNotes={() => {
+            setIsExpanded(true);
+            setNotesEditing(true);
           }}
-          onPointerDown={stop}
-          className="can-hover:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label={`Delete ${task.text}`}
-        >
-          ×
-        </Button>
+          onMoveNext={onMoveNext}
+          moveNextTitle={
+            duration > 0
+              ? "The time logged stays on this day"
+              : undefined
+          }
+          onRemove={onRemove}
+        />
       </div>
       {isExpanded && (
-        <div className="px-3 pb-3 pl-10 space-y-2">
+        <div className="px-3 pb-3 pl-[4.5rem] space-y-1">
+          <TaskNotes
+            notes={task.notes}
+            onChange={(notes) => manager.setNotes(task, notes)}
+            editing={notesEditing}
+            onEditingChange={setNotesEditing}
+            className="text-sm md:text-sm"
+          />
           <SubtaskList
             subtasks={task.subtasks}
             onAdd={(text) => manager.addSubtask(task, text)}
@@ -595,17 +541,6 @@ function WeekTaskRow({
             }
             onMove={(subtask, index) => manager.moveSubtask(task, subtask, index)}
             onRemove={(subtask) => manager.removeSubtask(task, subtask)}
-          />
-          <Textarea
-            value={task.notes}
-            onChange={(e) => manager.setNotes(task, e.target.value)}
-            onKeyDown={(e) => {
-              const moved = handleLineMoveKeyDown(e);
-              if (moved !== null) manager.setNotes(task, moved);
-            }}
-            onPointerDown={stop}
-            placeholder="Notes..."
-            className="min-h-[60px] resize-y"
           />
         </div>
       )}

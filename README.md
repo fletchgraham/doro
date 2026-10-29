@@ -11,7 +11,7 @@ Doro is like a doctor's notepad—start fresh each morning. The Day page is a to
 - Pomodoro-style countdown timer
 - Day view with previous and upcoming days, and a Monday-to-Sunday week planner (see below)
 - Drag-and-drop task organization (long-press to drag on touch screens)
-- Task status workflow: Ready → Working → Active → Done
+- Task status workflow: Next → Working → Active → Done
 - Time tracking per task
 - Estimate vs. actual duration tracking
 - Gold: earn it on some task colors, spend it on others (see below)
@@ -19,6 +19,7 @@ Doro is like a doctor's notepad—start fresh each morning. The Day page is a to
 - Subtasks: a checklist inside any task (see below)
 - Templates: named subtask lists, applied with `/name` slash commands (see below)
 - Links in task and subtask text open in a new tab
+- A ⋮ menu on every task (see below) for its color, link, notes and delete
 - Quick task entry with keyboard shortcuts
 - Export tasks to clipboard
 - Settings modal (gear icon): theme, feature flags, Todoist and Workflowy
@@ -36,24 +37,26 @@ npm run dev
 Every task belongs to a day. The **Day** page (`#/`, the first tab) shows
 one day's lists; the arrows beside its date step to earlier or later
 days, and "Back to today" returns. Only today has the timer: on any other
-day the page shows that day's Working/Ready/Done lists with their logged
+day the page shows that day's Working/Next/Done lists with their logged
 time, so "Export to Clipboard" and "Export for Sheets" (dated with the
-day shown) work for any past day. Tasks added there go on the day shown.
-The timer only ever pulls in today's tasks, and the gold, goals, Todoist
-import and Workflowy sync work on today's tasks only.
+day shown) work for any past day. The + under the Working and Next lists
+adds a task to the end of that list, on the day shown; a task's checkbox
+moves it to Done (and unticking puts it back in Next). The timer only
+ever pulls in today's tasks, and the gold, goals, Todoist import and
+Workflowy sync work on today's tasks only.
 
 The **Week** page (`#/week`) lists Monday to Sunday, each day with its
-tasks. A day's + button opens a box for a new task (with `/` templates;
-Enter adds and keeps it open, Escape or clicking away closes it), and its
-chevron collapses it to a task count (remembered in this browser; a task
-can still be dropped onto a collapsed day). The arrows step between
-weeks. Today's list is the same tasks as the Day page, but each
+tasks. The + under a day's last task opens a box for a new task (with `/`
+templates; Enter adds and keeps it open, Escape or clicking away closes
+it), and its chevron collapses it to a task count (remembered in this
+browser; a task can still be dropped onto a collapsed day). The arrows
+step between weeks. Today's list is the same tasks as the Day page, but each
 view keeps its own order: reordering in one leaves the other alone.
 Earlier days are greyed out but stay editable. Drag a task within a day
-to reorder it, or onto another day to move it (the → button moves it to
-the next day, also across weeks). Tick a task off with its checkbox, or
-expand it for subtasks and notes. Clicking a day's name opens it on the
-Day page.
+to reorder it, or onto another day to move it ("Move to next day" in its
+⋮ menu moves it to the next day, also across weeks). Tick a task off with
+its checkbox, or expand it for subtasks and notes. Clicking a day's name
+opens it on the Day page.
 
 Moving a task never loses logged time: if a task already has time on its
 day, that instance stays there with its time and a fresh copy, with no
@@ -61,6 +64,17 @@ time of its own, moves to the new day. A task without time just moves.
 
 Tasks saved before days existed are put on the day the app is first
 opened after the update.
+
+## The task menu
+
+Each task's ⋮ button (shown on hover, always on touch screens) holds what
+used to sit on the row: the color swatches, a link box (the link shows as
+an icon after the task's name), "Add notes", "Move to next day" on the
+week planner, "Deactivate" on a paused active task, and Delete. Notes
+show above a task's subtasks like a description, only once there are
+some; clear them and click away to hide the box again. The active task on
+the timer page is laid out like any other task, just larger: tick its
+checkbox to complete it.
 
 ## Gold
 
@@ -92,13 +106,13 @@ Everything in it is saved as you change it:
   switched on again.
   - *Gold economy*: the gold readout, its rates and the out-of-gold stop.
   - *Accomplishable color coding*: the "Time left" budget above the task
-    lists. With a budget entered, each Working/Ready task turns green if
+    lists. With a budget entered, each Working/Next task turns green if
     its remaining estimate (20 minutes when it has none) still fits in
     order, red once the budget is used up, with an over/under readout.
     Off by default.
   - *Goals*: the per-color goal bars at the top of the timer page.
 - **Todoist mode**: with a token entered, an "Import from Todoist" button
-  on the Day page pulls today's Todoist tasks into today's Ready list, optionally only those
+  on the Day page pulls today's Todoist tasks into today's Next list, optionally only those
   with a given label. Priorities map to colors.
 - **Workflowy mode**: two-way sync between the day's tasks and the
   children of one Workflowy node (paste a node link or UUID and your API
@@ -116,13 +130,13 @@ like agile tickets (1, 3, 5 or 8) and ticked off. Projects themselves are
 reordered by dragging their header, and each shows story points finished
 over total, e.g. `5/62`, with a progress bar underneath.
 
-The sun button on a task adds it to today's Ready list on the timer page,
+The sun button on a task adds it to today's Next list on the timer page,
 titled `Project X - do thing` so it reads on its own there. The two copies
 share notes and completion:
 
 - Completing it on the timer page ticks it off in the project (struck
   through and greyed); unticking it in the project reopens the day copy.
-- Deleting the day copy (Delete Completed, Delete All, or the row's ×)
+- Deleting the day copy (Delete Completed, Delete All, or Delete in the row's ⋮ menu)
   never touches the project. Add it to today again tomorrow and it comes
   back with the same notes, so one task can span several days. Copies on
   earlier days keep their own done state as a record of that day.
@@ -134,8 +148,8 @@ localStorage) and survive the daily clear-out.
 ## Subtasks
 
 Any task, on either page, can hold a checklist of subtasks. Expand the
-task (or look at the active task on the timer page) to see it: type in
-the "Add subtask..." box and press Enter to add one, tick it off, drag it
+task (or look at the active task on the timer page) to see it: click the
++ under the last subtask, type and press Enter to add one, tick it off, drag it
 to reorder (or Alt+↑/↓ while renaming it), double-click to rename, × to
 delete. Subtasks are deliberately plain: no duration, estimate, points
 or notes of their own. A collapsed row shows how many are ticked, e.g.
@@ -159,7 +173,7 @@ that only one template matches (`/rel` for "Release").
 
 What picking does depends on the box:
 
-- In an "Add subtask..." box, the template's steps are added to that
+- In an add-subtask box, the template's steps are added to that
   task's checklist, in order.
 - In a "New task..." box (timer page or a project), a task named after
   the template is added with the steps as its subtasks.

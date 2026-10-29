@@ -250,7 +250,7 @@ function SettingsModal({
             <ToggleRow
               id="todoist-mode"
               label="Todoist mode"
-              description="Import the tasks due today from Todoist into the Ready list."
+              description="Import the tasks due today from Todoist into the Next list."
               checked={todoist.enabled}
               onCheckedChange={(on) => setTodoist({ enabled: on })}
             />

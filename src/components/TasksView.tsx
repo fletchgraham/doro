@@ -4,22 +4,16 @@ import type Subtask from "../types/Subtask";
 import type { Template } from "../types/Template";
 import SubtaskList, { SubtaskCount } from "./SubtaskList";
 import LinkedText from "./LinkedText";
-import SlashInput from "./SlashInput";
-import { findTemplateByCommand, subtasksFromTemplate } from "../lib/templates";
-import { useTemplateList } from "../hooks/useTemplates";
+import AddInline from "./AddInline";
+import TaskMenu from "./TaskMenu";
+import TaskNotes from "./TaskNotes";
+import { subtasksFromTemplate } from "../lib/templates";
 import { formatDuration } from "../lib/formatDuration";
 import { parseTime, formatEstimate } from "../lib/parseTime";
 import { getAccomplishable, type AccomplishableResult } from "../lib/getAccomplishable";
 import { calculateDropOrder } from "../lib/calculateDropOrder";
-import { handleLineMoveKeyDown } from "../lib/moveLine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ExternalLink, FolderKanban, Lock, LockOpen } from "lucide-react";
 import { routeHash } from "../hooks/useHashRoute";
@@ -44,8 +38,6 @@ import {
 import type { DraggableSyntheticListeners, DraggableAttributes } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 
-import { TASK_COLORS } from "@/lib/taskColors";
-
 interface TaskManager {
   tasks: Task[];
   readyLocked: boolean;
@@ -53,7 +45,6 @@ interface TaskManager {
   getActiveTask: () => Task | undefined;
   getInactiveTasks: () => Task[];
   getTasksByStatus: (status: string, date?: string) => Task[];
-  addTask: (text: string, date?: string) => void;
   addTaskWithOptions: (
     text: string,
     status: Task["status"],
@@ -110,16 +101,16 @@ function TasksView({
   date,
   selectedTaskId,
   onSelectTask,
+  onToggleDone,
   onOpenSettings,
 }: {
   taskManager: TaskManager;
   date: string;
   selectedTaskId: string | null;
   onSelectTask: (taskId: string | null) => void;
+  onToggleDone: (task: Task) => void;
   onOpenSettings: () => void;
 }) {
-  const [newTask, setNewTask] = useState("");
-  const templates = useTemplateList();
   const { features, todoist } = useSettingsContext();
   // Accomplishable coloring is a feature flag (Settings); the time budget
   // it works against is entered here
@@ -257,31 +248,21 @@ function TasksView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedTaskId, taskManager, onSelectTask]);
 
-  // A template makes a task named after it, with its steps as subtasks
-  const addFromTemplate = (template: Template) => {
-    taskManager.addTaskWithOptions(
-      template.name,
-      "ready",
-      "bottom",
-      undefined,
-      subtasksFromTemplate(template),
-      date
-    );
-    setNewTask("");
-  };
-
-  const handleAddTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = newTask.trim();
-    if (!text) return;
-    const template = findTemplateByCommand(templates, text);
-    if (template) {
-      addFromTemplate(template);
-      return;
-    }
-    taskManager.addTask(text, date);
-    setNewTask("");
-  };
+  // The + under a list adds to the end of it; a template makes a task
+  // named after it, with its steps as subtasks
+  const addTo = (status: "working" | "ready") => ({
+    onAdd: (text: string) =>
+      taskManager.addTaskWithOptions(text, status, "bottom", undefined, undefined, date),
+    onTemplate: (template: Template) =>
+      taskManager.addTaskWithOptions(
+        template.name,
+        status,
+        "bottom",
+        undefined,
+        subtasksFromTemplate(template),
+        date
+      ),
+  });
 
   const handleTimeBudgetBlur = () => {
     const parsed = parseTime(timeBudgetInput);
@@ -409,15 +390,24 @@ function TasksView({
                 manager={taskManager}
                 isSelected={selectedTaskId === task.id}
                 onSelect={(id) => onSelectTask(id)}
+                onToggleDone={() => onToggleDone(task)}
                 accomplishable={accomplishableMap.get(task.id)}
                 showAccomplishable={showAccomplishable}
               />
             ))}
           </DroppableList>
         </SortableContext>
+        <AddInline
+          {...addTo("working")}
+          hint="adds a task with its subtasks"
+          placeholder="New task... (/ for a template)"
+          buttonLabel="Add task to Working"
+          inputLabel="New task for Working"
+          className="pl-2"
+        />
 
         <div className="flex items-center gap-2 mt-6 mb-2">
-          <h3 className="text-lg font-semibold">Ready</h3>
+          <h3 className="text-lg font-semibold">Next</h3>
           <Button
             variant={taskManager.readyLocked ? "default" : "ghost"}
             size="icon-xs"
@@ -427,11 +417,11 @@ function TasksView({
             }}
             title={
               taskManager.readyLocked
-                ? "Ready is locked: completing a task won't pull new work from here"
-                : "Ready is unlocked: completing a task pulls the next one from here"
+                ? "Next is locked: completing a task won't pull new work from here"
+                : "Next is unlocked: completing a task pulls the next one from here"
             }
             aria-pressed={taskManager.readyLocked}
-            aria-label="Toggle ready list lock"
+            aria-label="Toggle next list lock"
           >
             {taskManager.readyLocked ? (
               <Lock className="size-3.5" />
@@ -456,6 +446,7 @@ function TasksView({
                 manager={taskManager}
                 isSelected={selectedTaskId === task.id}
                 onSelect={(id) => onSelectTask(id)}
+                onToggleDone={() => onToggleDone(task)}
                 accomplishable={accomplishableMap.get(task.id)}
                 showAccomplishable={showAccomplishable}
               />
@@ -463,22 +454,14 @@ function TasksView({
           </DroppableList>
         </SortableContext>
 
-        <div className="mt-4">
-          <form onSubmit={handleAddTask} className="flex gap-2">
-            <SlashInput
-              value={newTask}
-              onChange={setNewTask}
-              onTemplate={addFromTemplate}
-              hint="adds a task with its subtasks"
-              onClick={(e) => e.stopPropagation()}
-              placeholder="New task... (/ for a template)"
-              wrapperClassName="flex-1"
-            />
-            <Button type="submit" disabled={newTask.length === 0}>
-              Add
-            </Button>
-          </form>
-        </div>
+        <AddInline
+          {...addTo("ready")}
+          hint="adds a task with its subtasks"
+          placeholder="New task... (/ for a template)"
+          buttonLabel="Add task to Next"
+          inputLabel="New task for Next"
+          className="pl-2"
+        />
 
         <h3 className="text-lg font-semibold mt-6 mb-2">Done</h3>
         <SortableContext
@@ -494,6 +477,7 @@ function TasksView({
                 manager={taskManager}
                 isSelected={selectedTaskId === task.id}
                 onSelect={(id) => onSelectTask(id)}
+                onToggleDone={() => onToggleDone(task)}
                 showAccomplishable={false}
               />
             ))}
@@ -560,6 +544,7 @@ interface TaskItemProps {
   manager: TaskManager;
   isSelected: boolean;
   onSelect: (taskId: string) => void;
+  onToggleDone: () => void;
   accomplishable?: AccomplishableResult;
   showAccomplishable: boolean;
 }
@@ -570,8 +555,16 @@ const TaskItemOverlay = ({ task }: { task: Task }) => {
     <div className="list-none rounded-md bg-background border border-border shadow-lg p-2 px-3 flex items-center gap-2">
       {/* Placeholder for expand button */}
       <div className="size-6 shrink-0" />
+      <input
+        type="checkbox"
+        checked={task.status === "done"}
+        readOnly
+        tabIndex={-1}
+        className="size-3.5 accent-green-500 shrink-0"
+        aria-hidden="true"
+      />
       <div
-        className="w-3 h-3 rounded-full shrink-0"
+        className="w-2.5 h-2.5 rounded-full shrink-0"
         style={{ backgroundColor: task.color || "#9ca3af" }}
       />
       <span className="flex-1 flex items-center gap-1">
@@ -589,7 +582,7 @@ const TaskItemOverlay = ({ task }: { task: Task }) => {
       <span className="text-muted-foreground text-xs min-w-[50px] text-right">
         {formatDuration(task.duration)}
       </span>
-      {/* Placeholder for delete button */}
+      {/* Placeholder for the ⋮ menu */}
       <div className="size-6 shrink-0" />
     </div>
   );
@@ -660,6 +653,7 @@ const TaskItem = ({
   manager,
   isSelected,
   onSelect,
+  onToggleDone,
   accomplishable,
   showAccomplishable,
   sortableRef,
@@ -675,7 +669,8 @@ const TaskItem = ({
   const [inlineEstimateInput, setInlineEstimateInput] = useState("");
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [inlineDurationInput, setInlineDurationInput] = useState("");
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [notesEditing, setNotesEditing] = useState(false);
+  const done = task.status === "done";
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -805,36 +800,20 @@ const TaskItem = ({
           {isExpanded ? "▼" : "▶"}
         </Button>
 
-        <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
-          <PopoverTrigger asChild>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="w-3 h-3 rounded-full cursor-pointer p-0 shrink-0 hover:ring-2 hover:ring-ring hover:ring-offset-1"
-              style={{ backgroundColor: task.color || "#9ca3af" }}
-            />
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-2" align="start">
-            <div className="flex gap-1.5">
-              {TASK_COLORS.map((c) => (
-                <button
-                  key={c.hex}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    manager.setColor(task, c.hex);
-                    setColorPickerOpen(false);
-                  }}
-                  className={cn(
-                    "w-6 h-6 rounded-full cursor-pointer p-0 hover:scale-110 transition-transform",
-                    c.hex === task.color && "ring-2 ring-ring ring-offset-2"
-                  )}
-                  style={{ backgroundColor: c.hex }}
-                  title={c.name}
-                />
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <input
+          type="checkbox"
+          checked={done}
+          onChange={onToggleDone}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="size-3.5 accent-green-500 cursor-pointer shrink-0"
+          aria-label={done ? `Mark "${task.text}" not done` : `Mark "${task.text}" done`}
+        />
+        <div
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ backgroundColor: task.color || "#9ca3af" }}
+          aria-hidden="true"
+        />
 
         {isEditing ? (
           <Input
@@ -852,7 +831,7 @@ const TaskItem = ({
             onDoubleClick={handleDoubleClick}
             className={cn(
               "flex-1 min-w-0 break-words",
-              task.status === "done" && "line-through text-muted-foreground"
+              done && "line-through text-muted-foreground"
             )}
           >
             <LinkedText text={task.text} />
@@ -940,33 +919,26 @@ const TaskItem = ({
           </span>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm(`Delete "${task.text}"?`)) {
-              manager.removeTask(task);
-            }
+        <TaskMenu
+          task={task}
+          onColorChange={(color) => manager.setColor(task, color)}
+          onUrlChange={(url) => manager.setUrl(task, url)}
+          onAddNotes={() => {
+            setIsExpanded(true);
+            setNotesEditing(true);
           }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="can-hover:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label={`Delete ${task.text}`}
-        >
-          ×
-        </Button>
+          onRemove={() => manager.removeTask(task)}
+        />
         </div>
       </div>
 
       {isExpanded && (
-        <div className="px-3 pb-3 pl-10 space-y-2">
-          <Input
-            value={task.url || ""}
-            onChange={(e) => manager.setUrl(task, e.target.value || undefined)}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            placeholder="URL..."
-            className="h-7 text-sm"
+        <div className="px-3 pb-3 pl-20 space-y-1">
+          <TaskNotes
+            notes={task.notes}
+            onChange={(notes) => manager.setNotes(task, notes)}
+            editing={notesEditing}
+            onEditingChange={setNotesEditing}
           />
           <SubtaskList
             subtasks={task.subtasks}
@@ -979,18 +951,6 @@ const TaskItem = ({
             }
             onMove={(subtask, index) => manager.moveSubtask(task, subtask, index)}
             onRemove={(subtask) => manager.removeSubtask(task, subtask)}
-          />
-          <Textarea
-            value={task.notes}
-            onChange={(e) => manager.setNotes(task, e.target.value)}
-            onKeyDown={(e) => {
-              const moved = handleLineMoveKeyDown(e);
-              if (moved !== null) manager.setNotes(task, moved);
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            placeholder="Notes..."
-            className="min-h-[60px] resize-y"
           />
         </div>
       )}

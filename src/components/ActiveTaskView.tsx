@@ -3,13 +3,12 @@ import type Task from "../types/Task";
 import type Subtask from "../types/Subtask";
 import SubtaskList from "./SubtaskList";
 import LinkedText from "./LinkedText";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import TaskMenu from "./TaskMenu";
+import TaskNotes from "./TaskNotes";
 import { Input } from "@/components/ui/input";
 import { formatEstimate, parseTime } from "@/lib/parseTime";
 import { getLiveDuration } from "@/lib/getDuration";
 import { formatDuration } from "@/lib/formatDuration";
-import { handleLineMoveKeyDown } from "@/lib/moveLine";
 import { fireConfetti } from "@/lib/confetti";
 import { cn } from "@/lib/utils";
 import { ExternalLink, FolderKanban } from "lucide-react";
@@ -21,6 +20,8 @@ interface ActiveTaskViewProps {
   onNotesChange: (task: Task, notes: string) => void;
   onTextChange: (task: Task, text: string) => void;
   onUrlChange: (task: Task, url: string | undefined) => void;
+  onColorChange: (task: Task, color: string | undefined) => void;
+  onRemove: (task: Task) => void;
   onAddSubtask: (task: Task, text: string) => void;
   onSubtaskTextChange: (task: Task, subtask: Subtask, text: string) => void;
   onSubtaskDoneChange: (task: Task, subtask: Subtask, done: boolean) => void;
@@ -37,6 +38,8 @@ function ActiveTaskView({
   onNotesChange,
   onTextChange,
   onUrlChange,
+  onColorChange,
+  onRemove,
   onAddSubtask,
   onSubtaskTextChange,
   onSubtaskDoneChange,
@@ -51,6 +54,7 @@ function ActiveTaskView({
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [editDurationInput, setEditDurationInput] = useState("");
   const [liveDuration, setLiveDuration] = useState(0);
+  const [notesEditing, setNotesEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -127,16 +131,33 @@ function ActiveTaskView({
     }
   };
 
-  const bgColor = task.color || "#9ca3af";
   const displayDuration = liveDuration;
   const isOverEstimate = !!task.estimate && displayDuration > task.estimate;
 
+  // Laid out like a task row, just larger: checkbox, color dot, name,
+  // time and ⋮, with the notes and checklist under the name
   return (
-    <div
-      className="mt-6 p-4 rounded-lg"
-      style={{ backgroundColor: `${bgColor}20` }}
-    >
-      <div className="flex flex-wrap items-baseline gap-3 mb-3">
+    <div className="mt-6" data-testid="active-task">
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={false}
+          disabled={!onDone}
+          onChange={(e) => {
+            if (!onDone) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            fireConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            onDone();
+          }}
+          className="size-5 accent-green-500 cursor-pointer shrink-0"
+          aria-label={`Complete "${task.text}"`}
+          title="Complete"
+        />
+        <div
+          className="w-3.5 h-3.5 rounded-full shrink-0"
+          style={{ backgroundColor: task.color || "#9ca3af" }}
+          aria-hidden="true"
+        />
         {isEditing ? (
           <Input
             ref={inputRef}
@@ -144,11 +165,11 @@ function ActiveTaskView({
             onChange={(e) => setEditText(e.target.value)}
             onBlur={handleSave}
             onKeyDown={handleKeyDown}
-            className="text-2xl font-semibold h-auto py-1 flex-1"
+            className="text-2xl font-semibold h-auto py-1 flex-1 min-w-0"
           />
         ) : (
           <h2
-            className="text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 min-w-0 break-words"
+            className="flex-1 text-2xl font-semibold cursor-text hover:bg-muted/50 rounded px-1 -mx-1 min-w-0 break-words"
             onClick={handleStartEdit}
           >
             <LinkedText text={task.text} />
@@ -190,67 +211,47 @@ function ActiveTaskView({
             placeholder="20m"
           />
         ) : (
-          (displayDuration > 0 || task.estimate) && (
-            <span
-              className={cn(
-                "text-lg cursor-text hover:bg-muted/50 rounded px-1 whitespace-nowrap",
-                isOverEstimate
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-muted-foreground"
-              )}
-              onClick={handleStartDurationEdit}
-              title="Click to edit duration"
-            >
-              {formatEstimate(displayDuration) || "0m"}
-              {task.estimate ? ` / ${formatEstimate(task.estimate)}` : ""}
-            </span>
-          )
+          <span
+            className={cn(
+              "text-lg tabular-nums cursor-text hover:bg-muted/50 rounded px-1 whitespace-nowrap",
+              isOverEstimate
+                ? "text-red-600 dark:text-red-400"
+                : "text-muted-foreground"
+            )}
+            onClick={handleStartDurationEdit}
+            title="Click to edit duration"
+            data-testid="active-task-duration"
+          >
+            {formatEstimate(displayDuration) || "0m"}
+            {task.estimate ? ` / ${formatEstimate(task.estimate)}` : ""}
+          </span>
         )}
+        <TaskMenu
+          task={task}
+          onColorChange={(color) => onColorChange(task, color)}
+          onUrlChange={(url) => onUrlChange(task, url)}
+          onAddNotes={() => setNotesEditing(true)}
+          onDeactivate={onDeactivate}
+          onRemove={() => onRemove(task)}
+          alwaysVisible
+        />
       </div>
-      <Input
-        value={task.url || ""}
-        onChange={(e) => onUrlChange(task, e.target.value || undefined)}
-        placeholder="URL..."
-        className="mb-2 text-sm"
-      />
-      <SubtaskList
-        subtasks={task.subtasks}
-        onAdd={(text) => onAddSubtask(task, text)}
-        onTextChange={(subtask, text) => onSubtaskTextChange(task, subtask, text)}
-        onDoneChange={(subtask, done) => onSubtaskDoneChange(task, subtask, done)}
-        onMove={(subtask, index) => onMoveSubtask(task, subtask, index)}
-        onRemove={(subtask) => onRemoveSubtask(task, subtask)}
-        className="mb-2"
-      />
-      <Textarea
-        value={task.notes}
-        onChange={(e) => onNotesChange(task, e.target.value)}
-        onKeyDown={(e) => {
-          const moved = handleLineMoveKeyDown(e);
-          if (moved !== null) onNotesChange(task, moved);
-        }}
-        placeholder="Notes..."
-        className="min-h-[80px] resize-y bg-white dark:bg-card"
-      />
-      {(onDone || onDeactivate) && (
-        <div className="mt-2 flex gap-2">
-          {onDone && (
-            <Button
-              onClick={(e) => {
-                fireConfetti(e.clientX, e.clientY);
-                onDone();
-              }}
-            >
-              Complete
-            </Button>
-          )}
-          {onDeactivate && (
-            <Button variant="secondary" onClick={onDeactivate}>
-              Deactivate
-            </Button>
-          )}
-        </div>
-      )}
+      <div className="pl-[3.375rem] mt-1 space-y-1">
+        <TaskNotes
+          notes={task.notes}
+          onChange={(notes) => onNotesChange(task, notes)}
+          editing={notesEditing}
+          onEditingChange={setNotesEditing}
+        />
+        <SubtaskList
+          subtasks={task.subtasks}
+          onAdd={(text) => onAddSubtask(task, text)}
+          onTextChange={(subtask, text) => onSubtaskTextChange(task, subtask, text)}
+          onDoneChange={(subtask, done) => onSubtaskDoneChange(task, subtask, done)}
+          onMove={(subtask, index) => onMoveSubtask(task, subtask, index)}
+          onRemove={(subtask) => onRemoveSubtask(task, subtask)}
+        />
+      </div>
     </div>
   );
 }
