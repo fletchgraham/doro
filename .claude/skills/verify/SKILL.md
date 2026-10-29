@@ -26,8 +26,8 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   `date` to the load day, a missing `weekOrder` to `order`). Every pause
   recomputes `duration` from `events`, so a seeded duration only survives
   if backed by a matching `start`/`stop` pair.
-- **Settings**: the gear button (aria-label "Open settings", right of the
-  toolbar) opens `[data-testid="settings-modal"]`: theme radios
+- **Settings**: the gear button (aria-label "Open settings", right end of
+  the top nav, on every page) opens `[data-testid="settings-modal"]`: theme radios
   (`role="radio"`, names Light/Dark/System), feature switches
   `#feature-gold`, `#feature-accomplishable`, `#feature-goals`, and
   `#todoist-mode` / `#workflowy-mode` switches whose inputs (aria-labels
@@ -176,7 +176,9 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   [{ name: "hover", value: "none" }]` on a fresh page. Below `sm` a task
   row wraps its estimate/duration/delete controls onto a second line when
   they don't fit beside the text.
-- **Timer flows**: set the minutes input to 1 for a fast completion cycle.
+- **Timer flows**: set the minutes input (aria-label "Timer minutes",
+  beside Shuffle at the end of the Start/Reset/Next row) to 1 for a fast
+  completion cycle.
   Keyboard: `a` add modal, `s` switch modal (type + Enter creates & starts).
 - **Notifications**: stub `window.Notification` via addInitScript and
   override `document.hasFocus = () => false` (completion notification is

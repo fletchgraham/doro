@@ -90,15 +90,15 @@ color either earns or spends gold, at a rate you set per minute worked:
   disabled and the readout turns red. Only Next Task moves things along.
 
 Defaults: red earns 1 and blue earns 0.2 per minute; every other color
-spends 1 per minute. Click the gold readout next to the shuffle button to
-change modes and rates. A rate of 0 makes a color neutral. The whole
-feature can be switched off in Settings (see below); off, the readout is
-hidden and the timer never stops for lack of gold.
+spends 1 per minute. Click the gold readout beside the day's "worked"
+total to change modes and rates. A rate of 0 makes a color neutral. The
+whole feature can be switched off in Settings (see below); off, the
+readout is hidden and the timer never stops for lack of gold.
 
 ## Settings
 
-The gear icon at the right of the timer page's toolbar opens Settings.
-Everything in it is saved as you change it:
+The gear icon at the right end of the page tabs opens Settings, from any
+page. Everything in it is saved as you change it:
 
 - **Appearance**: light, dark or follow the system.
 - **Features**: feature flags to simplify the app. Each hides its feature
