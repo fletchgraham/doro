@@ -75,10 +75,10 @@ function AllClear({
           ? readyLocked
             ? `You've cleared the working batch. ${readyCount} task${
                 readyCount === 1 ? "" : "s"
-              } waiting in Ready (locked).`
+              } waiting in Next (locked).`
             : `Nothing in Working. ${readyCount} task${
                 readyCount === 1 ? "" : "s"
-              } waiting in Ready.`
+              } waiting in Next.`
           : "You've worked it all down to zero. Enjoy the calm."}
       </p>
     </div>

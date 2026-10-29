@@ -667,7 +667,7 @@ function App() {
     <a
       href={routeHash[target]}
       className={cn(
-        "px-3 py-1 rounded-md text-sm font-medium transition-colors",
+        "px-2 sm:px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap transition-colors",
         route === target
           ? "bg-muted text-foreground"
           : "text-muted-foreground hover:text-foreground"
@@ -686,16 +686,35 @@ function App() {
       onClick={() => setSelectedTaskId(null)}
     >
       <nav className="flex items-center gap-1 mb-4" aria-label="Pages">
-        {navLink("timer", "Day")}
-        {navLink("week", "Week")}
-        {navLink("projects", "Projects")}
-        {navLink("archive", "Archive")}
-        {navLink("templates", "Templates")}
-        {!(onTimerPage && viewingToday) && (
-          <span className="ml-auto text-sm text-muted-foreground">
-            {isPaused ? "⏸" : "▶"} {lastTimeRef.current}
-          </span>
-        )}
+        {/* The links scroll sideways rather than push the gear off a
+            narrow screen */}
+        <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
+          {navLink("timer", "Day")}
+          {navLink("week", "Week")}
+          {navLink("projects", "Projects")}
+          {navLink("archive", "Archive")}
+          {navLink("templates", "Templates")}
+        </div>
+        <div className="ml-auto flex items-center gap-1 shrink-0">
+          {!(onTimerPage && viewingToday) && (
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {isPaused ? "⏸" : "▶"} {lastTimeRef.current}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSettingsOpen(true);
+            }}
+            title="Settings"
+            aria-label="Open settings"
+          >
+            <Settings />
+          </Button>
+        </div>
       </nav>
       {(onProjectsPage || onArchivePage) && (
         <ProjectsPage
@@ -755,38 +774,8 @@ function App() {
             Back to today
           </Button>
         )}
-      </div>
-      {features.goals && viewingToday && (
-        <ColorGoals
-          progress={progressByColor}
-          isPaused={isPaused}
-          activeColor={activeColor}
-        />
-      )}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Button onClick={() => setIsAddModalOpen(true)}>+ Add Task</Button>
-        <Input
-          type="number"
-          min={1}
-          value={minsInput}
-          onChange={(e) => setMinsInput(e.target.value)}
-          onBlur={() => setMinsInput(String(mins))}
-          className="w-20"
-        />
-        <Button
-          variant={shuffleMode ? "default" : "outline"}
-          size="icon"
-          onClick={() => setShuffleMode((s) => !s)}
-          title={
-            shuffleMode
-              ? "Shuffle mode on: Next Task picks randomly"
-              : "Shuffle mode off: Next Task picks in order"
-          }
-          aria-pressed={shuffleMode}
-          aria-label="Toggle shuffle mode"
-        >
-          <Shuffle />
-        </Button>
+        {/* Grouped so a narrow screen wraps them together, still right-aligned */}
+        <div className="ml-auto flex items-center gap-2">
         {features.gold && (
         <button
           type="button"
@@ -813,21 +802,6 @@ function App() {
           </span>
         </button>
         )}
-        {/* Grouped so a narrow screen wraps them together, still right-aligned */}
-        <div className="ml-auto flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsSettingsOpen(true);
-          }}
-          title="Settings"
-          aria-label="Open settings"
-        >
-          <Settings />
-        </Button>
         <span
           className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-nowrap"
           onClick={(e) => {
@@ -840,6 +814,13 @@ function App() {
         </span>
         </div>
       </div>
+      {features.goals && viewingToday && (
+        <ColorGoals
+          progress={progressByColor}
+          isPaused={isPaused}
+          activeColor={activeColor}
+        />
+      )}
       {/* Only today has the timer; kept mounted (hidden) on other days so
           the countdown keeps running */}
       <div hidden={!viewingToday}>
@@ -874,7 +855,7 @@ function App() {
           </div>
         )}
       </h1>
-      <div className="flex gap-2 mt-4">
+      <div className="flex flex-wrap gap-2 mt-4">
         {/* Start only makes sense with a task to work on; without one,
             Begin (which pulls a task in) is the way to get going */}
         {!isPaused ? (
@@ -898,12 +879,38 @@ function App() {
             hasNextCandidate
               ? undefined
               : taskManager.readyLocked && readyCount > 0
-                ? "Ready list is locked — unlock it to pull in more tasks"
+                ? "Next list is locked — unlock it to pull in more tasks"
                 : "No tasks available to pull in"
           }
         >
           {activeTask ? "Next Task >>" : "Begin"}
         </Button>
+        <div className="ml-auto flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          value={minsInput}
+          onChange={(e) => setMinsInput(e.target.value)}
+          onBlur={() => setMinsInput(String(mins))}
+          className="w-20"
+          aria-label="Timer minutes"
+          title="Timer length in minutes"
+        />
+        <Button
+          variant={shuffleMode ? "default" : "outline"}
+          size="icon"
+          onClick={() => setShuffleMode((s) => !s)}
+          title={
+            shuffleMode
+              ? "Shuffle mode on: Next Task picks randomly"
+              : "Shuffle mode off: Next Task picks in order"
+          }
+          aria-pressed={shuffleMode}
+          aria-label="Toggle shuffle mode"
+        >
+          <Shuffle />
+        </Button>
+        </div>
       </div>
       {!activeTask && workingCount === 0 ? (
         <AllClear
@@ -917,6 +924,8 @@ function App() {
         onNotesChange={taskManager.setNotes}
         onTextChange={taskManager.setText}
         onUrlChange={taskManager.setUrl}
+        onColorChange={taskManager.setColor}
+        onRemove={handleRemoveFromToday}
         onAddSubtask={taskManager.addSubtask}
         onSubtaskTextChange={taskManager.setSubtaskText}
         onSubtaskDoneChange={taskManager.setSubtaskDone}
@@ -944,6 +953,7 @@ function App() {
           date={dayKey}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
+          onToggleDone={handleToggleDone}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
       )}

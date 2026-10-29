@@ -26,8 +26,8 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   `date` to the load day, a missing `weekOrder` to `order`). Every pause
   recomputes `duration` from `events`, so a seeded duration only survives
   if backed by a matching `start`/`stop` pair.
-- **Settings**: the gear button (aria-label "Open settings", right of the
-  toolbar) opens `[data-testid="settings-modal"]`: theme radios
+- **Settings**: the gear button (aria-label "Open settings", right end of
+  the top nav, on every page) opens `[data-testid="settings-modal"]`: theme radios
   (`role="radio"`, names Light/Dark/System), feature switches
   `#feature-gold`, `#feature-accomplishable`, `#feature-goals`, and
   `#todoist-mode` / `#workflowy-mode` switches whose inputs (aria-labels
@@ -70,10 +70,12 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   "Next week" / "This week" buttons; days are
   `section[data-testid="week-day"][data-date="YYYY-MM-DD"]` (past ones at
   opacity 0.6), rows `[data-testid="week-task"]` sorted by `weekOrder`,
-  with a done checkbox (`Mark "<text>" done`), `Move "<text>" to the next
-  day` button and `[data-testid="week-task-duration"]`. A day's add box
-  (a `SlashInput`) only exists after clicking its `Add task to <day>`
-  button; Escape or blurring it empty removes it. `Collapse <day>` /
+  with a done checkbox (`Mark "<text>" done`; it relabels on toggle, so
+  use `click()`, not `check()`), a ⋮ menu whose "Move to next day" moves
+  it, and `[data-testid="week-task-duration"]`. A day's add box (a
+  `SlashInput`, label `New task for <day>`) only exists after clicking
+  the + under its list (`Add task to <day>`); Escape or blurring it empty
+  removes it. `Collapse <day>` /
   `Expand <day>` toggle a day (collapsed: `[data-testid="week-day-count"]`,
   saved to `doroWeekCollapsed`). Drags go day to day (the day section is the droppable,
   id = date key); grab a row by its text, not its left edge (checkbox).
@@ -102,11 +104,28 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   `[data-testid="task-project-indicator"]`, a folder icon linking to
   `#/projects`. Uncolored tasks spend gold by
   default, so seed an earning rule for `#9ca3af` before running the timer.
+- **Task menu** (`TaskMenu`): every day/week task row and the active
+  task have a ⋮ button labelled `Actions for <text>` (use `exact: true`:
+  the sortable row's own accessible name contains it too) opening
+  `[data-testid="task-menu"]`: color swatches (`Color <name>`), a `Link`
+  input, "Add notes" (only while notes are empty; opens and focuses the
+  `[data-testid="task-notes"]` box above the subtasks), "Move to next
+  day" (week), "Deactivate" (paused active task) and Delete
+  (window.confirm). Scope menu buttons to the testid — "Delete" also
+  matches subtask × buttons and Delete Completed/All. Day-view rows have
+  the same done checkbox as the week; the active task's is
+  `Complete "<text>"`.
+- **Add rows** (`AddInline`): lists end in a + (`Add task to Working`,
+  `Add task to Next`, `Add task to <project>`, `Add subtask`) that turns
+  into a `SlashInput` (`New task for Working`/`Next`, `New subtask`, …);
+  Enter adds and keeps it open, Escape or blurring it empty closes it.
+  The "Ready" list is labelled Next in the UI (status stays `ready`).
 - **Subtasks**: `{ id, text, done }[]` on both task kinds, ordered by
   array position. The checklist renders inside a task's expanded area
   (the row's "Show details" button on projects, the ▶ toggle on the timer
   page) and in the active task view, as `[data-testid="subtasks"]` with
-  `[data-testid="subtask"]` rows; the "New subtask" input adds on Enter
+  `[data-testid="subtask"]` rows; the "New subtask" input (behind the
+  `Add subtask` +) adds on Enter
   and keeps focus, so blur it before using the `a`/`s` shortcuts.
   Checkboxes are labelled `Mark "<text>" done` / `not done`, rows drag
   to reorder in their own nested DndContext (5px activation) — except on
@@ -140,7 +159,7 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
 - **Links**: task/subtask text renders through `LinkedText`: bare
   http(s)/www URLs and `[label](url)` become `<a target="_blank">`
   (locate with `a[href='...']`); clicks on them stop propagation.
-- **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Ready/Done
+- **Use a tall viewport** (e.g. 1280x2000). With a few tasks the Next/Done
   lists fall below the default 720px fold and mouse events silently miss.
 - **Drag & drop** (dnd-kit, 8px pointer activation): mouse.down on the row
   center, move 12px to activate, then move in steps to the target, brief
@@ -157,7 +176,9 @@ Playwright with the pre-installed browser: `chromium.launch({ executablePath: "/
   [{ name: "hover", value: "none" }]` on a fresh page. Below `sm` a task
   row wraps its estimate/duration/delete controls onto a second line when
   they don't fit beside the text.
-- **Timer flows**: set the minutes input to 1 for a fast completion cycle.
+- **Timer flows**: set the minutes input (aria-label "Timer minutes",
+  beside Shuffle at the end of the Start/Reset/Next row) to 1 for a fast
+  completion cycle.
   Keyboard: `a` add modal, `s` switch modal (type + Enter creates & starts).
 - **Notifications**: stub `window.Notification` via addInitScript and
   override `document.hasFocus = () => false` (completion notification is
